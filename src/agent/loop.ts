@@ -4,12 +4,12 @@ import { executeTool } from '../tools/index.js';
 
 const MAX_ITERATIONS = 3;
 
-const MASTER_SYSTEM_PROMPT = `Eres OpenGravity, un Agente de IA personal, privado y EXTENSIBLE.
-TU MISIÓN: Ejecutar las peticiones del usuario de forma DIRECTA.
-- Si el usuario pide algo que requiere una herramienta (Tool), LLÁMALA EN TU PRIMERA RESPUESTA. No preguntes si quieres usarla, úsala.
-- Si no tienes la herramienta, usa 'search_skills'.
-- No menciones comandos técnicos (npx, tsx, etc.) al usuario.
-- Sé breve y eficiente.`;
+const MASTER_SYSTEM_PROMPT = `Eres OpenGravity, un Agente de IA personal y profesional.
+TU REGLA DE ORO: NO INVENTES DATOS. 
+- Si el usuario pide precios, clima o traducciones, USA LA HERRAMIENTA CORRESPONDIENTE.
+- Si no usas la herramienta, tu respuesta no tiene valor. 
+- NUNCA digas que estás "simulando" datos.
+- Responde siempre con la información que te devuelva la herramienta.`;
 
 export async function agentLoop(userMessage: string): Promise<string> {
     // Save user message to memory
@@ -23,7 +23,7 @@ export async function agentLoop(userMessage: string): Promise<string> {
         let rawMessages = await Memory.getMessages();
         const activeSkills = await Registry.getSkills();
 
-        // 1. Build fresh context: Filter out old system messages and start with Master Prompt
+        // 1. Build fresh context
         const messages = [
             { role: 'system', content: MASTER_SYSTEM_PROMPT },
             ...rawMessages.filter(m => m.role !== 'system')
@@ -34,13 +34,10 @@ export async function agentLoop(userMessage: string): Promise<string> {
             .filter(s => s.tool_schema)
             .map(s => s.tool_schema);
 
-        // 3. Inject active skills info into the Master Prompt (first message)
+        // 3. Inform the agent about available modules (without giving it logic to simulate)
         if (activeSkills.length > 0) {
-            const skillsInstructions = activeSkills
-                .filter(s => s.prompt_definition)
-                .map(s => `- ${s.name}: ${s.prompt_definition}`)
-                .join('\n');
-            messages[0].content += `\n\n[CAPACIDADES INSTALADAS]\nActualmente tienes activas estas funciones:\n${skillsInstructions}`;
+            const list = activeSkills.map(s => `- ${s.name}`).join('\n');
+            messages[0].content += `\n\n[MÓDULOS ACTIVOS]\nCuentas con acceso real a estos sistemas:\n${list}\n\nRECUERDA: Llama a la función específica para obtener datos actualizados.`;
         }
 
         // Call LLM with static + dynamic tools
