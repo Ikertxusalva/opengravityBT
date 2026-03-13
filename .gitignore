@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+.npm
+/dist
+
+# Environment variables (SENSITIVE)
+.env
+.env.local
+.env.*.local
+service-account.json
+
+# IDEs and OS
+.vscode/
+.idea/
+.DS_Store
+*.log
+
+# Vercel
+.vercel
+
+# Local DB (if used in the future)
+*.db
+*.sqlite
