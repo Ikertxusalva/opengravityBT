@@ -15,7 +15,8 @@ if (ENV.OPENROUTER_API_KEY) {
 
 // Use 'llama-3.1-8b-instant' for extremely fast responses
 // Recommended for chat and simple tool usage
-export const MAIN_MODEL = 'llama-3.3-70b-versatile';
+// Switching to llama-3.1-8b-instant to dodge the tight TPD (Tokens Per Day) limits of the 70b model
+export const MAIN_MODEL = 'llama-3.1-8b-instant';
 export const ADVANCED_MODEL = 'llama-3.3-70b-versatile';
 
 export async function chatCompletion(messages: any[], dynamicTools: any[] = []) {
