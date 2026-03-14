@@ -339,11 +339,15 @@ async def fetch_top_movers():
 
 
 HL_BASE = "https://api.hyperliquid.xyz/info"
+# Core coins for stress index and whale tracking (expanded)
 HL_WATCH = ["BTC", "ETH", "SOL", "DOGE", "XRP", "AVAX", "LINK", "ARB", "OP", "INJ", "WIF", "PEPE", "HYPE", "BNB", "SUI", "APT", "TIA", "SEI", "TON", "ADA"]
+# Dynamic list populated at startup with ALL HL assets
+_hl_all_coins: list[str] = []
 
 
 async def fetch_funding_rates():
-    """Fetch funding rates from HyperLiquid (no API key) and broadcast."""
+    """Fetch funding rates from HyperLiquid for ALL assets and broadcast."""
+    global _hl_all_coins
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(HL_BASE, json={"type": "metaAndAssetCtxs"}, timeout=10.0)
@@ -353,6 +357,7 @@ async def fetch_funding_rates():
                 rates = {}
                 carry_ops = []
                 db_data: list[dict] = []
+                all_coins: list[str] = []
                 now_ms = int(time.time() * 1000)
                 for i, asset in enumerate(universe):
                     if i >= len(ctxs):
@@ -360,12 +365,14 @@ async def fetch_funding_rates():
                     name = asset.get("name", "")
                     if not name:
                         continue
+                    all_coins.append(name)
                     ctx = ctxs[i]
                     funding = float(ctx.get("funding", 0) or 0)
                     annual = round(funding * 24 * 365 * 100, 2)
                     rates[name] = {"h8_pct": round(funding * 100, 4), "annual_pct": annual}
-                    if annual > 20 and name in HL_WATCH:
+                    if abs(annual) > 20:
                         carry_ops.append({"coin": name, "annual_pct": annual})
+                    # Persist HL_WATCH coins to DB
                     if name in HL_WATCH:
                         db_data.append({
                             "coin": name, "timestamp": now_ms,
@@ -374,13 +381,17 @@ async def fetch_funding_rates():
                             "open_interest": float(ctx["openInterest"]) if ctx.get("openInterest") else None,
                             "mark_px": float(ctx["markPx"]) if ctx.get("markPx") else None,
                         })
-                carry_ops.sort(key=lambda x: x["annual_pct"], reverse=True)
+                # Update dynamic coin list
+                if all_coins:
+                    _hl_all_coins = all_coins
+                carry_ops.sort(key=lambda x: abs(x["annual_pct"]), reverse=True)
                 global _last_funding_rates
-                _last_funding_rates = {k: v for k, v in rates.items() if k in HL_WATCH}
+                # Send ALL funding rates (not just HL_WATCH)
+                _last_funding_rates = rates
                 await manager.broadcast({
                     "type": "funding_update",
-                    "rates": _last_funding_rates,
-                    "carry_opportunities": carry_ops[:5],
+                    "rates": rates,
+                    "carry_opportunities": carry_ops[:10],
                     "timestamp": datetime.utcnow().isoformat(),
                 })
                 # Persist to DB
@@ -416,26 +427,43 @@ async def fetch_hl_prices():
             print(f"[hl_prices] Error: {e}")
 
 
-HL_LIQ_COINS = ["BTC", "ETH", "SOL", "DOGE", "AVAX", "LINK", "ARB", "WIF", "HYPE", "BNB", "OP", "SUI"]
+HL_LIQ_COINS = ["BTC", "ETH"]  # Real-time liquidation tracking for these
 
 async def fetch_liquidations():
-    """Fetch recent liquidations from HyperLiquid recentTrades, persist to DB and broadcast."""
+    """Fetch recent liquidation-like trades from HyperLiquid.
+
+    System trades (hash = 0x000...0) are typically liquidations/ADL.
+    Also detects trades with very round sizes typical of liquidation engines.
+    """
     all_liqs: list[dict] = []
+    # Check BTC and ETH + top stressed coins
+    coins_to_check = list(HL_LIQ_COINS)
+    for item in _last_stress_rankings[:5]:
+        if item["coin"] not in coins_to_check:
+            coins_to_check.append(item["coin"])
+
     async with httpx.AsyncClient() as client:
-        for coin in HL_LIQ_COINS:
+        for coin in coins_to_check:
             try:
                 resp = await client.post(HL_BASE, json={"type": "recentTrades", "coin": coin}, timeout=8.0)
                 trades = resp.json()
                 if not isinstance(trades, list):
                     continue
                 for t in trades:
-                    if "liquidation" not in t:
+                    # Detect system/liquidation trades:
+                    # 1. Hash is all zeros = system trade (liquidation/ADL)
+                    h = t.get("hash", "")
+                    is_system = h == "0x0000000000000000000000000000000000000000000000000000000000000000"
+                    if not is_system:
                         continue
+                    # Side: "A" = ask (sell) = LONG liquidated, "B" = bid (buy) = SHORT liquidated
                     side = "LONG" if t.get("side") == "A" else "SHORT"
                     try:
                         usd_size = float(t.get("px", 0)) * float(t.get("sz", 0))
                     except (TypeError, ValueError):
                         usd_size = 0.0
+                    if usd_size < 100:  # Skip tiny liquidations
+                        continue
                     all_liqs.append({
                         "coin": coin,
                         "side": side,
@@ -449,6 +477,15 @@ async def fetch_liquidations():
                 pass
 
     if not all_liqs:
+        # Still broadcast empty to clear stale data
+        global _last_liquidations
+        _last_liquidations = []
+        await manager.broadcast({
+            "type": "liquidation_update",
+            "liquidations": [],
+            "count": 0,
+            "timestamp": datetime.utcnow().isoformat(),
+        })
         return
 
     all_liqs.sort(key=lambda x: x["time_ms"], reverse=True)
@@ -472,12 +509,12 @@ async def fetch_liquidations():
                 new_count += 1
         if new_count:
             db.commit()
+            print(f"[liquidations] Stored {new_count} new events")
     except Exception:
         db.rollback()
     finally:
         db.close()
 
-    global _last_liquidations
     _last_liquidations = all_liqs[:20]
     await manager.broadcast({
         "type": "liquidation_update",
@@ -652,9 +689,10 @@ async def compute_stress_index():
         now_ms = int(time.time() * 1000)
         thirty_min_ago = now_ms - 30 * 60 * 1000
 
-        # Latest funding rate per coin
+        # Latest funding rate per coin — use ALL coins from universe
+        coins_to_check = _hl_all_coins if _hl_all_coins else HL_WATCH
         latest_rates: dict[str, object] = {}
-        for coin in HL_WATCH:
+        for coin in coins_to_check:
             fr = (
                 db.query(FundingRate)
                 .filter(FundingRate.coin == coin)
@@ -684,7 +722,7 @@ async def compute_stress_index():
         stress_results = []
         swarm_triggers = []
 
-        for coin in HL_WATCH:
+        for coin in coins_to_check:
             fr = latest_rates.get(coin)
             if not fr:
                 continue
@@ -740,11 +778,11 @@ async def compute_stress_index():
         stress_results.sort(key=lambda x: x["score"], reverse=True)
 
         global _last_stress_rankings
-        _last_stress_rankings = stress_results[:15]
+        _last_stress_rankings = stress_results[:30]
 
         await manager.broadcast({
             "type": "stress_update",
-            "rankings": stress_results[:15],
+            "rankings": stress_results[:30],
             "timestamp": datetime.utcnow().isoformat(),
         })
 
@@ -797,8 +835,7 @@ async def compute_stress_index():
 async def hl_websocket_client():
     """
     Cliente WebSocket nativo de HyperLiquid.
-    Suscribe a allMids para precios en tiempo real y los broadcastea al frontend.
-    Reemplaza el polling de fetch_hl_prices() con datos instantáneos.
+    Suscribe a allMids (precios) + trades BTC/ETH (liquidaciones en tiempo real).
     """
     import websockets
 
@@ -807,22 +844,81 @@ async def hl_websocket_client():
         try:
             async with websockets.connect(uri, ping_interval=20, ping_timeout=10) as ws:
                 print("[HL WS] Connected to HyperLiquid WebSocket")
+                # Subscribe to all mid prices
                 await ws.send(json.dumps({
                     "method": "subscribe",
                     "subscription": {"type": "allMids"},
                 }))
+                # Subscribe to BTC and ETH trades for real-time liquidation detection
+                for coin in HL_LIQ_COINS:
+                    await ws.send(json.dumps({
+                        "method": "subscribe",
+                        "subscription": {"type": "trades", "coin": coin},
+                    }))
+                print(f"[HL WS] Subscribed to allMids + trades for {HL_LIQ_COINS}")
+
                 async for raw in ws:
                     try:
                         msg = json.loads(raw)
-                        if msg.get("channel") == "allMids":
+                        channel = msg.get("channel")
+
+                        if channel == "allMids":
                             mids = msg.get("data", {}).get("mids", {})
-                            prices = {k: float(v) for k, v in mids.items() if k in HL_WATCH and v}
+                            prices = {k: float(v) for k, v in mids.items() if v}
                             if prices:
                                 await manager.broadcast({
                                     "type": "hl_prices",
                                     "prices": prices,
                                     "timestamp": datetime.utcnow().isoformat(),
                                 })
+
+                        elif channel == "trades":
+                            # Real-time liquidation detection from trade stream
+                            trades_data = msg.get("data", [])
+                            if not isinstance(trades_data, list):
+                                continue
+                            new_liqs = []
+                            for t in trades_data:
+                                h = t.get("hash", "")
+                                is_system = h == "0x0000000000000000000000000000000000000000000000000000000000000000"
+                                if not is_system:
+                                    continue
+                                coin = t.get("coin", "")
+                                side = "LONG" if t.get("side") == "A" else "SHORT"
+                                try:
+                                    usd_size = float(t.get("px", 0)) * float(t.get("sz", 0))
+                                except (TypeError, ValueError):
+                                    continue
+                                if usd_size < 100:
+                                    continue
+                                new_liqs.append({
+                                    "coin": coin, "side": side,
+                                    "usd_size": round(usd_size, 2),
+                                    "px": t.get("px", "0"), "sz": t.get("sz", "0"),
+                                    "tid": t.get("tid", 0), "time_ms": t.get("time", 0),
+                                })
+                            if new_liqs:
+                                global _last_liquidations
+                                # Prepend new liquidations, keep max 30
+                                _last_liquidations = (new_liqs + _last_liquidations)[:30]
+                                await manager.broadcast({
+                                    "type": "liquidation_update",
+                                    "liquidations": _last_liquidations[:20],
+                                    "count": len(_last_liquidations),
+                                    "timestamp": datetime.utcnow().isoformat(),
+                                })
+                                # Persist to DB (fire and forget)
+                                try:
+                                    db = SessionLocal()
+                                    for liq in new_liqs:
+                                        db.add(LiquidationEvent(
+                                            coin=liq["coin"], side=liq["side"], usd_size=liq["usd_size"],
+                                            px=liq["px"], sz=liq["sz"], tid=liq["tid"], time_ms=liq["time_ms"],
+                                        ))
+                                    db.commit()
+                                    db.close()
+                                except Exception:
+                                    pass
                     except Exception:
                         pass
         except Exception as e:
@@ -847,14 +943,21 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(compute_stress_index, "interval", minutes=15)  # Stress Index
     scheduler.start()
 
-    # Run once at startup
-    for fn in [fetch_fear_greed, fetch_top_movers, fetch_funding_rates, fetch_hl_prices, fetch_liquidations, fetch_binance_funding]:
+    # Run once at startup — populate caches immediately
+    for fn in [fetch_funding_rates, fetch_hl_prices, fetch_liquidations, fetch_binance_funding,
+               fetch_fear_greed, fetch_top_movers]:
         try:
             await fn()
         except Exception as e:
             print(f"⚠️ Startup fetch {fn.__name__} failed: {e}")
 
-    # Start HyperLiquid native WebSocket client
+    # Compute stress index at startup (needs funding data first)
+    try:
+        await compute_stress_index()
+    except Exception as e:
+        print(f"⚠️ Startup compute_stress_index failed: {e}")
+
+    # Start HyperLiquid native WebSocket client (prices + liquidation tracking)
     hl_ws_task = asyncio.create_task(hl_websocket_client())
 
     # Start whale positions in background (heavy task)
