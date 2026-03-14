@@ -1,0 +1,38 @@
+"""15 Proven Templates — clases backtesting.py listas para producción."""
+from btquantr.engine.templates.proven_templates import (
+    BBMeanReversion,
+    KeltnerMeanReversion,
+    EMACrossoverADX,
+    DonchianBreakout,
+    MACDMomentum,
+    BBInsideKeltner,
+    ATRExpansion,
+    FundingRateContrarian,
+    VolumeSpikeBreakout,
+    RSIBBCombo,
+    StochMACDConfirm,
+    TripleEMAFilter,
+    ATRSizedEntry,
+    RegimeSwitch,
+    TimeOfDay,
+    TEMPLATE_REGISTRY,
+)
+
+__all__ = [
+    "BBMeanReversion",
+    "KeltnerMeanReversion",
+    "EMACrossoverADX",
+    "DonchianBreakout",
+    "MACDMomentum",
+    "BBInsideKeltner",
+    "ATRExpansion",
+    "FundingRateContrarian",
+    "VolumeSpikeBreakout",
+    "RSIBBCombo",
+    "StochMACDConfirm",
+    "TripleEMAFilter",
+    "ATRSizedEntry",
+    "RegimeSwitch",
+    "TimeOfDay",
+    "TEMPLATE_REGISTRY",
+]
