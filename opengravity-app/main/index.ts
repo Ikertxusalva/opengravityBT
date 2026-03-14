@@ -1,6 +1,6 @@
 import path from 'path';
 import * as fs from 'fs';
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, session } from 'electron';
 import serve from 'electron-serve';
 import { setupPtyManager, saveAllContexts } from './pty-manager';
 import { Vault } from './security/vault';
@@ -85,6 +85,20 @@ async function createWindow() {
 
   // Setup PTY manager for terminal sessions
   setupPtyManager(mainWindow);
+
+  // ── Content Security Policy ────────────────────────────────────────────────
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const wsUrl = 'wss://chic-encouragement-production.up.railway.app';
+    const csp = isProd
+      ? `default-src 'self' app:; script-src 'self' app:; style-src 'self' app: 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' ${wsUrl} https://*.polymarket.com https://*.coingecko.com https://api.hyperliquid.xyz; font-src 'self' app: https://cdn.jsdelivr.net; img-src 'self' app: data: https:;`
+      : `default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' ws://localhost:* http://localhost:* ${wsUrl} https://*.polymarket.com https://*.coingecko.com https://api.hyperliquid.xyz; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: https:;`;
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [csp],
+      },
+    });
+  });
 
   if (isProd) {
     await mainWindow.loadURL('app://./');
