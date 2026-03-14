@@ -52,7 +52,7 @@ export default function HomePage() {
   const [activeView, setActiveView] = React.useState<'terminals' | 'market' | 'polymarket'>('terminals');
   const [fundingData, setFundingData] = React.useState<Record<string, { h8_pct: number; annual_pct: number }>>({});
   const [stressData, setStressData] = React.useState<Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>>([]);
-  const [liquidationData, setLiquidationData] = React.useState<Array<{ coin: string; side: string; usd_size: number; px?: string; sz?: string; time_ms?: number; tid?: number; est_leverage?: number; _new?: boolean }>>([]);
+  const [liquidationData, setLiquidationData] = React.useState<Array<{ coin: string; side: string; usd_size: number; px?: string; sz?: string; time_ms?: number; tid?: number; _new?: boolean }>>([]);
   const [whaleData, setWhaleData] = React.useState<{ longs: any[]; shorts: any[] }>({ longs: [], shorts: [] });
   
   const startupDoneRef = React.useRef(false);
@@ -788,7 +788,7 @@ function PolymarketPanel() {
 function MarketPanel(props: {
   fundingData: Record<string, { h8_pct: number; annual_pct: number }>;
   stressData: Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>;
-  liquidationData: Array<{ coin: string; side: string; usd_size: number; px?: string; sz?: string; time_ms?: number; tid?: number; est_leverage?: number; _new?: boolean }>;
+  liquidationData: Array<{ coin: string; side: string; usd_size: number; px?: string; sz?: string; time_ms?: number; tid?: number; _new?: boolean }>;
   whaleData: { longs: any[]; shorts: any[] };
 }) {
   const { fundingData, stressData, liquidationData } = props;
@@ -916,7 +916,7 @@ function MarketPanel(props: {
       {/* Column 3: Liquidation Tracker BTC/ETH — full height */}
       <div style={sectionStyle}>
         <div style={{ ...titleStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span>PERP LIQUIDATIONS BTC / ETH — x10+</span>
+          <span>PERP LIQUIDATIONS BTC / ETH</span>
           <span style={{ fontSize: '9px', color: '#00e676', fontWeight: 700, letterSpacing: '0', animation: 'pulse 1.5s infinite' }}>● LIVE</span>
         </div>
 
@@ -980,13 +980,6 @@ function MarketPanel(props: {
                 <span style={{ fontSize: '10px', color: '#8888aa', fontFamily: 'monospace', flex: 1, textAlign: 'right' }}>
                   @{liq.px ? Number(liq.px).toLocaleString('en-US', { maximumFractionDigits: liq.coin === 'BTC' ? 0 : 2 }) : '—'}
                 </span>
-                {liq.est_leverage && (
-                  <span style={{
-                    fontSize: '9px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px', flexShrink: 0,
-                    background: liq.est_leverage >= 25 ? '#ff445525' : '#ffab0020',
-                    color: liq.est_leverage >= 25 ? '#ff4455' : '#ffab00',
-                  }}>x{Math.round(liq.est_leverage)}</span>
-                )}
                 <span style={{
                   fontSize: '11px', fontWeight: 700, fontFamily: 'monospace', textAlign: 'right', width: '68px', flexShrink: 0,
                   color: liqSizeColor(liq.usd_size),
@@ -1031,36 +1024,35 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
       fitAddonRef.current = fit;
       xterm.loadAddon(fit);
     }
-    // xterm.open() crashes if container has 0 dimensions (hidden tab / grid not laid out yet).
-    // Wait until the container is actually visible before opening.
-    const openWhenReady = () => {
-      const el = xtermRef.current;
-      if (!el) return;
-      if (el.clientWidth > 0 && el.clientHeight > 0) {
-        try { xterm.open(el); } catch { return; }
-        requestAnimationFrame(() => {
-          try { fitAddonRef.current?.fit(); } catch {}
-          xterm.focus();
-        });
-      } else {
-        // Container not visible yet — poll until it is (e.g. tab switch, grid layout)
-        const poll = setInterval(() => {
-          const el2 = xtermRef.current;
-          if (!el2) { clearInterval(poll); return; }
-          if (el2.clientWidth > 0 && el2.clientHeight > 0) {
-            clearInterval(poll);
-            try { xterm.open(el2); } catch { return; }
-            requestAnimationFrame(() => {
-              try { fitAddonRef.current?.fit(); } catch {}
-              xterm.focus();
-            });
-          }
-        }, 100);
-        // Safety: stop polling after 10s
-        setTimeout(() => clearInterval(poll), 10_000);
-      }
+    // xterm.open() + internal _innerRefresh crash if the container is not truly
+    // visible (display:none ancestor, 0 dimensions, or not yet painted by browser).
+    // We check offsetParent (null when hidden) + dimensions, and defer via double-rAF.
+    let openPoll: ReturnType<typeof setInterval> | null = null;
+    const isVisible = (el: HTMLElement) => el.offsetParent !== null && el.clientWidth > 0 && el.clientHeight > 0;
+    const doOpen = (el: HTMLElement) => {
+      // Double rAF ensures the browser has actually painted the element
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        try {
+          xterm.open(el);
+          fitAddonRef.current?.fit();
+        } catch {}
+        xterm.focus();
+      }));
     };
-    openWhenReady();
+    const el = xtermRef.current;
+    if (el && isVisible(el)) {
+      doOpen(el);
+    } else {
+      openPoll = setInterval(() => {
+        const el2 = xtermRef.current;
+        if (!el2) { clearInterval(openPoll!); openPoll = null; return; }
+        if (isVisible(el2)) {
+          clearInterval(openPoll!); openPoll = null;
+          doOpen(el2);
+        }
+      }, 150);
+      setTimeout(() => { if (openPoll) { clearInterval(openPoll); openPoll = null; } }, 10_000);
+    }
 
     const electron = (window as any).electron;
 
@@ -1118,6 +1110,7 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
     }
 
     return () => {
+      if (openPoll) clearInterval(openPoll);
       clearTimeout(resizeTimer);
       removeDataListener?.();
       window.removeEventListener('resize', doFit);

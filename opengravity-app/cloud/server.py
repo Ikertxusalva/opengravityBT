@@ -429,42 +429,17 @@ async def fetch_hl_prices():
 
 HL_LIQ_COINS = ["BTC", "ETH"]  # Real-time liquidation tracking for these
 
-# Maintenance margin rates for leverage estimation (HyperLiquid)
-# Maintenance margin ≈ 1 / (2 * maxLeverage) for most assets
-HL_MAINT_MARGIN = {"BTC": 0.01, "ETH": 0.01}  # ~1% → max 50x
-HL_DEFAULT_MAINT = 0.0333  # ~3.33% for most alts → max 15x
-MIN_LEVERAGE_FILTER = 10  # Only show liquidations estimated at x10+
-
-def _estimate_leverage(coin: str, px: float, sz: float) -> float:
-    """Estimate leverage of a liquidated position.
-
-    HyperLiquid liquidates when: margin_remaining <= maintenance_margin.
-    For a position at leverage L, initial margin = notional / L.
-    Liquidation happens when loss ≈ initial_margin - maintenance_margin.
-    System liquidation trades (hash=0x0...0) are partial/full liquidations.
-
-    Since we can't know the exact leverage, we use the notional size as a proxy:
-    - Small notional ($500-$5K) → likely low leverage (x2-x5) or small account
-    - Medium notional ($5K-$50K) → likely x10-x25
-    - Large notional ($50K+) → likely x10-x50 (institutional or high leverage)
-
-    We estimate conservatively: leverage ≈ notional / estimated_collateral,
-    where estimated_collateral = notional * maintenance_margin * 3 (safety factor).
-    """
-    maint = HL_MAINT_MARGIN.get(coin, HL_DEFAULT_MAINT)
-    notional = px * sz
-    # Conservative: assume collateral was ~3x maintenance margin
-    est_collateral = notional * maint * 3
-    if est_collateral <= 0:
-        return 1.0
-    return round(notional / est_collateral, 1)
+# Minimum notional for liquidation to be relevant (filters dust)
+# HyperLiquid perps only — all liquidations here are leveraged positions.
+# $5K+ notional filters out micro-positions and keeps meaningful liquidations.
+MIN_LIQ_NOTIONAL = 5_000
 
 
 async def fetch_liquidations():
-    """Fetch recent liquidation-like trades from HyperLiquid perpetuals.
+    """Fetch recent liquidation trades from HyperLiquid perpetuals.
 
     System trades (hash = 0x000...0) are liquidations/ADL on perps.
-    Only includes estimated leverage >= x10 (filters out low-leverage noise).
+    All positions on HL are leveraged (x1 to x50). We filter by notional >= $5K.
     """
     all_liqs: list[dict] = []
     # Check BTC and ETH + top stressed coins
@@ -495,10 +470,7 @@ async def fetch_liquidations():
                         usd_size = px * sz
                     except (TypeError, ValueError):
                         continue
-                    if usd_size < 500:
-                        continue
-                    est_lev = _estimate_leverage(coin, px, sz)
-                    if est_lev < MIN_LEVERAGE_FILTER:
+                    if usd_size < MIN_LIQ_NOTIONAL:
                         continue
                     all_liqs.append({
                         "coin": coin,
@@ -508,7 +480,6 @@ async def fetch_liquidations():
                         "sz": t.get("sz", "0"),
                         "tid": t.get("tid", 0),
                         "time_ms": t.get("time", 0),
-                        "est_leverage": est_lev,
                     })
             except Exception:
                 pass
@@ -928,17 +899,13 @@ async def hl_websocket_client():
                                     usd_size = px * sz
                                 except (TypeError, ValueError):
                                     continue
-                                if usd_size < 500:
-                                    continue
-                                est_lev = _estimate_leverage(coin, px, sz)
-                                if est_lev < MIN_LEVERAGE_FILTER:
+                                if usd_size < MIN_LIQ_NOTIONAL:
                                     continue
                                 new_liqs.append({
                                     "coin": coin, "side": side,
                                     "usd_size": round(usd_size, 2),
                                     "px": t.get("px", "0"), "sz": t.get("sz", "0"),
                                     "tid": t.get("tid", 0), "time_ms": t.get("time", 0),
-                                    "est_leverage": est_lev,
                                 })
                             if new_liqs:
                                 global _last_liquidations
