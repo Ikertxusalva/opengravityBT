@@ -15,7 +15,6 @@ import { Vault } from './security/vault';
 // ── Active PTY sessions ──
 const sessions: Map<string, IPty> = new Map();
 const agentMap: Map<string, string> = new Map(); // termId → agentId
-// (voice is sent via fixed delay after init, see below)
 
 // ── Context persistence ──
 const CONTEXT_DIR = path.join(process.cwd(), '.claude', 'agent-contexts');
@@ -319,13 +318,8 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
           }
         }
 
-        // Auto-enable voice: send /voice 5s after init message so Claude is at the prompt
-        setTimeout(() => {
-          if (sessions.has(termId)) {
-            sessions.get(termId)?.write('/voice\r');
-          }
-        }, 5500);
       }, 5000); // Wait 5s for Claude to initialize
+      // Voice is auto-enabled via voiceEnabled:true in ~/.claude/settings.json
 
       return { success: true };
     } catch (error) {
