@@ -320,6 +320,9 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
       theme: { background: '#050505', foreground: '#ffffff' },
       fontFamily: 'JetBrains Mono, monospace',
       fontSize: 13,
+      scrollback: 10000,
+      smoothScrollDuration: 100,
+      allowProposedApi: true,
     });
     termInstanceRef.current = xterm;
     if (FitAddon) {
@@ -340,21 +343,35 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
 
     electron?.pty?.create(terminal.id, terminal.agentId, xterm.rows, xterm.cols);
 
-    // Debounced resize handler
+    // Debounced fit helper — used by both window resize and ResizeObserver
     let resizeTimer: ReturnType<typeof setTimeout>;
-    const handleResize = () => {
+    const doFit = () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        fitAddonRef.current?.fit();
-        electron?.pty?.resize(terminal.id, termInstanceRef.current?.cols, termInstanceRef.current?.rows);
-      }, 100);
+        try {
+          fitAddonRef.current?.fit();
+          const cols = termInstanceRef.current?.cols;
+          const rows = termInstanceRef.current?.rows;
+          if (cols && rows) electron?.pty?.resize(terminal.id, cols, rows);
+        } catch {}
+      }, 80);
     };
-    window.addEventListener('resize', handleResize);
+
+    // Window resize (maximize, restore, drag edges)
+    window.addEventListener('resize', doFit);
+
+    // ResizeObserver — detects grid layout changes (add/remove terminals)
+    let observer: ResizeObserver | null = null;
+    if (xtermRef.current) {
+      observer = new ResizeObserver(doFit);
+      observer.observe(xtermRef.current);
+    }
 
     return () => {
       clearTimeout(resizeTimer);
       removeDataListener?.();
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', doFit);
+      observer?.disconnect();
       xterm.dispose();
     };
   }, [terminal.id, terminal.agentId]);
