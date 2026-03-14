@@ -192,7 +192,17 @@ function readPolymarketData() {
     walletPositions = JSON.parse(fs.readFileSync(path.join(POLY_DATA_DIR, 'wallet_positions.json'), 'utf-8'));
   } catch {}
 
-  return { portfolio, log, priors, scanReport, trackedWallets, walletPositions };
+  let copyPositions: any = {};
+  try {
+    copyPositions = JSON.parse(fs.readFileSync(path.join(POLY_DATA_DIR, 'copy_positions.json'), 'utf-8'));
+  } catch {}
+
+  let walletSummary: any = {};
+  try {
+    walletSummary = JSON.parse(fs.readFileSync(path.join(POLY_DATA_DIR, 'wallet_summary.json'), 'utf-8'));
+  } catch {}
+
+  return { portfolio, log, priors, scanReport, trackedWallets, walletPositions, copyPositions, walletSummary };
 }
 
 ipcMain.handle('polymarket-data', async () => readPolymarketData());
@@ -300,6 +310,39 @@ ipcMain.handle('polymarket-wallet-update', async () => {
   });
 });
 
+// ── Copy Trading Auto-Cycle (4h) ─────────────────────────────────────────────
+let copyCycleRunning = false;
+const COPY_CYCLE_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
+let copyCycleTimer: ReturnType<typeof setInterval> | null = null;
+
+function runCopyCycle(): Promise<{ ok: boolean; error?: string }> {
+  const { execFile } = require('child_process');
+  if (copyCycleRunning) return Promise.resolve({ ok: false, error: 'Copy cycle already running' });
+  copyCycleRunning = true;
+
+  return new Promise((resolve) => {
+    execFile('python', [WALLET_TRACKER_SCRIPT, 'full-cycle'], {
+      cwd: POLY_CWD, timeout: 300_000, env: { ...process.env },
+    }, (error: any) => {
+      copyCycleRunning = false;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('polymarket-update', readPolymarketData());
+      }
+      resolve(error ? { ok: false, error: error.message } : { ok: true });
+    });
+  });
+}
+
+ipcMain.handle('polymarket-copy-cycle', async () => runCopyCycle());
+
+function startCopyCycleLoop() {
+  if (copyCycleTimer) return;
+  // First copy cycle 2 min after app start
+  setTimeout(() => { if (polyBotEnabled) runCopyCycle().catch(() => {}); }, 120_000);
+  // Then every 4 hours
+  copyCycleTimer = setInterval(() => { if (polyBotEnabled) runCopyCycle().catch(() => {}); }, COPY_CYCLE_INTERVAL_MS);
+}
+
 // Watch data files for real-time push to renderer
 let polyWatcher: fs.FSWatcher | null = null;
 let polyDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -323,4 +366,5 @@ function startPolymarketWatcher() {
 app.whenReady().then(() => {
   startPolymarketWatcher();
   startPolyCycleLoop();
+  startCopyCycleLoop();
 });

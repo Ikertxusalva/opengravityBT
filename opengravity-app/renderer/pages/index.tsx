@@ -414,7 +414,7 @@ function PolymarketPanel() {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)' }}>Cargando datos Polymarket...</div>;
   }
 
-  const { portfolio, log, priors, scanReport, trackedWallets, walletPositions } = data;
+  const { portfolio, log, priors, scanReport, trackedWallets, walletPositions, copyPositions, walletSummary } = data;
   const positions: any[] = portfolio?.positions || [];
   const closed: any[] = portfolio?.closed || [];
   const stats = portfolio?.stats || {};
@@ -786,6 +786,168 @@ function PolymarketPanel() {
           </div>
         )}
       </div>
+
+      {/* ── Copy Trading Panel ── */}
+      {(() => {
+        const cp = copyPositions || {};
+        const cpPositions: any[] = cp.positions || [];
+        const cpClosed: any[] = (cp.closed || []).slice(-10).reverse();
+        const cpStats = cp.stats || {};
+        const cpBank = cp.bank ?? 0;
+        const cpDeployed = cp.deployed ?? 0;
+        const cpTotalPnl = cpStats.total_pnl ?? 0;
+        const cpUnrealized = cpPositions.reduce((s: number, p: any) => s + (p.unrealized_pnl ?? 0), 0);
+        const cpWR = cpStats.trades > 0 ? Math.round((cpStats.wins / cpStats.trades) * 100) : 0;
+        const walletPnl = cp.wallet_pnl || {};
+        const activeWallets = (trackedWallets || []).filter((w: any) => !w.discarded);
+        const discardedWallets = (trackedWallets || []).filter((w: any) => w.discarded);
+
+        return (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', letterSpacing: '0.08em', color: 'var(--muted)' }}>
+                COPY TRADING ({cpPositions.length} abiertas | {cpStats.trades ?? 0} cerradas)
+              </span>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <span style={{ fontSize: '9px', color: 'var(--muted)' }}>Auto: 4h</span>
+                <button
+                  onClick={async () => { const e = (window as any).electron; await e?.polymarket?.copyCycle?.(); }}
+                  title="Ejecutar ciclo copy trading: discover + copy + discard"
+                  style={{ padding: '3px 8px', fontSize: '9px', fontWeight: 600, background: '#1a1a2e', color: '#ffab00', border: '1px solid var(--border)', borderRadius: '3px', cursor: 'pointer' }}
+                >FULL CYCLE</button>
+              </div>
+            </div>
+
+            {/* Copy Stats Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0', borderBottom: '1px solid var(--border)' }}>
+              {[
+                { label: 'BANK', value: `$${cpBank.toFixed(0)}`, color: 'var(--text-primary)' },
+                { label: 'DEPLOYED', value: `$${cpDeployed.toFixed(0)}`, color: 'var(--neon-cyan)' },
+                { label: 'P&L REAL', value: `$${cpTotalPnl >= 0 ? '+' : ''}${cpTotalPnl.toFixed(2)}`, color: cpTotalPnl >= 0 ? 'var(--neon-green)' : 'var(--red)' },
+                { label: 'UNREALIZED', value: `$${cpUnrealized >= 0 ? '+' : ''}${cpUnrealized.toFixed(2)}`, color: cpUnrealized >= 0 ? 'var(--neon-green)' : 'var(--red)' },
+                { label: 'WIN RATE', value: `${cpWR}%`, color: cpWR >= 50 ? 'var(--neon-green)' : 'var(--muted)' },
+                { label: 'WALLETS', value: `${activeWallets.length} act / ${discardedWallets.length} disc`, color: 'var(--muted)' },
+              ].map(s => (
+                <div key={s.label} style={{ padding: '6px 8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '8px', color: 'var(--muted)', letterSpacing: '0.05em' }}>{s.label}</div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: s.color }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0', maxHeight: '280px', overflowY: 'auto' }}>
+              {/* Left: Open copy positions */}
+              <div style={{ borderRight: '1px solid var(--border)' }}>
+                <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--border)', fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.06em' }}>
+                  POSICIONES COPY ({cpPositions.length})
+                </div>
+                {cpPositions.length === 0 ? (
+                  <div style={{ padding: '12px', color: 'var(--muted)', fontSize: '11px', textAlign: 'center' }}>Sin posiciones copy abiertas</div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                    <thead>
+                      <tr style={{ color: 'var(--muted)', fontSize: '8px' }}>
+                        {['MERCADO', 'DIR', 'ENTRY', 'ACTUAL', 'P&L', 'FROM'].map(h => (
+                          <th key={h} style={{ padding: '3px 4px', textAlign: h === 'MERCADO' ? 'left' : 'right', fontWeight: 400, borderBottom: '1px solid var(--border)' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cpPositions.map((p: any, i: number) => (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle, #1a1a2e)' }}>
+                          <td style={{ padding: '3px 4px', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.market}>{p.market}</td>
+                          <td style={{ padding: '3px 4px', textAlign: 'right', color: p.direction === 'YES' ? 'var(--neon-green)' : 'var(--neon-orange)', fontWeight: 600 }}>{p.direction}</td>
+                          <td style={{ padding: '3px 4px', textAlign: 'right' }}>{((p.entry_price ?? 0) * 100).toFixed(0)}c</td>
+                          <td style={{ padding: '3px 4px', textAlign: 'right' }}>{((p.current_price ?? 0) * 100).toFixed(0)}c</td>
+                          <td style={{ padding: '3px 4px', textAlign: 'right', color: (p.unrealized_pnl ?? 0) >= 0 ? 'var(--neon-green)' : 'var(--red)', fontWeight: 600 }}>
+                            ${(p.unrealized_pnl ?? 0) >= 0 ? '+' : ''}{(p.unrealized_pnl ?? 0).toFixed(1)}
+                          </td>
+                          <td style={{ padding: '3px 4px', textAlign: 'right', color: 'var(--muted)', fontSize: '8px' }}>{p.source_name || '?'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+
+                {/* Closed copy trades */}
+                {cpClosed.length > 0 && (
+                  <>
+                    <div style={{ padding: '4px 8px', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.06em' }}>
+                      CERRADAS ({(cp.closed || []).length})
+                    </div>
+                    {cpClosed.slice(0, 5).map((p: any, i: number) => (
+                      <div key={i} style={{ padding: '3px 8px', borderBottom: '1px solid var(--border-subtle, #1a1a2e)', display: 'flex', gap: '4px', alignItems: 'center', fontSize: '9px' }}>
+                        <span style={{ color: (p.realized_pnl ?? 0) >= 0 ? 'var(--neon-green)' : 'var(--red)', fontWeight: 600, minWidth: '40px' }}>
+                          ${(p.realized_pnl ?? 0) >= 0 ? '+' : ''}{(p.realized_pnl ?? 0).toFixed(1)}
+                        </span>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--muted)' }}>{p.market}</span>
+                        <span style={{ fontSize: '8px', padding: '1px 3px', borderRadius: '2px', background: p.close_reason === 'TAKE_PROFIT' ? '#00e67622' : '#ff445522', color: p.close_reason === 'TAKE_PROFIT' ? '#00e676' : '#ff4455' }}>
+                          {p.close_reason === 'TAKE_PROFIT' ? 'TP' : 'SL'}
+                        </span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+
+              {/* Right: Per-wallet PnL tracker */}
+              <div>
+                <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--border)', fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.06em' }}>
+                  PnL POR WALLET
+                </div>
+                {Object.keys(walletPnl).length === 0 ? (
+                  <div style={{ padding: '12px', color: 'var(--muted)', fontSize: '11px', textAlign: 'center' }}>Sin datos de PnL por wallet</div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                    <thead>
+                      <tr style={{ color: 'var(--muted)', fontSize: '8px' }}>
+                        {['WALLET', 'PnL', 'TRADES', 'STATUS'].map(h => (
+                          <th key={h} style={{ padding: '3px 4px', textAlign: h === 'WALLET' ? 'left' : 'right', fontWeight: 400, borderBottom: '1px solid var(--border)' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(walletPnl)
+                        .sort(([, a]: any, [, b]: any) => (b.pnl ?? 0) - (a.pnl ?? 0))
+                        .slice(0, 15)
+                        .map(([addr, wp]: [string, any]) => {
+                          const walletInfo = (trackedWallets || []).find((w: any) => w.address === addr);
+                          const name = walletInfo?.name || `${addr.slice(0, 6)}...`;
+                          const isDiscarded = walletInfo?.discarded;
+                          return (
+                            <tr key={addr} style={{ borderBottom: '1px solid var(--border-subtle, #1a1a2e)', opacity: isDiscarded ? 0.4 : 1 }}>
+                              <td style={{ padding: '3px 4px', fontSize: '9px' }} title={addr}>{name}</td>
+                              <td style={{ padding: '3px 4px', textAlign: 'right', color: (wp.pnl ?? 0) >= 0 ? 'var(--neon-green)' : 'var(--red)', fontWeight: 600 }}>
+                                ${(wp.pnl ?? 0) >= 0 ? '+' : ''}{(wp.pnl ?? 0).toFixed(1)}
+                              </td>
+                              <td style={{ padding: '3px 4px', textAlign: 'right', color: 'var(--muted)' }}>{wp.trades ?? 0}</td>
+                              <td style={{ padding: '3px 4px', textAlign: 'right' }}>
+                                <span style={{
+                                  fontSize: '7px', padding: '1px 3px', borderRadius: '2px', fontWeight: 600,
+                                  background: isDiscarded ? '#ff445522' : (wp.pnl ?? 0) >= 0 ? '#00e67622' : '#ffab0022',
+                                  color: isDiscarded ? '#ff4455' : (wp.pnl ?? 0) >= 0 ? '#00e676' : '#ffab00',
+                                }}>
+                                  {isDiscarded ? 'DISC' : (wp.pnl ?? 0) >= 0 ? 'ACTIVE' : 'WARN'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                )}
+
+                {/* Discarded wallets count */}
+                {discardedWallets.length > 0 && (
+                  <div style={{ padding: '4px 8px', borderTop: '1px solid var(--border)', fontSize: '9px', color: '#ff4455' }}>
+                    {discardedWallets.length} wallets descartadas por bajo rendimiento
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

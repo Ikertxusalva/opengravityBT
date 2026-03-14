@@ -39,6 +39,9 @@ DATA_DIR.mkdir(exist_ok=True)
 WALLETS_FILE = DATA_DIR / "tracked_wallets.json"
 POSITIONS_FILE = DATA_DIR / "wallet_positions.json"
 HISTORY_FILE = DATA_DIR / "wallet_history.jsonl"
+COPY_POSITIONS_FILE = DATA_DIR / "copy_positions.json"
+COPY_LOG_FILE = DATA_DIR / "copy_log.jsonl"
+LAST_DISCOVER_FILE = DATA_DIR / "last_discover.json"
 
 # ── Config ────────────────────────────────────────────────────────────────────
 MIN_PNL_USD = 500           # PnL mínimo para considerar una wallet
@@ -47,6 +50,14 @@ MIN_WIN_RATE = 0.55         # Win rate mínimo (55%)
 MAX_WALLETS = 30            # Máximo de wallets a trackear
 VALIDATION_DAYS = 30        # Días mínimos de track record para validar
 STALE_HOURS = 4             # Horas antes de considerar datos stale
+
+# Copy Trading config
+COPY_ALLOC_PCT = 0.30       # 30% del bank para copy trading
+COPY_MAX_PER_TRADE = 150    # USD máximo por copy trade
+COPY_MIN_WALLET_SCORE = 50  # Score mínimo para copiar
+COPY_DISCARD_DAYS = 7       # Días de pérdidas consecutivas → descarte
+COPY_MONITOR_HOURS = 4      # Monitorear posiciones cada 4h
+DISCOVER_INTERVAL_HOURS = 24  # Discover diario
 
 
 def _load_json(path: Path, default=None):
@@ -446,6 +457,329 @@ def cmd_report():
     print(f"\n  📄 Resumen guardado en data/wallet_summary.json")
 
 
+# ── 6. COPY TRADING — Copiar posiciones de top wallets ────────────────────────
+
+def _load_copy_db() -> dict:
+    """Cargar o inicializar la base de datos de copy trading."""
+    default = {
+        "bank": 600,  # 30% de $2000 asignado a copy trading
+        "deployed": 0,
+        "positions": [],
+        "closed": [],
+        "stats": {"total_pnl": 0, "wins": 0, "losses": 0, "trades": 0},
+        "wallet_pnl": {},  # address → {pnl, last_profit_date}
+    }
+    db = _load_json(COPY_POSITIONS_FILE, default)
+    if "positions" not in db:
+        db = default
+    return db
+
+
+def _save_copy_db(db: dict):
+    _save_json(COPY_POSITIONS_FILE, db)
+
+
+def cmd_copy_cycle():
+    """Ciclo de copy trading: detectar nuevas posiciones y copiarlas."""
+    wallets = _load_json(WALLETS_FILE, [])
+    if not wallets:
+        print("  [COPY] Sin wallets tracked")
+        return
+
+    # Filtrar wallets elegibles para copiar (score >= mínimo, no descartadas)
+    eligible = [w for w in wallets if w.get("score", 0) >= COPY_MIN_WALLET_SCORE
+                and not w.get("discarded", False)]
+    if not eligible:
+        print("  [COPY] Sin wallets elegibles para copy trading")
+        return
+
+    print(f"  [COPY] {len(eligible)} wallets elegibles para copy trading")
+
+    # Cargar posiciones anteriores (snapshot) para detectar NUEVAS
+    prev_positions = _load_json(POSITIONS_FILE, {})
+
+    # Actualizar posiciones actuales
+    current_positions = {}
+    for w in eligible[:15]:  # Top 15 por score
+        addr = w["address"]
+        positions = fetch_wallet_positions(addr)
+        if positions:
+            current_positions[addr] = {
+                "name": w.get("name", addr[:10]),
+                "score": w.get("score", 0),
+                "positions": positions,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        time.sleep(0.3)
+
+    # Guardar posiciones actualizadas
+    _save_json(POSITIONS_FILE, current_positions)
+
+    # Detectar NUEVAS posiciones (están en current pero no en prev)
+    new_trades = []
+    for addr, data in current_positions.items():
+        prev = prev_positions.get(addr, {}).get("positions", [])
+        prev_cids = {(p.get("conditionId") or p.get("condition_id", "")).lower()
+                     for p in prev}
+
+        for pos in data["positions"]:
+            cid = (pos.get("conditionId") or pos.get("condition_id", "")).lower()
+            if cid and cid not in prev_cids:
+                new_trades.append({
+                    "wallet": addr,
+                    "wallet_name": data["name"],
+                    "wallet_score": data["score"],
+                    "condition_id": cid,
+                    "market": pos.get("title") or pos.get("question", "?"),
+                    "direction": (pos.get("outcome") or "YES").upper(),
+                    "avg_price": float(pos.get("avgPrice", 0) or 0),
+                    "current_price": float(pos.get("curPrice", 0) or pos.get("price", 0) or 0),
+                })
+
+    if not new_trades:
+        print("  [COPY] Sin nuevas posiciones detectadas")
+        # Actualizar precios de posiciones copy existentes
+        _update_copy_prices(current_positions)
+        return
+
+    print(f"  [COPY] {len(new_trades)} nuevas posiciones detectadas!")
+
+    # Abrir copy trades
+    db = _load_copy_db()
+    opened = 0
+
+    for trade in new_trades:
+        available = db["bank"] - db["deployed"]
+        if available < 10:
+            print("  [COPY] Sin capital disponible")
+            break
+
+        # Calcular tamaño basado en score de la wallet
+        score_mult = trade["wallet_score"] / 100  # 0.5 a 1.0
+        size = min(COPY_MAX_PER_TRADE * score_mult, available * 0.3)
+        size = round(max(10, size), 2)
+
+        price = trade["current_price"] or trade["avg_price"]
+        if price <= 0.05 or price >= 0.95:
+            continue  # Evitar extremos
+
+        # Abrir posición copy
+        copy_pos = {
+            "id": f"copy_{int(time.time())}_{opened}",
+            "source_wallet": trade["wallet"],
+            "source_name": trade["wallet_name"],
+            "condition_id": trade["condition_id"],
+            "market": trade["market"],
+            "direction": trade["direction"],
+            "entry_price": round(price, 4),
+            "current_price": round(price, 4),
+            "size_usd": size,
+            "unrealized_pnl": 0,
+            "opened_at": datetime.now(timezone.utc).isoformat(),
+            "stop_loss": round(price * 0.6, 4),  # -40%
+            "take_profit": round(min(price * 1.8, 0.98), 4),  # +80%
+        }
+
+        db["positions"].append(copy_pos)
+        db["deployed"] = round(db["deployed"] + size, 2)
+        opened += 1
+
+        _append_jsonl(COPY_LOG_FILE, {
+            "type": "COPY_OPEN", "position": copy_pos,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
+        print(f"    COPY: {trade['direction']} {trade['market'][:50]} "
+              f"@ {price:.2f} | ${size:.0f} | from {trade['wallet_name']}")
+
+    _save_copy_db(db)
+    print(f"  [COPY] {opened} posiciones abiertas. "
+          f"Bank: ${db['bank']:.0f} | Deployed: ${db['deployed']:.0f}")
+
+    # Actualizar precios y cerrar SL/TP
+    _update_copy_prices(current_positions)
+
+
+def _update_copy_prices(current_positions: dict):
+    """Actualizar precios de copy positions y cerrar por SL/TP."""
+    db = _load_copy_db()
+    if not db["positions"]:
+        return
+
+    # Construir mapa de precios actuales desde las posiciones de wallets
+    price_map = {}
+    for addr, data in current_positions.items():
+        for pos in data.get("positions", []):
+            cid = (pos.get("conditionId") or pos.get("condition_id", "")).lower()
+            price = float(pos.get("curPrice", 0) or pos.get("price", 0) or 0)
+            if cid and price > 0:
+                price_map[cid] = price
+
+    to_close = []
+    for pos in db["positions"]:
+        cid = pos["condition_id"].lower()
+        if cid in price_map:
+            pos["current_price"] = round(price_map[cid], 4)
+            entry = pos["entry_price"]
+            current = pos["current_price"]
+            if pos["direction"] == "YES":
+                pnl_pct = (current - entry) / entry if entry > 0 else 0
+            else:
+                pnl_pct = (entry - current) / entry if entry > 0 else 0
+            pos["unrealized_pnl"] = round(pos["size_usd"] * pnl_pct, 2)
+
+            # Check SL/TP
+            if current <= pos["stop_loss"] or current >= pos["take_profit"]:
+                to_close.append(pos)
+
+    # Cerrar posiciones por SL/TP
+    for pos in to_close:
+        pnl = pos["unrealized_pnl"]
+        reason = "TAKE_PROFIT" if pnl >= 0 else "STOP_LOSS"
+        pos["close_reason"] = reason
+        pos["closed_at"] = datetime.now(timezone.utc).isoformat()
+        pos["realized_pnl"] = pnl
+
+        db["positions"].remove(pos)
+        db["closed"].append(pos)
+        db["deployed"] = round(max(0, db["deployed"] - pos["size_usd"]), 2)
+        db["bank"] = round(db["bank"] + pnl, 2)
+        db["stats"]["total_pnl"] = round(db["stats"]["total_pnl"] + pnl, 2)
+        db["stats"]["trades"] += 1
+        if pnl >= 0:
+            db["stats"]["wins"] += 1
+        else:
+            db["stats"]["losses"] += 1
+
+        # Track PnL por wallet
+        wallet = pos["source_wallet"]
+        if wallet not in db["wallet_pnl"]:
+            db["wallet_pnl"][wallet] = {"pnl": 0, "trades": 0, "last_profit_date": None}
+        db["wallet_pnl"][wallet]["pnl"] = round(db["wallet_pnl"][wallet]["pnl"] + pnl, 2)
+        db["wallet_pnl"][wallet]["trades"] += 1
+        if pnl >= 0:
+            db["wallet_pnl"][wallet]["last_profit_date"] = datetime.now(timezone.utc).isoformat()
+
+        _append_jsonl(COPY_LOG_FILE, {
+            "type": "COPY_CLOSE", "position": pos, "reason": reason,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
+        print(f"    CLOSE [{reason}]: {pos['market'][:40]} | PnL ${pnl:+.2f}")
+
+    _save_copy_db(db)
+
+
+# ── 7. DISCARD — Descartar wallets perdedoras ────────────────────────────────
+
+def cmd_discard():
+    """Descartar wallets que llevan perdiendo más de COPY_DISCARD_DAYS."""
+    wallets = _load_json(WALLETS_FILE, [])
+    db = _load_copy_db()
+    now = datetime.now(timezone.utc)
+    discarded = 0
+
+    for wallet in wallets:
+        if wallet.get("discarded"):
+            continue
+
+        addr = wallet["address"]
+        wp = db.get("wallet_pnl", {}).get(addr)
+        if not wp:
+            continue
+
+        # Si PnL acumulado es negativo y no ha tenido profit en N días
+        if wp["pnl"] < 0 and wp.get("last_profit_date"):
+            last_profit = datetime.fromisoformat(
+                wp["last_profit_date"].replace("Z", "+00:00"))
+            days_losing = (now - last_profit).days
+            if days_losing >= COPY_DISCARD_DAYS:
+                wallet["discarded"] = True
+                wallet["discarded_at"] = now.isoformat()
+                wallet["discard_reason"] = f"PnL ${wp['pnl']:.2f} tras {days_losing}d sin profit"
+                discarded += 1
+                print(f"  DISCARD: {wallet['name']} — {wallet['discard_reason']}")
+        elif wp["pnl"] < -50 and wp["trades"] >= 3:
+            # Pérdida significativa con suficientes trades
+            wallet["discarded"] = True
+            wallet["discarded_at"] = now.isoformat()
+            wallet["discard_reason"] = f"PnL ${wp['pnl']:.2f} en {wp['trades']} trades"
+            discarded += 1
+            print(f"  DISCARD: {wallet['name']} — {wallet['discard_reason']}")
+
+    _save_json(WALLETS_FILE, wallets)
+    if discarded:
+        print(f"  {discarded} wallets descartadas")
+    else:
+        print("  Sin wallets para descartar")
+    return wallets
+
+
+# ── 8. AUTO-DISCOVER — Discover diario automático ────────────────────────────
+
+def should_discover() -> bool:
+    """Verificar si toca hacer discover (cada 24h)."""
+    last = _load_json(LAST_DISCOVER_FILE, {})
+    last_time = last.get("last_discover")
+    if not last_time:
+        return True
+    try:
+        last_dt = datetime.fromisoformat(last_time.replace("Z", "+00:00"))
+        hours_since = (datetime.now(timezone.utc) - last_dt).total_seconds() / 3600
+        return hours_since >= DISCOVER_INTERVAL_HOURS
+    except Exception:
+        return True
+
+
+def mark_discovered():
+    """Marcar timestamp del último discover."""
+    _save_json(LAST_DISCOVER_FILE, {
+        "last_discover": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+def cmd_full_cycle():
+    """Ciclo completo: auto-discover + copy + discard + report."""
+    print("=" * 60)
+    print("  COPY TRADING CYCLE")
+    print("=" * 60)
+
+    # 1. Auto-discover diario
+    if should_discover():
+        print("\n[1/4] DISCOVER (diario)")
+        cmd_discover()
+        mark_discovered()
+    else:
+        print("\n[1/4] DISCOVER — skip (último < 24h)")
+
+    # 2. Copy cycle: monitorear + copiar nuevas posiciones
+    print("\n[2/4] COPY MONITOR")
+    cmd_copy_cycle()
+
+    # 3. Descartar wallets perdedoras
+    print("\n[3/4] DISCARD CHECK")
+    cmd_discard()
+
+    # 4. Report
+    print("\n[4/4] COPY STATUS")
+    db = _load_copy_db()
+    stats = db.get("stats", {})
+    total_pnl = stats.get("total_pnl", 0)
+    trades = stats.get("trades", 0)
+    wins = stats.get("wins", 0)
+    wr = (wins / trades * 100) if trades > 0 else 0
+    print(f"  Bank: ${db['bank']:.0f} | Deployed: ${db['deployed']:.0f} | "
+          f"PnL: ${total_pnl:+.2f} | WR: {wr:.0f}% ({trades} trades)")
+    print(f"  Posiciones abiertas: {len(db.get('positions', []))}")
+
+    active_wallets = len([w for w in _load_json(WALLETS_FILE, [])
+                          if not w.get("discarded")])
+    discarded_wallets = len([w for w in _load_json(WALLETS_FILE, [])
+                             if w.get("discarded")])
+    print(f"  Wallets activas: {active_wallets} | Descartadas: {discarded_wallets}")
+    print("=" * 60)
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -474,6 +808,12 @@ if __name__ == "__main__":
         cmd_validate()
         # Generar summary para el panel
         cmd_report()
+    elif cmd == "copy":
+        cmd_copy_cycle()
+    elif cmd == "discard":
+        cmd_discard()
+    elif cmd == "full-cycle":
+        cmd_full_cycle()
     else:
         print(f"Comando desconocido: {cmd}")
-        print("Uso: discover | update | validate | score <cid> | report | cycle")
+        print("Uso: discover | update | validate | score <cid> | report | cycle | copy | discard | full-cycle")

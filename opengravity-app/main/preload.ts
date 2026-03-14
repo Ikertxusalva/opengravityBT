@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('electron', {
     getStatus: () => ipcRenderer.invoke('polymarket-status'),
     walletDiscover: () => ipcRenderer.invoke('polymarket-wallet-discover'),
     walletUpdate: () => ipcRenderer.invoke('polymarket-wallet-update'),
+    copyCycle: () => ipcRenderer.invoke('polymarket-copy-cycle'),
     onUpdate: (callback: (data: any) => void) => {
       const handler = (_event: any, data: any) => callback(data);
       ipcRenderer.on('polymarket-update', handler);
