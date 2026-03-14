@@ -54,7 +54,10 @@ export default function HomePage() {
   const [showPicker, setShowPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [clock, setClock] = useState('');
+  const [cloudStatus, setCloudStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  const [prices, setPrices] = useState<Record<string, number>>({});
   const startupDoneRef = useRef(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // Clock
   useEffect(() => {
@@ -75,6 +78,42 @@ export default function HomePage() {
     STARTUP_AGENTS.forEach(({ agentId, delay }) => {
       setTimeout(() => addTerminal(agentId), delay);
     });
+  }, []);
+
+  // ── Cloud WebSocket Connection ──
+  useEffect(() => {
+    // Railway URL will be provided by user or found in env
+    const railwayUrl = process.env.NEXT_PUBLIC_RAILWAY_WS_URL || 'ws://localhost:8080/ws';
+
+    const connect = () => {
+      setCloudStatus('connecting');
+      const ws = new WebSocket(railwayUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setCloudStatus('connected');
+        ws.send(JSON.stringify({ type: 'subscribe', symbols: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'] }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'price_update') {
+            setPrices(prev => ({ ...prev, [data.symbol]: data.price }));
+          }
+        } catch {}
+      };
+
+      ws.onclose = () => {
+        setCloudStatus('disconnected');
+        setTimeout(connect, 5000); // Reconnect
+      };
+
+      ws.onerror = () => ws.close();
+    };
+
+    connect();
+    return () => wsRef.current?.close();
   }, []);
 
   // Keyboard shortcuts
@@ -148,6 +187,19 @@ export default function HomePage() {
         <button className="nav-tab active">TERMINALS</button>
 
         <div className="nav-spacer" />
+
+        {/* Cloud Status */}
+        <div className={`cloud-indicator ${cloudStatus}`}>
+          <div className="dot" />
+          <span>{cloudStatus === 'connected' ? 'CLOUD ACTIVE' : cloudStatus.toUpperCase()}</span>
+          {cloudStatus === 'connected' && (
+            <div className="mini-prices">
+              {Object.entries(prices).map(([s, p]) => (
+                <span key={s}>{s.replace('USDT', '')}: ${p.toLocaleString()}</span>
+              ))}
+            </div>
+          )}
+        </div>
 
         <button className="btn-new-terminal" onClick={() => setShowPicker(true)}>
           +  Terminal
