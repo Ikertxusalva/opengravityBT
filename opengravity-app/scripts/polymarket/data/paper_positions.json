@@ -1,0 +1,66 @@
+{
+  "mode": "paper",
+  "bank": 2000,
+  "deployed": 320.0,
+  "positions": [
+    {
+      "id": "P1773493948",
+      "opened_at": "2026-03-14T13:12:28.035779+00:00",
+      "condition_id": "0x61eb9153c67924f13fd102a324be284f335672ea1fdb07d48af27a8cd03536be",
+      "question": "Will Sweden qualify for the 2026 FIFA World Cup?",
+      "end_date": "2026-04-12",
+      "days_left": 28,
+      "direction": "BUY_YES",
+      "entry_price": 0.333,
+      "size_usd": 160.0,
+      "shares": 480.4805,
+      "composite_edge": 0.19,
+      "edge_sources": [
+        "base_rate"
+      ],
+      "primary_source": "base_rate",
+      "yes_token_id": "110029858924336699886026160037881747408385035792394181068515946764057130818147",
+      "no_token_id": "99703503368997111194608314266540465795915641214072272571967517894792021713802",
+      "status": "open",
+      "current_price": 0.31,
+      "unrealized_pnl": -11.051,
+      "high_watermark": 0.333,
+      "stop_loss_price": 0.2331,
+      "take_profit_price": 0.4995
+    },
+    {
+      "id": "P1773493949",
+      "opened_at": "2026-03-14T13:12:28.039611+00:00",
+      "condition_id": "0xbd9068da0f92022747bdad7a7d522c2f8bec81f0eb61c233eb94b301b3b4c62b",
+      "question": "Will Poland qualify for the 2026 FIFA World Cup?",
+      "end_date": "2026-04-12",
+      "days_left": 28,
+      "direction": "BUY_YES",
+      "entry_price": 0.353,
+      "size_usd": 160.0,
+      "shares": 453.2578,
+      "composite_edge": 0.155,
+      "edge_sources": [
+        "base_rate"
+      ],
+      "primary_source": "base_rate",
+      "yes_token_id": "107726477169398763643300346937218981578070170096670253959564188912978677384086",
+      "no_token_id": "80511008047143651192857715625240574605223081773209557920997784819412822146093",
+      "status": "open",
+      "current_price": 0.345,
+      "unrealized_pnl": -3.626,
+      "high_watermark": 0.353,
+      "stop_loss_price": 0.2471,
+      "take_profit_price": 0.5295
+    }
+  ],
+  "closed": [],
+  "stats": {
+    "trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "total_pnl": 0.0,
+    "stop_losses": 0,
+    "take_profits": 0
+  }
+}
