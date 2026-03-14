@@ -3,8 +3,12 @@
 Dashboard multi-agente con terminales Claude Code integradas y arquitectura híbrida (PC + Railway).
 
 ## Memoria y Contexto
-- El contexto del proyecto se gestiona de forma dinámica.
+- El contexto de sesiones anteriores se guarda automáticamente en `.claude/agent-contexts/`.
+- Al iniciar, **lee tu archivo de contexto** para continuar donde quedaste:
+  - Agente principal: `.claude/agent-contexts/claude-main.md`
+  - Otros agentes: `.claude/agent-contexts/{agent-id}.md`
 - Si necesitas detalle sobre agentes, APIs o infraestructura: leer `opengravity-app/README.md` (si existe) o preguntar al sistema.
+- **IMPORTANTE**: No busques memorias al inicio. Tu contexto ya está en los archivos del proyecto.
 
 ## Reglas de Trabajo
 - **Idioma**: Responder siempre en **español**.

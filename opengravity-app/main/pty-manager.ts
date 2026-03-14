@@ -33,16 +33,6 @@ function ensureContextDir() {
   if (!fs.existsSync(CONTEXT_DIR)) fs.mkdirSync(CONTEXT_DIR, { recursive: true });
 }
 
-function loadAgentContext(agentId: string): string | null {
-  const contextFile = path.join(CONTEXT_DIR, `${agentId}.md`);
-  try {
-    if (fs.existsSync(contextFile)) {
-      const content = fs.readFileSync(contextFile, 'utf-8').trim();
-      if (content) return content;
-    }
-  } catch {}
-  return null;
-}
 
 function saveAgentContext(agentId: string, buffer: string[]) {
   if (buffer.length === 0) return;
@@ -273,46 +263,31 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
         }
       });
 
-      // Agent init watcher (same as RBI's _start_agent_init_watcher)
+      // Agent init: release spawn slot after 5s, send minimal init
+      // Context is auto-loaded by Claude via CLAUDE.md → .claude/agent-contexts/
       setTimeout(() => {
         releaseSpawnSlot();
 
-        const savedContext = loadAgentContext(agentId);
-        const contextSnippet = savedContext
-          ? `\n\nCONTEXTO DE TU ÚLTIMA SESIÓN (continúa desde aquí):\n---\n${savedContext.slice(0, 1800)}\n---`
-          : '';
-
         if (agentId === 'main' || agentId === 'claude-main') {
-          // Send Enter to skip Claude's startup screen
+          // Just press Enter to skip Claude's startup screen
           setTimeout(() => {
             if (sessions.has(termId)) {
               sessions.get(termId)?.write('\r');
-              if (contextSnippet) {
-                setTimeout(() => {
-                  sessions.get(termId)?.write(`Bienvenido de vuelta.${contextSnippet}\r`);
-                }, 500);
-              }
             }
           }, 300);
         } else {
+          // For named agents: tell them their role (they read context from files)
           const agentFile = findAgentFile(agentId);
           if (agentFile) {
             const agentName = extractAgentName(agentFile);
-            // Use absolute path if file is outside project dir, relative otherwise
             const projectDir = process.cwd();
             const relPath = agentFile.startsWith(projectDir)
               ? path.relative(projectDir, agentFile).replace(/\\/g, '/')
               : agentFile.replace(/\\/g, '/');
-            const initMsg = `Eres el agente '${agentName}'. Lee y aplica todas las instrucciones en ${relPath}.${contextSnippet}\r`;
+            const initMsg = `Eres el agente '${agentName}'. Lee tus instrucciones en ${relPath} y tu contexto de sesión anterior en .claude/agent-contexts/${agentId}.md\r`;
             setTimeout(() => {
               if (sessions.has(termId)) {
                 sessions.get(termId)?.write(initMsg);
-              }
-            }, 300);
-          } else if (contextSnippet) {
-            setTimeout(() => {
-              if (sessions.has(termId)) {
-                sessions.get(termId)?.write(`Bienvenido de vuelta.${contextSnippet}\r`);
               }
             }, 300);
           }
