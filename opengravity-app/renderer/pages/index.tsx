@@ -661,7 +661,7 @@ function MarketPanel(props: {
           <div style={emptyStyle}>Esperando datos...</div>
         ) : (
           <div style={scrollStyle}>
-            {stressData.slice(0, 15).map(item => (
+            {stressData.map(item => (
               <div key={item.coin} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 14px', borderBottom: '1px solid #12121e' }}>
                 <span style={{ width: '42px', fontSize: '12px', fontWeight: 600, color: '#e0e0f0' }}>{item.coin}</span>
                 <div style={{ flex: 1, height: '6px', background: '#12121e', borderRadius: '3px', overflow: 'hidden' }}>
