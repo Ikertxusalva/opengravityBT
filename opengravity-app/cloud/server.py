@@ -229,6 +229,10 @@ def verify_token(authorization: str = Header(None)):
 
 scheduler = AsyncIOScheduler()
 _stress_cache: dict[str, float] = {}  # coin -> last_triggered_ts
+_last_stress_rankings: list = []  # cached for REST endpoint
+_last_funding_rates: dict = {}  # cached for REST endpoint
+_last_liquidations: list = []  # cached for REST endpoint
+_last_whale_data: dict = {"longs": [], "shorts": []}  # cached for REST endpoint
 
 
 async def fetch_prices():
@@ -371,9 +375,11 @@ async def fetch_funding_rates():
                             "mark_px": float(ctx["markPx"]) if ctx.get("markPx") else None,
                         })
                 carry_ops.sort(key=lambda x: x["annual_pct"], reverse=True)
+                global _last_funding_rates
+                _last_funding_rates = {k: v for k, v in rates.items() if k in HL_WATCH}
                 await manager.broadcast({
                     "type": "funding_update",
-                    "rates": {k: v for k, v in rates.items() if k in HL_WATCH},
+                    "rates": _last_funding_rates,
                     "carry_opportunities": carry_ops[:5],
                     "timestamp": datetime.utcnow().isoformat(),
                 })
@@ -471,9 +477,11 @@ async def fetch_liquidations():
     finally:
         db.close()
 
+    global _last_liquidations
+    _last_liquidations = all_liqs[:20]
     await manager.broadcast({
         "type": "liquidation_update",
-        "liquidations": all_liqs[:20],
+        "liquidations": _last_liquidations,
         "count": len(all_liqs),
         "timestamp": datetime.utcnow().isoformat(),
     })
@@ -583,6 +591,8 @@ async def fetch_whale_positions():
     try:
         result = await loop.run_in_executor(None, _fetch_whale_positions_sync)
         if result.get("longs") or result.get("shorts"):
+            global _last_whale_data
+            _last_whale_data = {"longs": result["longs"], "shorts": result["shorts"]}
             await manager.broadcast({
                 "type": "whale_update",
                 "longs": result["longs"],
@@ -728,6 +738,9 @@ async def compute_stress_index():
                 swarm_triggers.append({"coin": coin, "score": score, "signals": signals, "direction": direction})
 
         stress_results.sort(key=lambda x: x["score"], reverse=True)
+
+        global _last_stress_rankings
+        _last_stress_rankings = stress_results[:15]
 
         await manager.broadcast({
             "type": "stress_update",
@@ -1187,7 +1200,19 @@ async def get_hl_markets():
 async def get_stress_index():
     """On-demand Market Stress Index: funding + liquidations combined per coin."""
     await compute_stress_index()
-    return {"status": "computed", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "computed", "rankings": _last_stress_rankings, "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/api/market/snapshot")
+async def get_market_snapshot():
+    """Returns all cached market data in a single request (for initial load)."""
+    return {
+        "stress": _last_stress_rankings,
+        "funding": _last_funding_rates,
+        "liquidations": _last_liquidations,
+        "whales": _last_whale_data,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
 
 
 @app.get("/api/hl/funding/history/{coin}")

@@ -73,6 +73,21 @@ export default function HomePage() {
   const wsRef = React.useRef<WebSocket | null>(null);
   const tokenRef = React.useRef<string | null>(null);
   const xtermInstancesRef = React.useRef<Map<string, any>>(new Map());
+  const CLOUD_URL = 'https://chic-encouragement-production.up.railway.app';
+
+  // Fetch all market data in one request (for initial load / tab switch)
+  const fetchMarketData = React.useCallback(async () => {
+    try {
+      const res = await fetch(`${CLOUD_URL}/api/market/snapshot`);
+      const snap = await res.json();
+      if (snap.stress?.length > 0) setStressData(snap.stress);
+      if (snap.funding && Object.keys(snap.funding).length > 0) setFundingData(snap.funding);
+      if (snap.liquidations?.length > 0) setLiquidationData(snap.liquidations);
+      if (snap.whales?.longs?.length > 0 || snap.whales?.shorts?.length > 0) {
+        setWhaleData(snap.whales);
+      }
+    } catch {}
+  }, []);
 
   React.useEffect(() => {
     const electron = (window as any).electron;
@@ -153,6 +168,8 @@ export default function HomePage() {
             type: 'subscribe',
             ...(tokenRef.current ? { token: tokenRef.current } : {}),
           }));
+          // Fetch current market data immediately (don't wait for scheduler)
+          fetchMarketData();
         };
 
         ws.onmessage = (e) => {
@@ -230,7 +247,7 @@ export default function HomePage() {
         <span className="logo">OPENGRAVITY</span>
         <div className="separator" />
         <button className={`nav-tab ${activeView === 'terminals' ? 'active' : ''}`} onClick={() => setActiveView('terminals')}>TERMINALS</button>
-        <button className={`nav-tab ${activeView === 'market' ? 'active' : ''}`} onClick={() => setActiveView('market')}>MARKET</button>
+        <button className={`nav-tab ${activeView === 'market' ? 'active' : ''}`} onClick={() => { setActiveView('market'); fetchMarketData(); }}>MARKET</button>
         <button className={`nav-tab ${activeView === 'polymarket' ? 'active' : ''}`} onClick={() => setActiveView('polymarket')}>POLYMARKET</button>
         <div className="nav-spacer" />
 
@@ -355,7 +372,7 @@ function PolymarketPanel() {
 
   React.useEffect(() => {
     load();
-    const interval = setInterval(load, 60000);
+    const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -599,16 +616,22 @@ function MarketPanel(props: {
   const { fundingData, stressData, liquidationData, whaleData } = props;
 
   const fundingColor = (annual: number) => {
-    if (annual > 100) return 'var(--red)';
-    if (annual > 50) return 'var(--neon-orange)';
-    if (annual > 20) return 'var(--neon-green)';
-    if (annual < -50) return 'var(--neon-blue)';
-    if (annual < -20) return 'var(--neon-cyan)';
-    return 'var(--muted)';
+    if (annual > 100) return '#ff4455';
+    if (annual > 50) return '#ff8c00';
+    if (annual > 20) return '#00e676';
+    if (annual < -50) return '#448aff';
+    if (annual < -20) return '#00e5ff';
+    return '#8888aa';
   };
 
   const scoreColor = (score: number) =>
-    score >= 60 ? 'var(--red)' : score >= 30 ? 'var(--neon-orange)' : 'var(--muted)';
+    score >= 70 ? '#ff4455' : score >= 50 ? '#ff8c00' : score >= 30 ? '#ffab00' : '#8888aa';
+
+  const scoreBarGradient = (score: number) =>
+    score >= 70 ? 'linear-gradient(90deg, #ff4455, #ff1744)' :
+    score >= 50 ? 'linear-gradient(90deg, #ff8c00, #ff6d00)' :
+    score >= 30 ? 'linear-gradient(90deg, #ffab00, #ff8f00)' :
+    'linear-gradient(90deg, #3a3a5c, #4a4a6c)';
 
   const sortedFunding = Object.entries(fundingData)
     .sort(([, a], [, b]) => Math.abs(b.annual_pct) - Math.abs(a.annual_pct))
@@ -616,26 +639,45 @@ function MarketPanel(props: {
 
   const allWhales = [...(whaleData.longs || []).slice(0, 5), ...(whaleData.shorts || []).slice(0, 5)];
 
+  const sectionStyle: React.CSSProperties = {
+    background: '#0a0a14', border: '1px solid #1a1a2e', borderRadius: '8px', overflow: 'hidden',
+  };
+  const titleStyle: React.CSSProperties = {
+    padding: '10px 14px', borderBottom: '1px solid #1a1a2e', fontSize: '11px',
+    letterSpacing: '0.1em', color: '#6a6a8a', fontWeight: 600,
+  };
+  const emptyStyle: React.CSSProperties = {
+    padding: '24px', textAlign: 'center', color: '#4a4a6a', fontSize: '12px',
+  };
+  const scrollStyle: React.CSSProperties = { overflowY: 'auto', maxHeight: '100%' };
+
   return (
-    <div className="market-panel">
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '10px', padding: '12px', height: '100%', boxSizing: 'border-box' }}>
 
       {/* Stress Index */}
-      <div className="market-section">
-        <div className="market-section-title">STRESS INDEX</div>
+      <div style={sectionStyle}>
+        <div style={titleStyle}>STRESS INDEX</div>
         {stressData.length === 0 ? (
-          <div className="market-empty">Esperando datos del servidor...</div>
+          <div style={emptyStyle}>Esperando datos...</div>
         ) : (
-          <div className="market-scroll">
-            {stressData.slice(0, 12).map(item => (
-              <div key={item.coin} className="stress-row">
-                <span className="stress-coin">{item.coin}</span>
-                <div className="stress-bar-wrap">
-                  <div className="stress-bar" style={{ width: `${item.score}%`, background: scoreColor(item.score) }} />
+          <div style={scrollStyle}>
+            {stressData.slice(0, 15).map(item => (
+              <div key={item.coin} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 14px', borderBottom: '1px solid #12121e' }}>
+                <span style={{ width: '42px', fontSize: '12px', fontWeight: 600, color: '#e0e0f0' }}>{item.coin}</span>
+                <div style={{ flex: 1, height: '6px', background: '#12121e', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${item.score}%`, background: scoreBarGradient(item.score), borderRadius: '3px', transition: 'width 0.5s' }} />
                 </div>
-                <span className="stress-score" style={{ color: scoreColor(item.score) }}>{item.score}</span>
-                <span className="stress-funding" style={{ color: fundingColor(item.annual_funding_pct) }}>
-                  {item.annual_funding_pct > 0 ? '+' : ''}{item.annual_funding_pct.toFixed(0)}%
+                <span style={{ width: '28px', fontSize: '11px', fontWeight: 700, color: scoreColor(item.score), textAlign: 'right' }}>{item.score}</span>
+                <span style={{ width: '50px', fontSize: '10px', color: fundingColor(item.annual_funding_pct), textAlign: 'right' }}>
+                  {item.annual_funding_pct > 0 ? '+' : ''}{item.annual_funding_pct.toFixed(0)}%/y
                 </span>
+                {item.direction !== 'NEUTRAL' && (
+                  <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '3px', fontWeight: 600,
+                    background: item.direction.includes('SQUEEZE') ? '#ff445520' : item.direction.includes('CAPITULATION') ? '#00e67620' : 'transparent',
+                    color: item.direction.includes('SQUEEZE') ? '#ff4455' : '#00e676' }}>
+                    {item.direction.includes('SQUEEZE') ? 'SQZ' : item.direction.includes('CAPITULATION') ? 'CAP' : ''}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -643,19 +685,27 @@ function MarketPanel(props: {
       </div>
 
       {/* Funding Rates */}
-      <div className="market-section">
-        <div className="market-section-title">FUNDING RATES — HYPERLIQUID</div>
+      <div style={sectionStyle}>
+        <div style={titleStyle}>FUNDING RATES — HYPERLIQUID</div>
         {sortedFunding.length === 0 ? (
-          <div className="market-empty">Esperando datos del servidor...</div>
+          <div style={emptyStyle}>Esperando datos...</div>
         ) : (
-          <div className="market-scroll">
+          <div style={scrollStyle}>
             {sortedFunding.map(([coin, data]) => (
-              <div key={coin} className="funding-row">
-                <span className="funding-coin">{coin}</span>
-                <span className="funding-8h" style={{ color: fundingColor(data.annual_pct) }}>
+              <div key={coin} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 14px', borderBottom: '1px solid #12121e' }}>
+                <span style={{ width: '42px', fontSize: '12px', fontWeight: 600, color: '#e0e0f0' }}>{coin}</span>
+                <div style={{ flex: 1, height: '4px', background: '#12121e', borderRadius: '2px', overflow: 'hidden', position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute', height: '100%', borderRadius: '2px',
+                    left: data.annual_pct >= 0 ? '50%' : `${50 + (data.annual_pct / 4)}%`,
+                    width: `${Math.min(Math.abs(data.annual_pct) / 4, 50)}%`,
+                    background: fundingColor(data.annual_pct),
+                  }} />
+                </div>
+                <span style={{ width: '60px', fontSize: '11px', color: fundingColor(data.annual_pct), textAlign: 'right', fontFamily: 'monospace' }}>
                   {data.h8_pct > 0 ? '+' : ''}{data.h8_pct.toFixed(4)}%
                 </span>
-                <span className="funding-annual" style={{ color: fundingColor(data.annual_pct) }}>
+                <span style={{ width: '55px', fontSize: '11px', color: fundingColor(data.annual_pct), textAlign: 'right', fontWeight: 600 }}>
                   {data.annual_pct > 0 ? '+' : ''}{data.annual_pct.toFixed(0)}%/y
                 </span>
               </div>
@@ -665,17 +715,23 @@ function MarketPanel(props: {
       </div>
 
       {/* Liquidations */}
-      <div className="market-section">
-        <div className="market-section-title">LIQUIDACIONES (30 MIN)</div>
+      <div style={sectionStyle}>
+        <div style={titleStyle}>LIQUIDACIONES RECIENTES</div>
         {liquidationData.length === 0 ? (
-          <div className="market-empty">Sin liquidaciones recientes</div>
+          <div style={emptyStyle}>Sin liquidaciones recientes</div>
         ) : (
-          <div className="market-scroll">
+          <div style={scrollStyle}>
             {liquidationData.slice(0, 20).map((liq, i) => (
-              <div key={i} className="liq-row">
-                <span className={`liq-side ${liq.side === 'LONG' ? 'long' : 'short'}`}>{liq.side}</span>
-                <span className="liq-coin">{liq.coin}</span>
-                <span className="liq-size">${(liq.usd_size / 1000).toFixed(1)}K</span>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 14px', borderBottom: '1px solid #12121e' }}>
+                <span style={{
+                  fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', width: '42px', textAlign: 'center',
+                  background: liq.side === 'LONG' ? '#ff445520' : '#00e67620',
+                  color: liq.side === 'LONG' ? '#ff4455' : '#00e676',
+                }}>{liq.side}</span>
+                <span style={{ flex: 1, fontSize: '12px', color: '#e0e0f0', fontWeight: 500 }}>{liq.coin}</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: liq.usd_size > 100000 ? '#ff8c00' : '#8888aa', fontFamily: 'monospace' }}>
+                  ${liq.usd_size >= 1000000 ? (liq.usd_size / 1000000).toFixed(1) + 'M' : (liq.usd_size / 1000).toFixed(1) + 'K'}
+                </span>
               </div>
             ))}
           </div>
@@ -683,20 +739,28 @@ function MarketPanel(props: {
       </div>
 
       {/* Whale Positions */}
-      <div className="market-section">
-        <div className="market-section-title">BALLENAS — POSICIONES PELIGROSAS</div>
+      <div style={sectionStyle}>
+        <div style={titleStyle}>BALLENAS — POSICIONES PELIGROSAS</div>
         {allWhales.length === 0 ? (
-          <div className="market-empty">Sin datos de ballenas</div>
+          <div style={emptyStyle}>Sin datos de ballenas</div>
         ) : (
-          <div className="market-scroll">
+          <div style={scrollStyle}>
             {allWhales.map((pos, i) => (
-              <div key={i} className="whale-row">
-                <span className={`liq-side ${pos.side === 'LONG' ? 'long' : 'short'}`}>{pos.side}</span>
-                <span className="liq-coin">{pos.coin}</span>
-                <span className="liq-size">${(pos.size_usd / 1000).toFixed(0)}K</span>
-                <span className="whale-lev">{pos.leverage}x</span>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 14px', borderBottom: '1px solid #12121e' }}>
+                <span style={{
+                  fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', width: '42px', textAlign: 'center',
+                  background: pos.side === 'LONG' ? '#00e67620' : '#ff445520',
+                  color: pos.side === 'LONG' ? '#00e676' : '#ff4455',
+                }}>{pos.side}</span>
+                <span style={{ flex: 1, fontSize: '12px', color: '#e0e0f0', fontWeight: 500 }}>{pos.coin}</span>
+                <span style={{ fontSize: '11px', color: '#8888aa', fontFamily: 'monospace' }}>
+                  ${(pos.size_usd / 1000).toFixed(0)}K
+                </span>
+                <span style={{ fontSize: '10px', color: pos.leverage >= 20 ? '#ff8c00' : '#6a6a8a', fontWeight: 600 }}>
+                  {pos.leverage}x
+                </span>
                 {pos.dist_pct != null && (
-                  <span className="whale-dist" style={{ color: pos.dist_pct < 5 ? 'var(--red)' : 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 600, color: pos.dist_pct < 5 ? '#ff4455' : pos.dist_pct < 10 ? '#ff8c00' : '#6a6a8a' }}>
                     {pos.dist_pct.toFixed(1)}%
                   </span>
                 )}
