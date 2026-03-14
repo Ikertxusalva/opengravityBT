@@ -817,12 +817,12 @@ function MarketPanel(props: {
               <span style={{ fontSize: '10px', color: '#6a6a8a' }}>{btcLiqs.length} liqs</span>
             </div>
             <div style={{ display: 'flex', gap: '2px', height: '6px' }}>
-              <div style={{ flex: btcLongTotal || 1, background: 'linear-gradient(90deg, #ff445580, #ff4455)', borderRadius: '3px 0 0 3px', transition: 'flex 0.5s' }} />
-              <div style={{ flex: btcShortTotal || 1, background: 'linear-gradient(90deg, #00e676, #00e67680)', borderRadius: '0 3px 3px 0', transition: 'flex 0.5s' }} />
+              <div style={{ flex: btcLongTotal || 1, background: 'linear-gradient(90deg, #00e67680, #00e676)', borderRadius: '3px 0 0 3px', transition: 'flex 0.5s' }} />
+              <div style={{ flex: btcShortTotal || 1, background: 'linear-gradient(90deg, #ff4455, #ff445580)', borderRadius: '0 3px 3px 0', transition: 'flex 0.5s' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
-              <span style={{ fontSize: '9px', color: '#ff4455' }}>LONG {formatLiqSize(btcLongTotal)}</span>
-              <span style={{ fontSize: '9px', color: '#00e676' }}>SHORT {formatLiqSize(btcShortTotal)}</span>
+              <span style={{ fontSize: '9px', color: '#00e676' }}>LONG {formatLiqSize(btcLongTotal)}</span>
+              <span style={{ fontSize: '9px', color: '#ff4455' }}>SHORT {formatLiqSize(btcShortTotal)}</span>
             </div>
           </div>
           {/* ETH summary */}
@@ -832,34 +832,34 @@ function MarketPanel(props: {
               <span style={{ fontSize: '10px', color: '#6a6a8a' }}>{ethLiqs.length} liqs</span>
             </div>
             <div style={{ display: 'flex', gap: '2px', height: '6px' }}>
-              <div style={{ flex: ethLongTotal || 1, background: 'linear-gradient(90deg, #ff445580, #ff4455)', borderRadius: '3px 0 0 3px', transition: 'flex 0.5s' }} />
-              <div style={{ flex: ethShortTotal || 1, background: 'linear-gradient(90deg, #00e676, #00e67680)', borderRadius: '0 3px 3px 0', transition: 'flex 0.5s' }} />
+              <div style={{ flex: ethLongTotal || 1, background: 'linear-gradient(90deg, #00e67680, #00e676)', borderRadius: '3px 0 0 3px', transition: 'flex 0.5s' }} />
+              <div style={{ flex: ethShortTotal || 1, background: 'linear-gradient(90deg, #ff4455, #ff445580)', borderRadius: '0 3px 3px 0', transition: 'flex 0.5s' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
-              <span style={{ fontSize: '9px', color: '#ff4455' }}>LONG {formatLiqSize(ethLongTotal)}</span>
-              <span style={{ fontSize: '9px', color: '#00e676' }}>SHORT {formatLiqSize(ethShortTotal)}</span>
+              <span style={{ fontSize: '9px', color: '#00e676' }}>LONG {formatLiqSize(ethLongTotal)}</span>
+              <span style={{ fontSize: '9px', color: '#ff4455' }}>SHORT {formatLiqSize(ethShortTotal)}</span>
             </div>
           </div>
         </div>
 
         {/* Live feed */}
-        {liquidationData.length === 0 ? (
-          <div style={emptyStyle}>Esperando liquidaciones...</div>
+        {(() => { const btcEthLiqs = liquidationData.filter(l => l.coin === 'BTC' || l.coin === 'ETH'); return btcEthLiqs.length === 0 ? (
+          <div style={emptyStyle}>Esperando liquidaciones BTC/ETH...</div>
         ) : (
           <div style={scrollStyle}>
-            {liquidationData.slice(0, 30).map((liq, i) => (
+            {btcEthLiqs.slice(0, 30).map((liq, i) => (
               <div key={`${liq.coin}-${liq.time_ms || i}`} style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px',
                 borderBottom: '1px solid #0e0e1a',
-                background: i === 0 ? (liq.side === 'LONG' ? '#ff445508' : '#00e67608') : 'transparent',
+                background: i === 0 ? (liq.side === 'LONG' ? '#00e67608' : '#ff445508') : 'transparent',
               }}>
                 <span style={{ fontSize: '9px', color: '#4a4a6a', fontFamily: 'monospace', width: '52px', flexShrink: 0 }}>
                   {formatLiqTime(liq.time_ms)}
                 </span>
                 <span style={{
                   fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '3px', width: '36px', textAlign: 'center', flexShrink: 0,
-                  background: liq.side === 'LONG' ? '#ff445520' : '#00e67620',
-                  color: liq.side === 'LONG' ? '#ff4455' : '#00e676',
+                  background: liq.side === 'LONG' ? '#00e67620' : '#ff445520',
+                  color: liq.side === 'LONG' ? '#00e676' : '#ff4455',
                 }}>{liq.side}</span>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: liq.coin === 'BTC' ? '#f7931a' : '#627eea', width: '28px', flexShrink: 0 }}>
                   {liq.coin}
@@ -879,7 +879,7 @@ function MarketPanel(props: {
               </div>
             ))}
           </div>
-        )}
+        ); })()}
       </div>
 
     </div>
