@@ -15,13 +15,22 @@ const AGENTS = [
   { id: 'whale-agent', name: 'Whale Agent', icon: '🐳', model: 'sonnet', description: 'Rastreo de ballenas' },
   { id: 'swarm-agent', name: 'Swarm Agent', icon: '🐝', model: 'opus', description: 'Orquestador multi-agente' },
   { id: 'regime-interpreter', name: 'Regime Interpreter', icon: '📊', model: 'sonnet', description: 'Detección de régimen HMM' },
-  { id: 'backtest-engineer', name: 'Backtest Engineer', icon: '⚙️', model: 'sonnet', description: 'Ejecuta y valida backtests' },
+  { id: 'backtest-architect', name: 'Backtest Architect', icon: '⚙️', model: 'sonnet', description: 'Ejecuta y valida backtests' },
+  { id: 'chart-agent', name: 'Chart Agent', icon: '📉', model: 'sonnet', description: 'Price action y patrones' },
+  { id: 'funding-agent', name: 'Funding Agent', icon: '💰', model: 'haiku', description: 'Funding rates HyperLiquid' },
+  { id: 'liquidation-agent', name: 'Liquidation Agent', icon: '⚡', model: 'haiku', description: 'Cascadas de liquidaciones' },
+  { id: 'news-agent', name: 'News Agent', icon: '📰', model: 'haiku', description: 'Noticias crypto filtradas' },
+  { id: 'research-agent', name: 'Research Agent', icon: '🔬', model: 'haiku', description: 'Genera ideas de estrategias' },
+  { id: 'coingecko-agent', name: 'CoinGecko Agent', icon: '🦎', model: 'sonnet', description: 'Análisis macro dual' },
+  { id: 'new-listing-agent', name: 'New Listing Agent', icon: '🆕', model: 'haiku', description: 'Arbitraje de listings' },
+  { id: 'top-mover-agent', name: 'Top Mover Agent', icon: '🚀', model: 'haiku', description: 'Gainers/Losers 24h' },
+  { id: 'code-reviewer', name: 'Code Reviewer', icon: '🔍', model: 'sonnet', description: 'Revisión de código' },
   { id: 'tiktok-agent', name: 'TikTok Agent', icon: '📱', model: 'haiku', description: 'Arbitraje social' },
 ];
 
 const STARTUP_AGENTS = [
   { agentId: 'claude-main', delay: 400 },
-  { agentId: 'claude-main', delay: 750 },
+  { agentId: 'trading-agent', delay: 900 },
 ];
 
 interface TerminalState {
@@ -52,6 +61,7 @@ export default function HomePage() {
   const [clock, setClock] = React.useState('');
   const [cloudStatus, setCloudStatus] = React.useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [prices, setPrices] = React.useState<Record<string, number>>({});
+  const [fearGreed, setFearGreed] = React.useState<{ value: number; classification: string } | null>(null);
   
   const startupDoneRef = React.useRef(false);
   const wsRef = React.useRef<WebSocket | null>(null);
@@ -138,6 +148,8 @@ export default function HomePage() {
             const data = JSON.parse(e.data);
             if (data.type === 'price_update') {
               setPrices((prev: Record<string, number>) => ({ ...prev, [data.symbol]: data.price }));
+            } else if (data.type === 'fear_greed') {
+              setFearGreed({ value: data.value, classification: data.classification });
             }
           } catch {}
         };
@@ -213,6 +225,15 @@ export default function HomePage() {
             {prices['BTCUSDT'] && <span>BTC <b>${prices['BTCUSDT'].toLocaleString()}</b></span>}
             {prices['ETHUSDT'] && <span>ETH <b>${prices['ETHUSDT'].toLocaleString()}</b></span>}
             {prices['SOLUSDT'] && <span>SOL <b>${prices['SOLUSDT'].toLocaleString()}</b></span>}
+          </div>
+        )}
+
+        {fearGreed && (
+          <div
+            className={`fear-greed-badge ${fearGreed.value <= 25 ? 'extreme-fear' : fearGreed.value <= 45 ? 'fear' : fearGreed.value <= 55 ? 'neutral' : fearGreed.value <= 75 ? 'greed' : 'extreme-greed'}`}
+            title={`Fear & Greed: ${fearGreed.classification}`}
+          >
+            F&G <b>{fearGreed.value}</b>
           </div>
         )}
 

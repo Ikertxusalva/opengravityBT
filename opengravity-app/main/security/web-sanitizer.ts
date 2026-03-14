@@ -2,7 +2,7 @@
  * Capa 6 — Detector de prompt injection en contenido web externo.
  */
 
-import { log as auditLog } from './audit';
+import { AuditLog } from './audit';
 
 interface InjectionPattern {
   regex: RegExp;
@@ -107,13 +107,13 @@ export function sanitizeWebContent(
   if (threats.length > 0 || invisibleRemoved > 0) {
     try {
       const details = `threats=${threats.join(',')} invisible_chars_removed=${invisibleRemoved}`;
-      auditLog(
-        agentId,
-        'web_content_scan',
-        sourceUrl || '(unknown)',
-        threats.length > 0 ? 'blocked' : 'ok',
-        details
-      );
+      AuditLog.log({
+        agent: agentId,
+        action: 'web_content_scan',
+        details: `url=${sourceUrl || '(unknown)'} ${details}`,
+        level: threats.length > 0 ? 'WARNING' : 'INFO',
+        result: threats.length > 0 ? 'BLOCKED' : 'ALLOWED',
+      });
     } catch (e) {
       // Ignorar fallos de audit log
     }

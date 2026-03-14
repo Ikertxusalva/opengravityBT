@@ -239,6 +239,28 @@ html, body {
   100% { opacity: 1; transform: scale(1); }
 }
 
+/* ── Fear & Greed Badge ── */
+.fear-greed-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  height: 22px;
+  border-radius: 11px;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--muted);
+  -webkit-app-region: no-drag;
+}
+.fear-greed-badge b { font-weight: 800; }
+.fear-greed-badge.extreme-fear  { color: var(--red); border-color: rgba(255,77,79,0.3); }
+.fear-greed-badge.fear          { color: var(--neon-orange); border-color: rgba(255,158,100,0.3); }
+.fear-greed-badge.neutral       { color: var(--muted); }
+.fear-greed-badge.greed         { color: var(--neon-green); border-color: rgba(63,185,80,0.3); }
+.fear-greed-badge.extreme-greed { color: var(--neon-green); border-color: rgba(63,185,80,0.5); box-shadow: 0 0 6px rgba(63,185,80,0.2); }
+
 /* ── Price Ticker ── */
 .price-ticker {
   display: flex;
