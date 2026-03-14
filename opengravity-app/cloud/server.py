@@ -462,7 +462,7 @@ async def fetch_liquidations():
                         usd_size = float(t.get("px", 0)) * float(t.get("sz", 0))
                     except (TypeError, ValueError):
                         usd_size = 0.0
-                    if usd_size < 10_000:  # Only show significant liquidations (x10-x100 leverage)
+                    if usd_size < 500:  # Filter out dust liquidations
                         continue
                     all_liqs.append({
                         "coin": coin,
@@ -889,7 +889,7 @@ async def hl_websocket_client():
                                     usd_size = float(t.get("px", 0)) * float(t.get("sz", 0))
                                 except (TypeError, ValueError):
                                     continue
-                                if usd_size < 10_000:  # Only significant liquidations (x10-x100 leverage positions)
+                                if usd_size < 500:  # Filter out dust liquidations
                                     continue
                                 new_liqs.append({
                                     "coin": coin, "side": side,

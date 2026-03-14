@@ -714,7 +714,7 @@ function MarketPanel(props: {
     'linear-gradient(90deg, #3a3a5c, #4a4a6c)';
 
   const liqSizeColor = (usd: number) =>
-    usd >= 1_000_000 ? '#ff1744' : usd >= 500_000 ? '#ff4455' : usd >= 100_000 ? '#ff8c00' : usd >= 50_000 ? '#ffab00' : '#b0b0cc';
+    usd >= 1_000_000 ? '#ff1744' : usd >= 100_000 ? '#ff4455' : usd >= 10_000 ? '#ff8c00' : usd >= 1_000 ? '#ffab00' : '#b0b0cc';
 
   const formatLiqSize = (usd: number) =>
     usd >= 1_000_000 ? `$${(usd / 1_000_000).toFixed(2)}M` : usd >= 1_000 ? `$${(usd / 1_000).toFixed(1)}K` : `$${usd.toFixed(0)}`;
@@ -818,7 +818,7 @@ function MarketPanel(props: {
       {/* Column 3: Liquidation Tracker BTC/ETH — full height */}
       <div style={sectionStyle}>
         <div style={{ ...titleStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span>LIQUIDACIONES BTC / ETH — $10K+ POSITIONS</span>
+          <span>LIQUIDACIONES BTC / ETH — REAL-TIME</span>
           <span style={{ fontSize: '9px', color: '#00e676', fontWeight: 700, letterSpacing: '0' }}>● LIVE</span>
         </div>
 
