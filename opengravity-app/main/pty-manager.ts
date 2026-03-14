@@ -269,6 +269,15 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
           ? `\n\nCONTEXTO DE TU ÚLTIMA SESIÓN (continúa desde aquí):\n---\n${savedContext.slice(0, 1800)}\n---`
           : '';
 
+        // Helper: enable /voice after the init message is sent
+        const enableVoice = (delay: number) => {
+          setTimeout(() => {
+            if (sessions.has(termId)) {
+              sessions.get(termId)?.write('/voice\r');
+            }
+          }, delay);
+        };
+
         if (agentId === 'main' || agentId === 'claude-main') {
           // Send Enter to skip Claude's startup screen
           setTimeout(() => {
@@ -281,6 +290,7 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
               }
             }
           }, 300);
+          enableVoice(contextSnippet ? 2000 : 1000);
         } else {
           const agentFile = findAgentFile(agentId);
           if (agentFile) {
@@ -292,12 +302,16 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
                 sessions.get(termId)?.write(initMsg);
               }
             }, 300);
+            enableVoice(2000);
           } else if (contextSnippet) {
             setTimeout(() => {
               if (sessions.has(termId)) {
                 sessions.get(termId)?.write(`Bienvenido de vuelta.${contextSnippet}\r`);
               }
             }, 300);
+            enableVoice(2000);
+          } else {
+            enableVoice(1000);
           }
         }
       }, 5000); // Wait 5s for Claude to initialize
