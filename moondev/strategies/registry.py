@@ -167,6 +167,18 @@ STRATEGIES: List[StrategyEntry] = [
               "Considerar aumentar zscore_window a 1008 barras (168 dias) o hedge ratio beta dinamico.",
     ),
     StrategyEntry(
+        name="VolatilitySqueezeV4",
+        module="moondev.strategies.volatility_squeeze_v4",
+        class_name="VolatilitySqueezeV4",
+        status=StrategyStatus.LABORATORY,
+        viable_assets=[],
+        timeframe="1h",
+        notes="Fusión V1+V2+V3 + DI+/DI- direction confirmation + EMA50 trend filter. "
+              "BB 1.8std (V3) + KC 1.5mult (V3) + ADX>20 (V2) + volume filter (V3) + "
+              "min_squeeze_bars=3 (más estricto) + SL 2.0x / TP 4.0x (V2). "
+              "Pendiente de multi-test. Objetivo: Sharpe >2.0, DD <5%.",
+    ),
+    StrategyEntry(
         name="ORBStrategy",
         module="moondev.strategies.orb_strategy",
         class_name="ORBStrategy",
