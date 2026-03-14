@@ -582,55 +582,53 @@ def cancel_all(client) -> dict:
     return client.cancel_all()
 ```
 
-## Script de Inicio Rápido
+## Paper Trading (Modo por defecto — sin dinero real)
+
+El paper trader usa datos 100% reales de Polymarket pero NO ejecuta órdenes reales.
+Registra posiciones virtuales, calcula P&L cuando los mercados resuelven, y genera
+reportes de performance para validar el edge detector antes de operar con capital real.
 
 ```bash
-# 1. Instalar dependencias
-pip install py-clob-client httpx python-dotenv 2>/dev/null | tail -2
+SCRIPT="scripts/polymarket/paper_trader.py"
 
-# 2. Scan de mercados top (sin auth)
-python3 -c "
-import httpx, json
-r = httpx.get('https://gamma-api.polymarket.com/markets',
-    params={'active': True, 'closed': False, 'limit': 30, '_sort': 'volume:desc'},
-    timeout=15)
-markets = r.json()
-print('=== TOP MERCADOS POLYMARKET ===')
-for m in markets[:15]:
-    vol = float(m.get('volume', 0) or 0)
-    liq = float(m.get('liquidity', 0) or 0)
-    if liq > 2000:
-        print(f'  [{vol:>10,.0f} vol] [{liq:>8,.0f} liq] {m[\"question\"][:75]}')
-"
+# Instalar dependencia única
+pip install httpx 2>/dev/null | tail -1
 
-# 3. Análisis de edge en top mercados
-python3 -c "
-import httpx
-GAMMA = 'https://gamma-api.polymarket.com'
-CLOB  = 'https://clob.polymarket.com'
-markets = httpx.get(f'{GAMMA}/markets',
-    params={'active': True, 'closed': False, 'limit': 20, '_sort': 'volume:desc'},
-    timeout=15).json()
-
-print('=== ANÁLISIS DE PRECIOS ===')
-for m in markets[:10]:
-    tokens = m.get('tokens', [])
-    if len(tokens) < 2: continue
-    yes_id = tokens[0]['token_id']
-    try:
-        ob = httpx.get(f'{CLOB}/orderbook/{yes_id}', timeout=8).json()
-        bids = [(float(b['price']), float(b['size'])) for b in ob.get('bids', [])]
-        asks = [(float(a['price']), float(a['size'])) for a in ob.get('asks', [])]
-        if not bids or not asks: continue
-        bb = max(bids, key=lambda x: x[0])[0]
-        ba = min(asks, key=lambda x: x[0])[0]
-        mid = (bb + ba) / 2
-        spread = ba - bb
-        liq = float(m.get('liquidity', 0) or 0)
-        print(f'  YES={mid:.2%} spread={spread:.4f} liq=\${liq:,.0f} | {m[\"question\"][:60]}')
-    except: pass
-"
+# Comandos del paper trader
+python $SCRIPT scan        # Escanear mercados, detectar edge, abrir posiciones virtuales
+python $SCRIPT status      # Ver posiciones abiertas con P&L actualizado
+python $SCRIPT resolve     # Resolver mercados cerrados, actualizar banco virtual
+python $SCRIPT report      # Reporte completo: win rate, ROI, análisis por fuente de edge
+python $SCRIPT loop 30     # Scan automático cada 30 minutos (modo daemon)
+python $SCRIPT scan-only   # Solo ver señales sin abrir posiciones
 ```
+
+### Inicio al activarse (SIEMPRE ejecutar en este orden):
+
+```bash
+cd /path/al/proyecto  # ir al directorio del proyecto
+
+# 1. Verificar dependencias
+pip install httpx 2>/dev/null | tail -1
+
+# 2. Ver estado actual del paper portfolio
+python scripts/polymarket/paper_trader.py status
+
+# 3. Resolver cualquier mercado que haya cerrado
+python scripts/polymarket/paper_trader.py resolve
+
+# 4. Scan de nuevas oportunidades
+python scripts/polymarket/paper_trader.py scan
+
+# 5. Reporte de performance (si hay trades cerrados)
+python scripts/polymarket/paper_trader.py report
+```
+
+### Criterios para escalar a real:
+- Mínimo **20 trades cerrados** antes de evaluar
+- **Win rate ≥ 55%** sostenido
+- **P&L total positivo** (no importa si es pequeño)
+- El `report` muestra diagnóstico automático
 
 ## Flujo de Trabajo Diario
 
