@@ -219,7 +219,6 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       startAutoSave(); // Ensure periodic context saving is running
 
       // Forward PTY output to renderer + accumulate in buffer
-      // Also detect when Claude is ready (shows prompt) to auto-enable /voice
       ptyProcess.onData((data: string) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('pty-data', termId, data);
@@ -268,8 +267,6 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       setTimeout(() => {
         releaseSpawnSlot();
       }, 5000);
-      // Voice is auto-enabled via voiceEnabled:true in ~/.claude/settings.json
-
       return { success: true };
     } catch (error) {
       releaseSpawnSlot();
