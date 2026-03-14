@@ -33,6 +33,13 @@ try:
     SIGNALS_AVAILABLE = True
 except ImportError:
     SIGNALS_AVAILABLE = False
+
+# Wallet tracker — confluence scoring
+try:
+    from wallet_tracker import get_confluence_score
+    WALLET_TRACKER_AVAILABLE = True
+except ImportError:
+    WALLET_TRACKER_AVAILABLE = False
 from pathlib import Path
 from statistics import mean, stdev
 from typing import Optional
@@ -1253,6 +1260,8 @@ def cmd_scan(auto_open=True):
     if auto_open:
         print(f"\n  {'-'*63}")
         print(f"  Abriendo posiciones (max 5 por scan)...")
+        if WALLET_TRACKER_AVAILABLE:
+            print(f"  🔗 Wallet tracker activo — confluence scoring habilitado")
         opened = 0
         available = db["bank"] - db["deployed"]
 
@@ -1266,10 +1275,33 @@ def cmd_scan(auto_open=True):
                 print(f"  [skip] Ya en posición: {s['question'][:50]}")
                 continue
 
-            # Tamaño de posición con Bayesian Kelly
+            # ── Confluence scoring con smart wallets ──
+            confluence_mult = 1.0  # multiplicador neutral por defecto
+            if WALLET_TRACKER_AVAILABLE:
+                try:
+                    conf = get_confluence_score(s["condition_id"])
+                    s["confluence"] = conf
+                    sm_dir = conf.get("direction", "MIXED")
+                    sm_score = conf.get("score", 0)
+                    bot_dir = "YES" if s["direction"] == "BUY_YES" else "NO"
+
+                    if sm_score >= 30:
+                        if sm_dir == bot_dir:
+                            # Smart money confirma → boost size hasta +50%
+                            confluence_mult = 1.0 + min(0.5, sm_score / 100)
+                            print(f"  🟢 Confluencia +{(confluence_mult-1)*100:.0f}% ({conf['wallets_aligned']} wallets alineadas)")
+                        elif sm_dir != "MIXED" and sm_dir != bot_dir:
+                            # Smart money contradice → reducir size 50%
+                            confluence_mult = 0.5
+                            print(f"  🔴 Smart money contradice ({sm_dir} vs {bot_dir}) → size -50%")
+                except Exception:
+                    pass  # Fallo silencioso, operar sin confluence
+
+            # Tamaño de posición con Bayesian Kelly × confluence
             primary = s["checks"][0]["source"]
             kelly_f = bk.kelly_fraction(primary, s["entry_price"], edge=s["composite_edge"])
             pos_usd = min(kelly_f * STARTING_BANK, MAX_POSITION)
+            pos_usd *= confluence_mult  # Aplicar multiplicador de smart money
             available = db["bank"] - db["deployed"]
             pos_usd = min(pos_usd, available * 0.5, MAX_POSITION)
 

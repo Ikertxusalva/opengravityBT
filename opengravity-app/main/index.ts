@@ -136,6 +136,7 @@ ipcMain.handle('vault-set', async (_event, key: string, value: string) => {
     'POLYMARKET_PK', 'POLYMARKET_FUNDER',
     'POLYMARKET_API_KEY', 'POLYMARKET_API_SECRET', 'POLYMARKET_API_PASSPHRASE',
     'OPENGRAVITY_API_TOKEN',
+    'ETHERSCAN_API_KEY',
   ];
   if (!ALLOWED_KEYS.includes(key)) return { ok: false, error: 'Key not allowed' };
   await Vault.set(key, value);
@@ -181,7 +182,17 @@ function readPolymarketData() {
     scanReport = JSON.parse(fs.readFileSync(path.join(POLY_DATA_DIR, 'market_analysis_report.json'), 'utf-8'));
   } catch {}
 
-  return { portfolio, log, priors, scanReport };
+  let trackedWallets: any[] = [];
+  try {
+    trackedWallets = JSON.parse(fs.readFileSync(path.join(POLY_DATA_DIR, 'tracked_wallets.json'), 'utf-8'));
+  } catch {}
+
+  let walletPositions: any = {};
+  try {
+    walletPositions = JSON.parse(fs.readFileSync(path.join(POLY_DATA_DIR, 'wallet_positions.json'), 'utf-8'));
+  } catch {}
+
+  return { portfolio, log, priors, scanReport, trackedWallets, walletPositions };
 }
 
 ipcMain.handle('polymarket-data', async () => readPolymarketData());
@@ -257,6 +268,37 @@ ipcMain.handle('polymarket-toggle', async () => {
 
 // Get current bot status
 ipcMain.handle('polymarket-status', async () => ({ enabled: polyBotEnabled }));
+
+// ── Wallet Tracker ──────────────────────────────────────────────────────────
+const WALLET_TRACKER_SCRIPT = path.join(process.cwd(), 'scripts', 'polymarket', 'wallet_tracker.py');
+
+ipcMain.handle('polymarket-wallet-discover', async () => {
+  const { execFile } = require('child_process');
+  return new Promise((resolve) => {
+    execFile('python', [WALLET_TRACKER_SCRIPT, 'discover'], {
+      cwd: POLY_CWD, timeout: 120_000, env: { ...process.env },
+    }, (error: any) => {
+      if (!error && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('polymarket-update', readPolymarketData());
+      }
+      resolve(error ? { ok: false, error: error.message } : { ok: true });
+    });
+  });
+});
+
+ipcMain.handle('polymarket-wallet-update', async () => {
+  const { execFile } = require('child_process');
+  return new Promise((resolve) => {
+    execFile('python', [WALLET_TRACKER_SCRIPT, 'update'], {
+      cwd: POLY_CWD, timeout: 120_000, env: { ...process.env },
+    }, (error: any) => {
+      if (!error && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('polymarket-update', readPolymarketData());
+      }
+      resolve(error ? { ok: false, error: error.message } : { ok: true });
+    });
+  });
+});
 
 // Watch data files for real-time push to renderer
 let polyWatcher: fs.FSWatcher | null = null;

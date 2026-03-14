@@ -400,7 +400,7 @@ function PolymarketPanel() {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)' }}>Cargando datos Polymarket...</div>;
   }
 
-  const { portfolio, log, priors, scanReport } = data;
+  const { portfolio, log, priors, scanReport, trackedWallets, walletPositions } = data;
   const positions: any[] = portfolio?.positions || [];
   const closed: any[] = portfolio?.closed || [];
   const stats = portfolio?.stats || {};
@@ -667,6 +667,108 @@ function PolymarketPanel() {
           </div>
 
         </div>
+      </div>
+
+      {/* ── Smart Money Radar ── */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+        <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '11px', letterSpacing: '0.08em', color: 'var(--muted)' }}>
+            SMART MONEY RADAR ({(trackedWallets || []).length} wallets)
+          </span>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button
+              onClick={async () => { const e = (window as any).electron; await e?.polymarket?.walletDiscover?.(); }}
+              title="Descubrir nuevas wallets del leaderboard"
+              style={{ padding: '3px 8px', fontSize: '9px', fontWeight: 600, background: '#1a1a2e', color: 'var(--neon-cyan)', border: '1px solid var(--border)', borderRadius: '3px', cursor: 'pointer' }}
+            >DISCOVER</button>
+            <button
+              onClick={async () => { const e = (window as any).electron; await e?.polymarket?.walletUpdate?.(); }}
+              title="Actualizar posiciones de wallets tracked"
+              style={{ padding: '3px 8px', fontSize: '9px', fontWeight: 600, background: '#1a1a2e', color: 'var(--neon-green)', border: '1px solid var(--border)', borderRadius: '3px', cursor: 'pointer' }}
+            >UPDATE</button>
+          </div>
+        </div>
+
+        {(!trackedWallets || trackedWallets.length === 0) ? (
+          <div style={{ padding: '16px', color: 'var(--muted)', fontSize: '12px', textAlign: 'center' }}>
+            Sin wallets tracked. Pulsa DISCOVER para escanear el leaderboard.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0', maxHeight: '220px', overflowY: 'auto' }}>
+            {/* Left: Top wallets table */}
+            <div style={{ borderRight: '1px solid var(--border)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                <thead>
+                  <tr style={{ color: 'var(--muted)', fontSize: '9px' }}>
+                    {['WALLET', 'PnL', 'WR%', 'TRADES', 'STATUS'].map(h => (
+                      <th key={h} style={{ padding: '4px 6px', textAlign: h === 'WALLET' ? 'left' : 'right', fontWeight: 400, borderBottom: '1px solid var(--border)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(trackedWallets || []).slice(0, 15).map((w: any, i: number) => (
+                    <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle, #1a1a2e)' }}>
+                      <td style={{ padding: '3px 6px', fontFamily: 'monospace', fontSize: '9px' }} title={w.address}>
+                        {w.address ? `${w.address.slice(0, 6)}...${w.address.slice(-4)}` : '—'}
+                      </td>
+                      <td style={{ padding: '3px 6px', textAlign: 'right', color: (w.pnl ?? 0) >= 0 ? 'var(--neon-green)' : 'var(--red)' }}>
+                        ${(w.pnl ?? 0).toFixed(0)}
+                      </td>
+                      <td style={{ padding: '3px 6px', textAlign: 'right', color: (w.win_rate ?? 0) >= 60 ? 'var(--neon-green)' : 'var(--muted)' }}>
+                        {((w.win_rate ?? 0) * 100).toFixed(0)}%
+                      </td>
+                      <td style={{ padding: '3px 6px', textAlign: 'right', color: 'var(--muted)' }}>{w.trades ?? 0}</td>
+                      <td style={{ padding: '3px 6px', textAlign: 'right' }}>
+                        <span style={{
+                          fontSize: '8px', padding: '1px 4px', borderRadius: '3px', fontWeight: 600,
+                          background: w.validated ? '#00e67622' : '#ffab0022',
+                          color: w.validated ? '#00e676' : '#ffab00',
+                        }}>
+                          {w.validated ? 'VALID' : 'TRACK'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Right: Smart money positions / hot markets */}
+            <div>
+              <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--border)', fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.06em' }}>
+                HOT MARKETS (smart money concentración)
+              </div>
+              {(() => {
+                const positions = walletPositions?.positions || walletPositions || {};
+                const markets: Record<string, { yes: number; no: number; total: number; question: string }> = {};
+                for (const [, wp] of Object.entries(positions)) {
+                  const wPositions = Array.isArray(wp) ? wp : (wp as any)?.positions || [];
+                  for (const p of wPositions) {
+                    const cid = p.condition_id || p.market || '';
+                    if (!cid) continue;
+                    if (!markets[cid]) markets[cid] = { yes: 0, no: 0, total: 0, question: p.question || cid.slice(0, 20) };
+                    const dir = (p.direction || '').toUpperCase();
+                    if (dir.includes('YES') || dir === 'BUY') markets[cid].yes++;
+                    else markets[cid].no++;
+                    markets[cid].total++;
+                  }
+                }
+                const sorted = Object.entries(markets).sort(([, a], [, b]) => b.total - a.total).slice(0, 8);
+                if (sorted.length === 0) {
+                  return <div style={{ padding: '12px', color: 'var(--muted)', fontSize: '11px', textAlign: 'center' }}>Sin datos de posiciones. Pulsa UPDATE.</div>;
+                }
+                return sorted.map(([cid, m]) => (
+                  <div key={cid} style={{ padding: '4px 8px', borderBottom: '1px solid var(--border-subtle, #1a1a2e)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.question}>{m.question}</span>
+                    <span style={{ color: 'var(--neon-green)', fontWeight: 600 }}>{m.yes}Y</span>
+                    <span style={{ color: 'var(--neon-orange)', fontWeight: 600 }}>{m.no}N</span>
+                    <span style={{ color: 'var(--muted)', fontSize: '9px' }}>{m.total}w</span>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
