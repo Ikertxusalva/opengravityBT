@@ -7,30 +7,32 @@
   box-sizing: border-box;
 }
 
-/* ── TokyoNight Color Tokens ── */
+/* ── Moon Dev System Colors ── */
 :root {
   --bg: #000000;
   --bg-alt: #050505;
-  --sidebar: #090909;
-  --surface: #111111;
-  --surface-hover: #181818;
-  --border: #1e1e1e;
-  --hover: #0d0d0d;
-  --text: #c0caf5;
-  --text-secondary: #a9b1d6;
-  --muted: #565f89;
-  --subtle: #414868;
-  --accent: #7aa2f7;
-  --accent-hover: #89b4fa;
-  --green: #9ece6a;
-  --green-dim: #41a6b5;
-  --red: #f7768e;
-  --yellow: #e0af68;
-  --orange: #ff9e64;
-  --purple: #bb9af7;
-  --pink: #ff007c;
-  --cyan: #73daca;
+  --sidebar: #050505;
+  --surface: #0a0a0a;
+  --surface-hover: #121212;
+  --border: #161616;
+  --hover: #080808;
+  --text: #ffffff;
+  --text-secondary: #999999;
+  --muted: #444444;
+  --subtle: #222222;
+  
+  /* Neon Palette */
+  --accent: #bc8cff; /* Purple */
+  --accent-hover: #d2a8ff;
+  --neon-pink: #ff007c;
+  --neon-purple: #bc8cff;
+  --neon-blue: #388bfd;
+  --neon-green: #3fb950;
+  --neon-orange: #ff9e64;
+  --neon-cyan: #39d2c0;
+
   --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --red: #ff4d4f;
 }
 
 html, body {
@@ -53,9 +55,10 @@ html, body {
 
 /* ── Gradient Accent Bar (top) ── */
 .accent-bar {
-  height: 2px;
-  background: linear-gradient(90deg, #7aa2f7, #bb9af7, #73daca, #9ece6a);
+  height: 1px;
+  background: linear-gradient(90deg, var(--neon-purple), var(--neon-pink), var(--neon-blue), var(--neon-green));
   flex-shrink: 0;
+  opacity: 0.6;
 }
 
 /* ── Top Navigation Bar ── */
@@ -181,7 +184,80 @@ html, body {
   color: var(--subtle);
   font-size: 11px;
   font-family: var(--font-mono);
+  margin: 0 10px;
   -webkit-app-region: no-drag;
+}
+
+/* ── Cloud Indicator ── */
+.cloud-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  height: 24px;
+  border-radius: 12px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  -webkit-app-region: no-drag;
+}
+
+.cloud-indicator .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--muted);
+}
+
+.cloud-indicator.connected .dot {
+  background-color: var(--neon-green);
+  box-shadow: 0 0 8px var(--neon-green);
+}
+
+.cloud-indicator.connecting .dot {
+  background-color: var(--neon-orange);
+  animation: pulse-orange 1.5s infinite;
+}
+
+.cloud-indicator.disconnected .dot {
+  background-color: var(--red);
+}
+
+.cloud-indicator .cloud-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+
+.cloud-indicator.connected .cloud-label { color: var(--neon-green); }
+.cloud-indicator.connecting .cloud-label { color: var(--neon-orange); }
+.cloud-indicator.disconnected .cloud-label { color: var(--red); }
+
+@keyframes pulse-orange {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Price Ticker ── */
+.price-ticker {
+  display: flex;
+  gap: 14px;
+  padding: 0 12px;
+  -webkit-app-region: no-drag;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.price-ticker span {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.price-ticker b {
+  color: var(--neon-green);
+  font-weight: 700;
 }
 
 /* ── Window Controls ── */
@@ -289,6 +365,10 @@ html, body {
   background-color: var(--bg);
 }
 
+.tab-icon {
+  font-size: 14px;
+}
+
 .tab-item .tab-close {
   width: 14px;
   height: 14px;
@@ -318,11 +398,16 @@ html, body {
 .terminal-panel {
   background-color: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 4px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  transition: all 0.2s ease;
+}
+
+.terminal-panel:hover {
+  border-color: var(--muted);
 }
 
 .terminal-panel .terminal-header {
@@ -351,8 +436,15 @@ html, body {
 
 .terminal-panel .terminal-title {
   font-size: 11px;
-  color: var(--text-secondary);
+  font-weight: 700;
+  color: var(--text);
   font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.terminal-panel .terminal-icon {
+  font-size: 14px;
 }
 
 .terminal-panel .terminal-model {
@@ -559,9 +651,14 @@ html, body {
   background-color: var(--accent);
 }
 
+.agent-option .agent-icon {
+  font-size: 16px;
+}
+
 .agent-option .agent-name {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
   flex: 1;
 }
 

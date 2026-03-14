@@ -1,140 +1,86 @@
 import * as React from 'react';
 import Head from 'next/head';
 
-const { useState, useEffect, useCallback, useRef } = React;
-
-// ── Agent definitions (from RBI's sidebar.py + moon-dev agents) ──
+// ── Agent definitions ──
 const AGENTS = [
-  { id: 'claude-main', name: 'Claude (Principal)', model: 'sonnet', description: 'Orquestador principal' },
-  { id: 'trading-agent', name: 'Trading Agent', model: 'sonnet', description: 'Decisiones de compra/venta' },
-  { id: 'risk-agent', name: 'Risk Agent', model: 'sonnet', description: 'Métricas avanzadas y VaR' },
-  { id: 'strategy-agent', name: 'Strategy Agent', model: 'sonnet', description: 'Ciclo de vida de estrategias' },
-  { id: 'rbi-agent', name: 'RBI Agent', model: 'sonnet', description: 'Investigación de estrategias' },
-  { id: 'solana-agent', name: 'Solana Agent', model: 'sonnet', description: 'Selector meme coins' },
-  { id: 'sniper-agent', name: 'Sniper Agent', model: 'sonnet', description: 'Sniping tokens nuevos' },
-  { id: 'sentiment-agent', name: 'Sentiment Agent', model: 'sonnet', description: 'Social sentiment' },
-  { id: 'copy-agent', name: 'Copy Agent', model: 'sonnet', description: 'Mirror trading' },
-  { id: 'whale-agent', name: 'Whale Agent', model: 'sonnet', description: 'Rastreo de ballenas' },
-  { id: 'swarm-agent', name: 'Swarm Agent', model: 'opus', description: 'Orquestador multi-agente' },
-  { id: 'regime-interpreter', name: 'Regime Interpreter', model: 'sonnet', description: 'Detección de régimen HMM' },
-  { id: 'backtest-engineer', name: 'Backtest Engineer', model: 'sonnet', description: 'Ejecuta y valida backtests' },
-  { id: 'tiktok-agent', name: 'TikTok Agent', model: 'haiku', description: 'Arbitraje social' },
+  { id: 'claude-main', name: 'Claude (Principal)', icon: '🤖', model: 'sonnet', description: 'Orquestador principal' },
+  { id: 'trading-agent', name: 'Trading Agent', icon: '📈', model: 'sonnet', description: 'Decisiones de compra/venta' },
+  { id: 'risk-agent', name: 'Risk Agent', icon: '🛡️', model: 'sonnet', description: 'Métricas avanzadas y VaR' },
+  { id: 'strategy-agent', name: 'Strategy Agent', icon: '📋', model: 'sonnet', description: 'Ciclo de vida de estrategias' },
+  { id: 'rbi-agent', name: 'RBI Agent', icon: '🧪', model: 'sonnet', description: 'Investigación de estrategias' },
+  { id: 'solana-agent', name: 'Solana Agent', icon: '🟣', model: 'sonnet', description: 'Selector meme coins' },
+  { id: 'sniper-agent', name: 'Sniper Agent', icon: '🎯', model: 'sonnet', description: 'Sniping tokens nuevos' },
+  { id: 'sentiment-agent', name: 'Sentiment Agent', icon: '🧠', model: 'sonnet', description: 'Social sentiment' },
+  { id: 'copy-agent', name: 'Copy Agent', icon: '👥', model: 'sonnet', description: 'Mirror trading' },
+  { id: 'whale-agent', name: 'Whale Agent', icon: '🐳', model: 'sonnet', description: 'Rastreo de ballenas' },
+  { id: 'swarm-agent', name: 'Swarm Agent', icon: '🐝', model: 'opus', description: 'Orquestador multi-agente' },
+  { id: 'regime-interpreter', name: 'Regime Interpreter', icon: '📊', model: 'sonnet', description: 'Detección de régimen HMM' },
+  { id: 'backtest-engineer', name: 'Backtest Engineer', icon: '⚙️', model: 'sonnet', description: 'Ejecuta y valida backtests' },
+  { id: 'tiktok-agent', name: 'TikTok Agent', icon: '📱', model: 'haiku', description: 'Arbitraje social' },
 ];
 
-// ── Startup terminals: same as RBI's _auto_open_startup_terminals ──
 const STARTUP_AGENTS = [
   { agentId: 'claude-main', delay: 400 },
   { agentId: 'claude-main', delay: 750 },
 ];
 
-// ── Terminal type ──
 interface TerminalState {
   id: string;
   agentId: string;
   agentName: string;
+  agentIcon: string;
   model: string;
 }
 
-// ── xterm.js dynamic import (only works in browser) ──
+// Global xterm refs
 let Terminal: any = null;
 let FitAddon: any = null;
 let WebLinksAddon: any = null;
 
 if (typeof window !== 'undefined') {
-  // Dynamic imports for xterm.js
   import('xterm').then(mod => { Terminal = mod.Terminal; });
   import('xterm-addon-fit').then(mod => { FitAddon = mod.FitAddon; });
   import('xterm-addon-web-links').then(mod => { WebLinksAddon = mod.WebLinksAddon; });
 }
 
 export default function HomePage() {
-  const [terminals, setTerminals] = useState<TerminalState[]>([]);
-  const [activeTab, setActiveTab] = useState<string | null>(null);
-  const [isGridView, setIsGridView] = useState(true);
-  const [showPicker, setShowPicker] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [clock, setClock] = useState('');
-  const [cloudStatus, setCloudStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
-  const [prices, setPrices] = useState<Record<string, number>>({});
-  const startupDoneRef = useRef(false);
-  const wsRef = useRef<WebSocket | null>(null);
+  const [terminals, setTerminals] = React.useState<TerminalState[]>([]);
+  const [activeTab, setActiveTab] = React.useState<string | null>(null);
+  const [isGridView, setIsGridView] = React.useState(true);
+  const [showPicker, setShowPicker] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [clock, setClock] = React.useState('');
+  const [cloudStatus, setCloudStatus] = React.useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  const [prices, setPrices] = React.useState<Record<string, number>>({});
+  
+  const startupDoneRef = React.useRef(false);
+  const wsRef = React.useRef<WebSocket | null>(null);
+  const tokenRef = React.useRef<string | null>(null);
 
-  // Clock
-  useEffect(() => {
+  React.useEffect(() => {
+    const electron = (window as any).electron;
+    if (electron?.vault?.get) {
+      electron.vault.get('OPENGRAVITY_API_TOKEN').then((t: string) => { tokenRef.current = t; });
+    }
+  }, []);
+
+  React.useEffect(() => {
     const tick = () => {
-      const now = new Date();
-      setClock(now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setClock(new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     };
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // ── Auto-open 2 Claude terminals on startup (same as RBI showEvent) ──
-  useEffect(() => {
-    if (startupDoneRef.current) return;
-    startupDoneRef.current = true;
-
-    STARTUP_AGENTS.forEach(({ agentId, delay }) => {
-      setTimeout(() => addTerminal(agentId), delay);
-    });
-  }, []);
-
-  // ── Cloud WebSocket Connection ──
-  useEffect(() => {
-    // Railway URL will be provided by user or found in env
-    const railwayUrl = process.env.NEXT_PUBLIC_RAILWAY_WS_URL || 'ws://localhost:8080/ws';
-
-    const connect = () => {
-      setCloudStatus('connecting');
-      const ws = new WebSocket(railwayUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setCloudStatus('connected');
-        ws.send(JSON.stringify({ type: 'subscribe', symbols: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'] }));
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'price_update') {
-            setPrices(prev => ({ ...prev, [data.symbol]: data.price }));
-          }
-        } catch {}
-      };
-
-      ws.onclose = () => {
-        setCloudStatus('disconnected');
-        setTimeout(connect, 5000); // Reconnect
-      };
-
-      ws.onerror = () => ws.close();
-    };
-
-    connect();
-    return () => wsRef.current?.close();
-  }, []);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === 't') { e.preventDefault(); setShowPicker(true); }
-      if (e.ctrlKey && e.key === 'g') { e.preventDefault(); setIsGridView(v => !v); }
-      if (e.ctrlKey && e.key === 'w') { e.preventDefault(); closeActiveTerminal(); }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [terminals, activeTab]);
-
-  // ── Actions ──
-  const addTerminal = useCallback((agentId: string) => {
+  const addTerminal = React.useCallback((agentId: string) => {
     const agent = AGENTS.find(a => a.id === agentId) || AGENTS[0];
     const id = `term-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const newTerm: TerminalState = {
       id,
       agentId: agent.id,
       agentName: agent.name,
+      agentIcon: agent.icon,
       model: agent.model,
     };
     setTerminals(prev => [...prev, newTerm]);
@@ -143,86 +89,140 @@ export default function HomePage() {
     setSearchQuery('');
   }, []);
 
-  const closeTerminal = useCallback((id: string) => {
-    // Kill the PTY process
+  const closeTerminal = React.useCallback((id: string) => {
     (window as any).electron?.pty?.kill(id);
-
     setTerminals(prev => {
       const next = prev.filter(t => t.id !== id);
-      if (activeTab === id) {
-        setActiveTab(next.length > 0 ? next[next.length - 1].id : null);
-      }
+      if (activeTab === id) setActiveTab(next.length > 0 ? next[next.length - 1].id : null);
       return next;
     });
   }, [activeTab]);
 
-  const closeActiveTerminal = useCallback(() => {
+  const closeActiveTerminal = React.useCallback(() => {
     if (activeTab) closeTerminal(activeTab);
   }, [activeTab, closeTerminal]);
 
-  // ── Filter agents ──
+  React.useEffect(() => {
+    if (startupDoneRef.current) return;
+    startupDoneRef.current = true;
+    STARTUP_AGENTS.forEach(({ agentId, delay }) => {
+      setTimeout(() => addTerminal(agentId), delay);
+    });
+  }, [addTerminal]);
+
+  React.useEffect(() => {
+    const railwayUrl = 'wss://chic-encouragement-production.up.railway.app/ws';
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let alive = true;
+
+    const connect = () => {
+      if (!alive) return;
+      setCloudStatus('connecting');
+      try {
+        const ws = new WebSocket(railwayUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (!alive) { ws.close(); return; }
+          setCloudStatus('connected');
+          // Token is optional — server skips check if OPENGRAVITY_API_TOKEN not set on Railway
+          ws.send(JSON.stringify({
+            type: 'subscribe',
+            symbols: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
+            ...(tokenRef.current ? { token: tokenRef.current } : {}),
+          }));
+        };
+
+        ws.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.type === 'price_update') {
+              setPrices((prev: Record<string, number>) => ({ ...prev, [data.symbol]: data.price }));
+            }
+          } catch {}
+        };
+
+        ws.onclose = (ev) => {
+          console.info('[WS] Closed', ev.code, ev.reason);
+          setCloudStatus('disconnected');
+          if (alive) retryTimer = setTimeout(connect, 5000);
+        };
+
+        ws.onerror = (err) => {
+          console.warn('[WS] Error', err);
+          ws.close();
+        };
+      } catch (err) {
+        console.error('[WS] Failed to create WebSocket', err);
+        setCloudStatus('disconnected');
+        if (alive) retryTimer = setTimeout(connect, 5000);
+      }
+    };
+
+    connect();
+    return () => {
+      alive = false;
+      if (retryTimer) clearTimeout(retryTimer);
+      wsRef.current?.close();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 't') { e.preventDefault(); setShowPicker(true); }
+      if (e.ctrlKey && e.key === 'g') { e.preventDefault(); setIsGridView(v => !v); }
+      if (e.ctrlKey && e.key === 'w') { e.preventDefault(); closeActiveTerminal(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [terminals, activeTab, closeActiveTerminal]);
+
   const filteredAgents = AGENTS.filter(a =>
     !searchQuery || a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     a.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // ── Grid class ──
   const gridClass = `terminal-grid grid-${Math.min(terminals.length, 6)}`;
 
   return (
-    <>
+    <div className="app-container">
       <Head>
         <title>OpenGravity</title>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
       </Head>
 
-      {/* Gradient accent bar */}
       <div className="accent-bar" />
 
-      {/* Top Navigation Bar */}
       <nav className="top-nav">
         <span className="logo">OPENGRAVITY</span>
         <div className="separator" />
-
         <button className="nav-tab active">TERMINALS</button>
-
         <div className="nav-spacer" />
 
-        {/* Cloud Status */}
-        <div className={`cloud-indicator ${cloudStatus}`}>
-          <div className="dot" />
-          <span>{cloudStatus === 'connected' ? 'CLOUD ACTIVE' : cloudStatus.toUpperCase()}</span>
-          {cloudStatus === 'connected' && (
-            <div className="mini-prices">
-              {Object.entries(prices).map(([s, p]) => (
-                <span key={s}>{s.replace('USDT', '')}: ${p.toLocaleString()}</span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <button className="btn-new-terminal" onClick={() => setShowPicker(true)}>
-          +  Terminal
-        </button>
+        <button className="btn-new-terminal" onClick={() => setShowPicker(true)}>+ Terminal</button>
 
         {terminals.length > 0 && (
           <div className="view-toggle">
-            <button
-              className={!isGridView ? 'active' : ''}
-              onClick={() => setIsGridView(false)}
-              title="Vista tabs (Ctrl+G)"
-            >⊞</button>
-            <button
-              className={isGridView ? 'active' : ''}
-              onClick={() => setIsGridView(true)}
-              title="Vista grid (Ctrl+G)"
-            >⊟</button>
+            <button className={!isGridView ? 'active' : ''} onClick={() => setIsGridView(false)}>⊞</button>
+            <button className={isGridView ? 'active' : ''} onClick={() => setIsGridView(true)}>⊟</button>
           </div>
         )}
 
+        {Object.keys(prices).length > 0 && (
+          <div className="price-ticker">
+            {prices['BTCUSDT'] && <span>BTC <b>${prices['BTCUSDT'].toLocaleString()}</b></span>}
+            {prices['ETHUSDT'] && <span>ETH <b>${prices['ETHUSDT'].toLocaleString()}</b></span>}
+            {prices['SOLUSDT'] && <span>SOL <b>${prices['SOLUSDT'].toLocaleString()}</b></span>}
+          </div>
+        )}
+
+        <div className={`cloud-indicator ${cloudStatus}`} title={`Railway: ${cloudStatus.toUpperCase()}`}>
+          <div className="dot" />
+          <span className="cloud-label">{cloudStatus === 'connected' ? 'LIVE' : cloudStatus === 'connecting' ? '...' : 'OFF'}</span>
+        </div>
+
         <span className="clock">{clock}</span>
 
-        {/* Window controls (for frameless window) */}
         <div className="window-controls">
           <button onClick={() => (window as any).electron?.minimize()}>─</button>
           <button onClick={() => (window as any).electron?.maximize()}>□</button>
@@ -230,36 +230,24 @@ export default function HomePage() {
         </div>
       </nav>
 
-      {/* Main Area */}
       <div className="terminal-area">
         {terminals.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">⌨</div>
-            <div className="empty-text">No hay terminales abiertas</div>
-            <div className="empty-hint">Ctrl+T para abrir una nueva terminal</div>
-            <button className="empty-btn" onClick={() => setShowPicker(true)}>
-              +  Nueva Terminal
-            </button>
+            <button className="empty-btn" onClick={() => setShowPicker(true)}>+ Nueva Terminal</button>
           </div>
         ) : isGridView ? (
-          /* Grid View */
           <div className={gridClass}>
             {terminals.map(term => (
               <XTermPanel key={term.id} terminal={term} onClose={() => closeTerminal(term.id)} />
             ))}
           </div>
         ) : (
-          /* Tab View */
           <div className="terminal-tabs">
             <div className="tab-bar">
               {terminals.map(term => (
-                <div
-                  key={term.id}
-                  className={`tab-item ${activeTab === term.id ? 'active' : ''}`}
-                  onClick={() => setActiveTab(term.id)}
-                >
-                  <span>{term.agentName}</span>
-                  <button className="tab-close" onClick={(e) => { e.stopPropagation(); closeTerminal(term.id); }}>✕</button>
+                <div key={term.id} className={`tab-item ${activeTab === term.id ? 'active' : ''}`} onClick={() => setActiveTab(term.id)}>
+                  <span>{term.agentIcon} {term.agentName}</span>
                 </div>
               ))}
             </div>
@@ -272,133 +260,64 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Agent Picker Modal */}
       {showPicker && (
         <div className="modal-overlay" onClick={() => setShowPicker(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title">Selecciona un agente</div>
-              <input
-                className="modal-search"
-                placeholder="🔍  Buscar agente..."
-                autoFocus
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Escape') setShowPicker(false);
-                  if (e.key === 'Enter' && filteredAgents.length > 0) addTerminal(filteredAgents[0].id);
-                }}
-              />
-            </div>
+            <input
+              className="modal-search"
+              placeholder="🔍 Buscar agente..."
+              autoFocus
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
             <div className="modal-body">
               {filteredAgents.map(agent => (
                 <div key={agent.id} className="agent-option" onClick={() => addTerminal(agent.id)}>
-                  <div className="agent-indicator" />
-                  <span className="agent-name">{agent.name}</span>
-                  <span className={`agent-badge ${agent.model}`}>[{agent.model}]</span>
+                  <span>{agent.icon} {agent.name}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
-// ── XTerm Panel Component (real terminal with xterm.js + node-pty) ──
-const XTermPanel: React.FC<{
-  terminal: TerminalState;
-  onClose: () => void;
-  showHeader?: boolean;
-}> = ({ terminal, onClose, showHeader = true }) => {
-  const termRef = useRef<HTMLDivElement>(null);
-  const xtermRef = useRef<any>(null);
-  const fitAddonRef = useRef<any>(null);
+function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showHeader?: boolean }) {
+  const { terminal, onClose, showHeader = true } = props;
+  const xtermRef = React.useRef<HTMLDivElement>(null);
+  const termInstanceRef = React.useRef<any>(null);
+  const fitAddonRef = React.useRef<any>(null);
 
-  useEffect(() => {
-    if (!termRef.current || !Terminal) return;
-
-    // Create xterm.js instance (same theme as RBI's TERMINAL_HTML)
+  React.useEffect(() => {
+    if (!Terminal || !xtermRef.current) return;
     const xterm = new Terminal({
-      cursorBlink: true,
-      cursorStyle: 'bar',
-      cursorWidth: 2,
+      theme: { background: '#050505', foreground: '#ffffff' },
+      fontFamily: 'JetBrains Mono, monospace',
       fontSize: 13,
-      fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
-      fontWeight: '400',
-      fontWeightBold: '600',
-      lineHeight: 1.25,
-      scrollback: 3000,
-      allowProposedApi: true,
-      theme: {
-        background: '#000000',
-        foreground: '#e6edf3',
-        cursor: '#58a6ff',
-        cursorAccent: '#000000',
-        selectionBackground: 'rgba(88,166,255,0.25)',
-        black: '#333333',
-        red: '#ff7b72',
-        green: '#3fb950',
-        yellow: '#d29922',
-        blue: '#58a6ff',
-        magenta: '#bc8cff',
-        cyan: '#39d2c0',
-        white: '#e6edf3',
-        brightBlack: '#6e7681',
-        brightRed: '#ffa198',
-        brightGreen: '#56d364',
-        brightYellow: '#e3b341',
-        brightBlue: '#79c0ff',
-        brightMagenta: '#d2a8ff',
-        brightCyan: '#56d4dd',
-        brightWhite: '#f0f6fc',
-      },
     });
-
-    const fitAddon = new FitAddon();
-    xterm.loadAddon(fitAddon);
-
-    if (WebLinksAddon) {
-      xterm.loadAddon(new WebLinksAddon());
+    termInstanceRef.current = xterm;
+    if (FitAddon) {
+      const fit = new FitAddon();
+      fitAddonRef.current = fit;
+      xterm.loadAddon(fit);
     }
+    xterm.open(xtermRef.current);
+    fitAddonRef.current?.fit();
 
-    xterm.open(termRef.current);
-    fitAddon.fit();
-    xtermRef.current = xterm;
-    fitAddonRef.current = fitAddon;
-
-    // ── Connect to node-pty via IPC ──
     const electron = (window as any).electron;
-
-    // Forward xterm input to PTY
-    xterm.onData((data: string) => {
-      electron?.pty?.write(terminal.id, data);
-    });
-
-    // Forward xterm resize to PTY
-    xterm.onResize(({ cols, rows }: { cols: number; rows: number }) => {
-      electron?.pty?.resize(terminal.id, cols, rows);
-    });
-
-    // Receive PTY output
-    electron?.pty?.onData((termId: string, data: string) => {
-      if (termId === terminal.id && xtermRef.current) {
-        xtermRef.current.write(data);
-      }
-    });
-
-    // Create PTY session
+    xterm.onData((d: string) => electron?.pty?.write(terminal.id, d));
+    electron?.pty?.onData((id: string, d: string) => { if (id === terminal.id) xterm.write(d); });
     electron?.pty?.create(terminal.id, terminal.agentId, xterm.rows, xterm.cols);
 
-    // Auto-fit on container resize
-    const observer = new ResizeObserver(() => {
-      try { fitAddon.fit(); } catch {}
-    });
-    observer.observe(termRef.current);
-
+    const handleResize = () => {
+      fitAddonRef.current?.fit();
+      electron?.pty?.resize(terminal.id, termInstanceRef.current?.cols, termInstanceRef.current?.rows);
+    };
+    window.addEventListener('resize', handleResize);
     return () => {
-      observer.disconnect();
+      window.removeEventListener('resize', handleResize);
       xterm.dispose();
     };
   }, [terminal.id, terminal.agentId]);
@@ -407,16 +326,11 @@ const XTermPanel: React.FC<{
     <div className="terminal-panel">
       {showHeader && (
         <div className="terminal-header">
-          <div className="terminal-dot" />
-          <span className="terminal-title">{terminal.agentName}</span>
-          <span className="terminal-model">[{terminal.model}]</span>
-          <button className="terminal-close-btn" onClick={onClose}>✕</button>
+          <span>{terminal.agentIcon} {terminal.agentName}</span>
+          <button onClick={onClose}>✕</button>
         </div>
       )}
-      <div
-        ref={termRef}
-        style={{ flex: 1, overflow: 'hidden', background: '#000000' }}
-      />
+      <div className="terminal-body" ref={xtermRef} />
     </div>
   );
 }
