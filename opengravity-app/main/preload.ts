@@ -46,5 +46,11 @@ contextBridge.exposeInMainWorld('electron', {
   // Polymarket paper trading dashboard
   polymarket: {
     getData: () => ipcRenderer.invoke('polymarket-data'),
+    runBot: (command: string) => ipcRenderer.invoke('polymarket-run', command),
+    onUpdate: (callback: (data: any) => void) => {
+      const handler = (_event: any, data: any) => callback(data);
+      ipcRenderer.on('polymarket-update', handler);
+      return () => { ipcRenderer.removeListener('polymarket-update', handler); };
+    },
   },
 });

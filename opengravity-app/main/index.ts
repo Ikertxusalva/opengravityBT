@@ -154,17 +154,18 @@ ipcMain.on('window-close', () => {
   if (mainWindow) mainWindow.close();
 });
 
-ipcMain.handle('polymarket-data', async () => {
-  const dataDir = path.join(process.cwd(), 'scripts', 'polymarket', 'data');
+// ── Polymarket Data ──────────────────────────────────────────────────────────
+const POLY_DATA_DIR = path.join(process.cwd(), 'scripts', 'polymarket', 'data');
 
+function readPolymarketData() {
   let portfolio: any = {};
   try {
-    portfolio = JSON.parse(fs.readFileSync(path.join(dataDir, 'paper_positions.json'), 'utf-8'));
+    portfolio = JSON.parse(fs.readFileSync(path.join(POLY_DATA_DIR, 'paper_positions.json'), 'utf-8'));
   } catch {}
 
   let log: any[] = [];
   try {
-    const raw = fs.readFileSync(path.join(dataDir, 'paper_log.jsonl'), 'utf-8');
+    const raw = fs.readFileSync(path.join(POLY_DATA_DIR, 'paper_log.jsonl'), 'utf-8');
     log = raw.trim().split('\n').filter(Boolean).map(line => {
       try { return JSON.parse(line); } catch { return null; }
     }).filter(Boolean);
@@ -172,13 +173,67 @@ ipcMain.handle('polymarket-data', async () => {
 
   let priors: any = {};
   try {
-    priors = JSON.parse(fs.readFileSync(path.join(dataDir, 'bayesian_priors.json'), 'utf-8'));
+    priors = JSON.parse(fs.readFileSync(path.join(POLY_DATA_DIR, 'bayesian_priors.json'), 'utf-8'));
   } catch {}
 
   let scanReport: any = {};
   try {
-    scanReport = JSON.parse(fs.readFileSync(path.join(dataDir, 'market_analysis_report.json'), 'utf-8'));
+    scanReport = JSON.parse(fs.readFileSync(path.join(POLY_DATA_DIR, 'market_analysis_report.json'), 'utf-8'));
   } catch {}
 
   return { portfolio, log, priors, scanReport };
+}
+
+ipcMain.handle('polymarket-data', async () => readPolymarketData());
+
+// Run bot commands: scan, update, resolve, status
+ipcMain.handle('polymarket-run', async (_event, command: string) => {
+  const { execFile } = require('child_process');
+  const allowed = ['scan', 'scan-only', 'update', 'resolve', 'status', 'report'];
+  if (!allowed.includes(command)) return { ok: false, error: 'Invalid command' };
+
+  const scriptPath = path.join(process.cwd(), 'scripts', 'polymarket', 'paper_trader.py');
+  const pythonPath = 'python';
+
+  return new Promise((resolve) => {
+    execFile(pythonPath, [scriptPath, command], {
+      cwd: path.join(process.cwd(), 'scripts', 'polymarket'),
+      timeout: 120_000,
+      env: { ...process.env },
+    }, (error: any, stdout: string, stderr: string) => {
+      if (error) {
+        resolve({ ok: false, error: error.message, stderr, stdout });
+      } else {
+        // Re-read data after bot execution
+        const data = readPolymarketData();
+        resolve({ ok: true, stdout, data });
+      }
+    });
+  });
+});
+
+// Watch polymarket data files for changes → push to renderer
+let polyWatcher: fs.FSWatcher | null = null;
+let polyDebounce: ReturnType<typeof setTimeout> | null = null;
+
+function startPolymarketWatcher() {
+  if (polyWatcher) return;
+  try {
+    fs.mkdirSync(POLY_DATA_DIR, { recursive: true });
+    polyWatcher = fs.watch(POLY_DATA_DIR, (_eventType, filename) => {
+      if (!filename || !filename.endsWith('.json') && !filename.endsWith('.jsonl')) return;
+      // Debounce: wait 500ms after last change before pushing
+      if (polyDebounce) clearTimeout(polyDebounce);
+      polyDebounce = setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const data = readPolymarketData();
+          mainWindow.webContents.send('polymarket-update', data);
+        }
+      }, 500);
+    });
+  } catch {}
+}
+
+app.whenReady().then(() => {
+  startPolymarketWatcher();
 });

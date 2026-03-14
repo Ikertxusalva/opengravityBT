@@ -359,6 +359,8 @@ export default function HomePage() {
 function PolymarketPanel() {
   const [data, setData] = React.useState<any>(null);
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
+  const [botRunning, setBotRunning] = React.useState<string | null>(null);
+  const [botOutput, setBotOutput] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     const electron = (window as any).electron;
@@ -370,10 +372,41 @@ function PolymarketPanel() {
     } catch {}
   }, []);
 
+  const runBot = React.useCallback(async (command: string) => {
+    const electron = (window as any).electron;
+    if (!electron?.polymarket?.runBot || botRunning) return;
+    setBotRunning(command);
+    setBotOutput(null);
+    try {
+      const result = await electron.polymarket.runBot(command);
+      if (result.ok) {
+        setData(result.data);
+        setLastUpdated(new Date());
+        setBotOutput(`${command.toUpperCase()} completado`);
+      } else {
+        setBotOutput(`Error: ${result.error || result.stderr || 'Unknown'}`);
+      }
+    } catch (e: any) {
+      setBotOutput(`Error: ${e.message}`);
+    } finally {
+      setBotRunning(null);
+      setTimeout(() => setBotOutput(null), 5000);
+    }
+  }, [botRunning]);
+
   React.useEffect(() => {
     load();
     const interval = setInterval(load, 30000);
-    return () => clearInterval(interval);
+    // Listen for real-time file changes
+    const electron = (window as any).electron;
+    const unsub = electron?.polymarket?.onUpdate?.((newData: any) => {
+      setData(newData);
+      setLastUpdated(new Date());
+    });
+    return () => {
+      clearInterval(interval);
+      unsub?.();
+    };
   }, [load]);
 
   if (!data) {
@@ -431,20 +464,57 @@ function PolymarketPanel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', height: '100%', overflowY: 'auto', boxSizing: 'border-box' }}>
 
-      {/* ── Header Stats ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
-        {[
-          { label: 'BANK', value: `$${bank.toFixed(0)}`, color: 'var(--text-primary)' },
-          { label: 'DEPLOYED', value: `$${deployed.toFixed(0)}`, color: 'var(--neon-cyan)' },
-          { label: 'P&L TOTAL', value: `$${totalPnl.toFixed(2)}`, color: pnlColor(totalPnl) },
-          { label: 'WIN RATE', value: `${winRate}% (${stats.trades ?? 0} trades)`, color: winRate >= 50 ? 'var(--neon-green)' : 'var(--muted)' },
-          { label: 'ACTUALIZADO', value: lastUpdated ? lastUpdated.toLocaleTimeString('es-ES') : '—', color: 'var(--muted)' },
-        ].map(s => (
-          <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '10px 12px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '4px', letterSpacing: '0.05em' }}>{s.label}</div>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: s.color }}>{s.value}</div>
+      {/* ── Header: Stats + Bot Controls ── */}
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
+        {/* Stats cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', flex: 1 }}>
+          {[
+            { label: 'BANK', value: `$${bank.toFixed(0)}`, color: 'var(--text-primary)' },
+            { label: 'DEPLOYED', value: `$${deployed.toFixed(0)}`, color: 'var(--neon-cyan)' },
+            { label: 'P&L TOTAL', value: `$${totalPnl.toFixed(2)}`, color: pnlColor(totalPnl) },
+            { label: 'WIN RATE', value: `${winRate}% (${stats.trades ?? 0} trades)`, color: winRate >= 50 ? 'var(--neon-green)' : 'var(--muted)' },
+            { label: 'ACTUALIZADO', value: lastUpdated ? lastUpdated.toLocaleTimeString('es-ES') : '—', color: 'var(--muted)' },
+          ].map(s => (
+            <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '10px 12px' }}>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '4px', letterSpacing: '0.05em' }}>{s.label}</div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: s.color }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bot control panel */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '160px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.05em', marginBottom: '2px' }}>BOT CONTROL</div>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {([
+              { cmd: 'scan', label: 'SCAN', icon: '🔍', tip: 'Escanear mercados y abrir posiciones' },
+              { cmd: 'update', label: 'UPDATE', icon: '↻', tip: 'Actualizar precios y stop-loss' },
+              { cmd: 'resolve', label: 'RESOLVE', icon: '✓', tip: 'Cerrar mercados resueltos' },
+            ] as const).map(btn => (
+              <button
+                key={btn.cmd}
+                title={btn.tip}
+                disabled={!!botRunning}
+                onClick={() => runBot(btn.cmd)}
+                style={{
+                  flex: 1, padding: '4px 8px', fontSize: '10px', fontWeight: 600,
+                  background: botRunning === btn.cmd ? 'var(--neon-cyan)' : '#1a1a2e',
+                  color: botRunning === btn.cmd ? '#000' : 'var(--text-primary)',
+                  border: '1px solid var(--border)', borderRadius: '4px', cursor: botRunning ? 'wait' : 'pointer',
+                  opacity: botRunning && botRunning !== btn.cmd ? 0.4 : 1,
+                  transition: 'all 0.2s',
+                }}
+              >
+                {botRunning === btn.cmd ? '...' : `${btn.icon} ${btn.label}`}
+              </button>
+            ))}
           </div>
-        ))}
+          {botOutput && (
+            <div style={{ fontSize: '9px', color: botOutput.startsWith('Error') ? 'var(--red)' : 'var(--neon-green)', marginTop: '2px' }}>
+              {botOutput}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Two-column layout: positions + chart/signals ── */}
