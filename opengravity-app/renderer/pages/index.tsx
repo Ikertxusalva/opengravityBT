@@ -1013,17 +1013,36 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
       fitAddonRef.current = fit;
       xterm.loadAddon(fit);
     }
-    xterm.open(xtermRef.current);
-    // Defer fit to next frame — container may not have dimensions yet
-    requestAnimationFrame(() => {
-      try {
-        const el = xtermRef.current;
-        if (el && el.clientWidth > 0 && el.clientHeight > 0) {
-          fitAddonRef.current?.fit();
-        }
-      } catch {}
-      xterm.focus();
-    });
+    // xterm.open() crashes if container has 0 dimensions (hidden tab / grid not laid out yet).
+    // Wait until the container is actually visible before opening.
+    const openWhenReady = () => {
+      const el = xtermRef.current;
+      if (!el) return;
+      if (el.clientWidth > 0 && el.clientHeight > 0) {
+        try { xterm.open(el); } catch { return; }
+        requestAnimationFrame(() => {
+          try { fitAddonRef.current?.fit(); } catch {}
+          xterm.focus();
+        });
+      } else {
+        // Container not visible yet — poll until it is (e.g. tab switch, grid layout)
+        const poll = setInterval(() => {
+          const el2 = xtermRef.current;
+          if (!el2) { clearInterval(poll); return; }
+          if (el2.clientWidth > 0 && el2.clientHeight > 0) {
+            clearInterval(poll);
+            try { xterm.open(el2); } catch { return; }
+            requestAnimationFrame(() => {
+              try { fitAddonRef.current?.fit(); } catch {}
+              xterm.focus();
+            });
+          }
+        }, 100);
+        // Safety: stop polling after 10s
+        setTimeout(() => clearInterval(poll), 10_000);
+      }
+    };
+    openWhenReady();
 
     const electron = (window as any).electron;
 
@@ -1050,7 +1069,7 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
       if (id === terminal.id) xterm.write(d);
     });
 
-    electron?.pty?.create(terminal.id, terminal.agentId, xterm.rows, xterm.cols);
+    electron?.pty?.create(terminal.id, terminal.agentId, xterm.rows || 24, xterm.cols || 80);
 
     // Debounced fit helper — used by both window resize and ResizeObserver
     let resizeTimer: ReturnType<typeof setTimeout>;
@@ -1060,6 +1079,8 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
         try {
           const el = xtermRef.current;
           if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
+          // Only fit if terminal has been opened (element prop exists after open())
+          if (!termInstanceRef.current?.element) return;
           fitAddonRef.current?.fit();
           const cols = termInstanceRef.current?.cols;
           const rows = termInstanceRef.current?.rows;
