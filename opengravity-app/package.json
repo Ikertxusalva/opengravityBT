@@ -5,8 +5,9 @@
   "description": "OpenGravity Multi-Agent Terminal Dashboard",
   "main": "app/index.js",
   "scripts": {
-    "dev": "nextron",
-    "build": "nextron build",
+    "dev": "tsc -p main/tsconfig.json && nextron --run-only",
+    "dev:watch": "concurrently \"tsc -p main/tsconfig.json -w\" \"nextron --run-only\"",
+    "build": "tsc -p main/tsconfig.json && nextron build",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
