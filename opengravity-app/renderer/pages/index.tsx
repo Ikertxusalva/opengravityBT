@@ -67,6 +67,9 @@ export default function HomePage() {
   const [lastSwarmDecision, setLastSwarmDecision] = React.useState<{ decision: string; symbol: string; consensus_score: number } | null>(null);
   const [fundingRates, setFundingRates] = React.useState<Record<string, { h8_pct: number; annual_pct: number }>>({});
   const [topMovers, setTopMovers] = React.useState<{ gainers: { symbol: string; change_24h: number }[]; losers: { symbol: string; change_24h: number }[] } | null>(null);
+  const [hlPrices, setHlPrices] = React.useState<Record<string, number>>({});
+  const [liquidations, setLiquidations] = React.useState<{ coin: string; side: string; usd_size: number; time_ms: number }[]>([]);
+  const [whalePositions, setWhalePositions] = React.useState<{ longs: any[]; shorts: any[] } | null>(null);
   
   const startupDoneRef = React.useRef(false);
   const wsRef = React.useRef<WebSocket | null>(null);
@@ -167,6 +170,16 @@ export default function HomePage() {
               setFundingRates(data.rates || {});
             } else if (data.type === 'top_movers') {
               setTopMovers({ gainers: (data.gainers || []).slice(0, 3), losers: (data.losers || []).slice(0, 3) });
+            } else if (data.type === 'hl_prices') {
+              setHlPrices(prev => ({ ...prev, ...(data.prices || {}) }));
+              // Sync Binance prices from HL if not already present
+              if (data.prices?.BTC && !prices['BTCUSDT']) setPrices(prev => ({ ...prev, BTCUSDT: data.prices.BTC }));
+              if (data.prices?.ETH && !prices['ETHUSDT']) setPrices(prev => ({ ...prev, ETHUSDT: data.prices.ETH }));
+              if (data.prices?.SOL && !prices['SOLUSDT']) setPrices(prev => ({ ...prev, SOLUSDT: data.prices.SOL }));
+            } else if (data.type === 'liquidation_update') {
+              setLiquidations((data.liquidations || []).slice(0, 10));
+            } else if (data.type === 'whale_update') {
+              setWhalePositions({ longs: data.longs || [], shorts: data.shorts || [] });
             } else if (data.type === 'swarm_decision') {
               setLastSwarmDecision({ decision: data.decision, symbol: data.symbol, consensus_score: data.consensus_score });
               setSwarmStatus('decided');
@@ -285,6 +298,49 @@ export default function HomePage() {
             ))}
             {(topMovers.losers || []).slice(0, 2).map(l => (
               <span key={l.symbol} style={{ color: '#ff5252' }}>▼{l.symbol} <b>{l.change_24h}%</b></span>
+            ))}
+          </div>
+        )}
+
+        {Object.keys(hlPrices).length > 0 && (
+          <div className="hl-prices-ticker" title="HyperLiquid perpetuals — tiempo real">
+            {['DOGE', 'AVAX', 'LINK', 'ARB', 'SUI', 'WIF', 'HYPE'].filter(c => hlPrices[c]).slice(0, 4).map(coin => (
+              <span key={coin}>{coin} <b>${hlPrices[coin] < 1 ? hlPrices[coin].toFixed(5) : hlPrices[coin].toLocaleString()}</b></span>
+            ))}
+          </div>
+        )}
+
+        {liquidations.length > 0 && (
+          <div className="liquidations-ticker" title="Liquidaciones recientes — HyperLiquid">
+            {liquidations.slice(0, 3).map((liq, i) => {
+              const sizeStr = liq.usd_size >= 1_000_000
+                ? `$${(liq.usd_size / 1_000_000).toFixed(1)}M`
+                : liq.usd_size >= 1_000
+                ? `$${(liq.usd_size / 1_000).toFixed(0)}K`
+                : `$${liq.usd_size.toFixed(0)}`;
+              return (
+                <span key={i} style={{ color: liq.side === 'LONG' ? '#ff5252' : '#00e676' }}
+                  title={`${liq.coin} ${liq.side} liquidado: ${sizeStr}`}>
+                  ⚡{liq.coin} <b>{sizeStr}</b>
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {whalePositions && (whalePositions.longs.length > 0 || whalePositions.shorts.length > 0) && (
+          <div className="whale-ticker" title="Posiciones más apalancadas — Top traders HL">
+            {whalePositions.longs.slice(0, 2).map((p, i) => (
+              <span key={`wl${i}`} style={{ color: '#00e676' }}
+                title={`LONG ${p.coin} x${p.leverage} — $${(p.size_usd/1000).toFixed(0)}K — Liq: $${p.liq_px?.toFixed(0)} — Dist: ${p.dist_pct?.toFixed(1)}%`}>
+                🐳{p.coin} <b>x{p.leverage}L</b>
+              </span>
+            ))}
+            {whalePositions.shorts.slice(0, 1).map((p, i) => (
+              <span key={`ws${i}`} style={{ color: '#ff5252' }}
+                title={`SHORT ${p.coin} x${p.leverage} — $${(p.size_usd/1000).toFixed(0)}K — Liq: $${p.liq_px?.toFixed(0)} — Dist: ${p.dist_pct?.toFixed(1)}%`}>
+                🐳{p.coin} <b>x{p.leverage}S</b>
+              </span>
             ))}
           </div>
         )}

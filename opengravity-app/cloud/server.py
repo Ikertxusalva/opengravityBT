@@ -22,6 +22,8 @@ import httpx
 import time
 import secrets
 from collections import defaultdict
+import asyncio
+import concurrent.futures as _cf
 
 # ── Database Setup ──
 # ── Database Setup ──
@@ -118,6 +120,35 @@ class AgentContext(Base):
     agent_id = Column(String(50), nullable=False, unique=True, index=True)
     context_summary = Column(Text)                                 # Last session output (ANSI-stripped)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class FundingRate(Base):
+    """Historical funding rates from HyperLiquid stored in Railway Postgres."""
+    __tablename__ = "funding_rates"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    coin = Column(String(20), nullable=False, index=True)
+    timestamp = Column(BigInteger, nullable=False, index=True)
+    rate_8h_pct = Column(Float)
+    annual_pct = Column(Float)
+    open_interest = Column(Float)
+    mark_px = Column(Float)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class LiquidationEvent(Base):
+    """Liquidation events from HyperLiquid, stored for historical analysis."""
+    __tablename__ = "liquidation_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    coin = Column(String(20), nullable=False, index=True)
+    side = Column(String(10))           # LONG or SHORT
+    usd_size = Column(Float)
+    px = Column(String(30))
+    sz = Column(String(30))
+    tid = Column(BigInteger, index=True)   # trade id from HL for deduplication
+    time_ms = Column(BigInteger, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 # Create tables
@@ -339,7 +370,7 @@ async def fetch_funding_rates():
 
 
 async def fetch_hl_prices():
-    """Fetch mid prices from HyperLiquid and broadcast (supplements Binance prices)."""
+    """Fetch mid prices from HyperLiquid and broadcast (fallback polling, se usa si el WS nativo falla)."""
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(HL_BASE, json={"type": "allMids"}, timeout=8.0)
@@ -355,6 +386,225 @@ async def fetch_hl_prices():
             print(f"[hl_prices] Error: {e}")
 
 
+HL_LIQ_COINS = ["BTC", "ETH", "SOL", "DOGE", "AVAX", "LINK", "ARB", "WIF", "HYPE", "BNB", "OP", "SUI"]
+
+async def fetch_liquidations():
+    """Fetch recent liquidations from HyperLiquid recentTrades, persist to DB and broadcast."""
+    all_liqs: list[dict] = []
+    async with httpx.AsyncClient() as client:
+        for coin in HL_LIQ_COINS:
+            try:
+                resp = await client.post(HL_BASE, json={"type": "recentTrades", "coin": coin}, timeout=8.0)
+                trades = resp.json()
+                if not isinstance(trades, list):
+                    continue
+                for t in trades:
+                    if "liquidation" not in t:
+                        continue
+                    side = "LONG" if t.get("side") == "A" else "SHORT"
+                    try:
+                        usd_size = float(t.get("px", 0)) * float(t.get("sz", 0))
+                    except (TypeError, ValueError):
+                        usd_size = 0.0
+                    all_liqs.append({
+                        "coin": coin,
+                        "side": side,
+                        "usd_size": round(usd_size, 2),
+                        "px": t.get("px", "0"),
+                        "sz": t.get("sz", "0"),
+                        "tid": t.get("tid", 0),
+                        "time_ms": t.get("time", 0),
+                    })
+            except Exception:
+                pass
+
+    if not all_liqs:
+        return
+
+    all_liqs.sort(key=lambda x: x["time_ms"], reverse=True)
+
+    # Persist new liquidations to DB
+    db = SessionLocal()
+    try:
+        new_count = 0
+        for liq in all_liqs[:30]:
+            tid = liq.get("tid") or 0
+            existing = (
+                db.query(LiquidationEvent)
+                .filter(LiquidationEvent.tid == tid, LiquidationEvent.coin == liq["coin"])
+                .first()
+            ) if tid else None
+            if not existing:
+                db.add(LiquidationEvent(
+                    coin=liq["coin"], side=liq["side"], usd_size=liq["usd_size"],
+                    px=liq["px"], sz=liq["sz"], tid=tid, time_ms=liq["time_ms"],
+                ))
+                new_count += 1
+        if new_count:
+            db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+    await manager.broadcast({
+        "type": "liquidation_update",
+        "liquidations": all_liqs[:20],
+        "count": len(all_liqs),
+        "timestamp": datetime.utcnow().isoformat(),
+    })
+
+
+def _fetch_whale_positions_sync() -> dict:
+    """Sync: fetches top leveraged positions from HL leaderboard (runs in executor)."""
+    base = "https://api.hyperliquid.xyz/info"
+    hdrs = {"Content-Type": "application/json"}
+
+    # Mark prices
+    try:
+        r = httpx.post(base, json={"type": "metaAndAssetCtxs"}, headers=hdrs, timeout=12)
+        result = r.json()
+        universe = result[0].get("universe", [])
+        ctxs = result[1]
+        mark_prices: dict[str, float] = {}
+        for i, m in enumerate(universe):
+            nm = m.get("name", "")
+            if i < len(ctxs) and ctxs[i].get("markPx"):
+                try:
+                    mark_prices[nm] = float(ctxs[i]["markPx"])
+                except (TypeError, ValueError):
+                    pass
+    except Exception as e:
+        print(f"[whale_sync] mark_prices error: {e}")
+        return {"longs": [], "shorts": []}
+
+    # Leaderboard
+    try:
+        r = httpx.post(base, json={"type": "leaderboard"}, headers=hdrs, timeout=12)
+        rows = r.json().get("leaderboardRows", [])
+        rows = sorted(rows, key=lambda x: float(x.get("accountValue", 0) or 0), reverse=True)
+        addresses = [row["ethAddress"] for row in rows[:20] if row.get("ethAddress")]
+    except Exception as e:
+        print(f"[whale_sync] leaderboard error: {e}")
+        return {"longs": [], "shorts": []}
+
+    def _get_pos(addr: str) -> list[dict]:
+        try:
+            r = httpx.post(base, json={"type": "clearinghouseState", "user": addr}, headers=hdrs, timeout=8)
+            data = r.json()
+            positions = []
+            for ap in data.get("assetPositions", []):
+                pos = ap.get("position", {})
+                try:
+                    szi = float(pos.get("szi", 0) or 0)
+                except (TypeError, ValueError):
+                    continue
+                if szi == 0:
+                    continue
+                coin = pos.get("coin", "")
+                mark = mark_prices.get(coin, 0)
+                if not mark:
+                    continue
+                size_usd = abs(szi) * mark
+                if size_usd < 50_000:
+                    continue
+                lev_obj = pos.get("leverage", {}) or {}
+                try:
+                    lev = float(lev_obj.get("value", 1) or 1)
+                except (TypeError, ValueError):
+                    lev = 1.0
+                if lev < 5:
+                    continue
+                liq_raw = pos.get("liquidationPx")
+                liq_px = float(liq_raw) if liq_raw else None
+                side = "LONG" if szi > 0 else "SHORT"
+                dist_pct: float | None = None
+                if liq_px and mark:
+                    dist_pct = ((mark - liq_px) / mark * 100) if side == "LONG" else ((liq_px - mark) / mark * 100)
+                danger = (size_usd * lev / max(abs(dist_pct), 0.1)) if dist_pct else size_usd * lev
+                try:
+                    entry_px = float(pos.get("entryPx") or 0)
+                except (TypeError, ValueError):
+                    entry_px = 0.0
+                positions.append({
+                    "coin": coin, "side": side,
+                    "size_usd": round(size_usd, 0),
+                    "leverage": round(lev, 1),
+                    "entry_px": entry_px,
+                    "liq_px": liq_px,
+                    "mark_px": mark,
+                    "dist_pct": round(dist_pct, 2) if dist_pct else None,
+                    "danger_score": round(danger, 0),
+                    "trader": addr[:8] + "...",
+                })
+            return positions
+        except Exception:
+            return []
+
+    all_positions: list[dict] = []
+    with _cf.ThreadPoolExecutor(max_workers=5) as executor:
+        for result_list in executor.map(_get_pos, addresses):
+            all_positions.extend(result_list)
+
+    longs = sorted([p for p in all_positions if p["side"] == "LONG"],
+                   key=lambda x: x["danger_score"], reverse=True)[:10]
+    shorts = sorted([p for p in all_positions if p["side"] == "SHORT"],
+                    key=lambda x: x["danger_score"], reverse=True)[:10]
+    return {"longs": longs, "shorts": shorts}
+
+
+async def fetch_whale_positions():
+    """Run whale position fetch in executor (heavy sync task) and broadcast."""
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(None, _fetch_whale_positions_sync)
+        if result.get("longs") or result.get("shorts"):
+            await manager.broadcast({
+                "type": "whale_update",
+                "longs": result["longs"],
+                "shorts": result["shorts"],
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+    except Exception as e:
+        print(f"[whale_positions] Error: {e}")
+
+
+async def hl_websocket_client():
+    """
+    Cliente WebSocket nativo de HyperLiquid.
+    Suscribe a allMids para precios en tiempo real y los broadcastea al frontend.
+    Reemplaza el polling de fetch_hl_prices() con datos instantáneos.
+    """
+    import websockets
+
+    uri = "wss://api.hyperliquid.xyz/ws"
+    while True:
+        try:
+            async with websockets.connect(uri, ping_interval=20, ping_timeout=10) as ws:
+                print("[HL WS] Connected to HyperLiquid WebSocket")
+                await ws.send(json.dumps({
+                    "method": "subscribe",
+                    "subscription": {"type": "allMids"},
+                }))
+                async for raw in ws:
+                    try:
+                        msg = json.loads(raw)
+                        if msg.get("channel") == "allMids":
+                            mids = msg.get("data", {}).get("mids", {})
+                            prices = {k: float(v) for k, v in mids.items() if k in HL_WATCH and v}
+                            if prices:
+                                await manager.broadcast({
+                                    "type": "hl_prices",
+                                    "prices": prices,
+                                    "timestamp": datetime.utcnow().isoformat(),
+                                })
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"[HL WS] Disconnected: {e!r} — reconnecting in 5s")
+            await asyncio.sleep(5)
+
+
 # ── FastAPI App ──
 
 @asynccontextmanager
@@ -365,16 +615,32 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(fetch_fear_greed, "interval", minutes=30)
     scheduler.add_job(fetch_top_movers, "interval", minutes=15)
     scheduler.add_job(fetch_funding_rates, "interval", minutes=15)
-    scheduler.add_job(fetch_hl_prices, "interval", minutes=1)
+    scheduler.add_job(fetch_hl_prices, "interval", minutes=2)       # fallback polling
+    scheduler.add_job(fetch_liquidations, "interval", minutes=2)    # liquidaciones cada 2min
+    scheduler.add_job(fetch_whale_positions, "interval", minutes=10) # ballenas cada 10min
     scheduler.start()
-    # Run once at startup — each wrapped individually so one failure doesn't block startup
-    for fn in [fetch_fear_greed, fetch_top_movers, fetch_funding_rates, fetch_hl_prices]:
+
+    # Run once at startup
+    for fn in [fetch_fear_greed, fetch_top_movers, fetch_funding_rates, fetch_hl_prices, fetch_liquidations]:
         try:
             await fn()
         except Exception as e:
             print(f"⚠️ Startup fetch {fn.__name__} failed: {e}")
+
+    # Start HyperLiquid native WebSocket client
+    hl_ws_task = asyncio.create_task(hl_websocket_client())
+
+    # Start whale positions in background (heavy task)
+    asyncio.create_task(fetch_whale_positions())
+
     yield
+
     # Shutdown
+    hl_ws_task.cancel()
+    try:
+        await hl_ws_task
+    except asyncio.CancelledError:
+        pass
     scheduler.shutdown()
 
 app = FastAPI(
@@ -941,6 +1207,72 @@ async def save_agent_context(agent_id: str, data: dict):
         return {"status": "ok", "agent_id": agent_id}
     finally:
         db.close()
+
+
+# ── HyperLiquid Historical Data Endpoints ──
+
+@app.get("/api/hl/liquidations/history")
+async def get_liquidations_history(coin: str = None, limit: int = 50):
+    """Recent liquidation events stored in Railway Postgres."""
+    db = SessionLocal()
+    try:
+        q = db.query(LiquidationEvent)
+        if coin:
+            q = q.filter(LiquidationEvent.coin == coin.upper())
+        results = q.order_by(LiquidationEvent.time_ms.desc()).limit(limit).all()
+        return {
+            "count": len(results),
+            "liquidations": [
+                {
+                    "coin": r.coin, "side": r.side, "usd_size": r.usd_size,
+                    "px": r.px, "sz": r.sz, "time_ms": r.time_ms,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in results
+            ],
+        }
+    finally:
+        db.close()
+
+
+@app.get("/api/hl/funding/stored/{coin}")
+async def get_funding_stored(coin: str, limit: int = 100):
+    """Funding rate history for a coin from Railway Postgres."""
+    db = SessionLocal()
+    try:
+        results = (
+            db.query(FundingRate)
+            .filter(FundingRate.coin == coin.upper())
+            .order_by(FundingRate.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
+        return {
+            "coin": coin.upper(),
+            "count": len(results),
+            "history": [
+                {
+                    "timestamp": r.timestamp, "rate_8h_pct": r.rate_8h_pct,
+                    "annual_pct": r.annual_pct, "open_interest": r.open_interest,
+                    "mark_px": r.mark_px,
+                }
+                for r in results
+            ],
+        }
+    finally:
+        db.close()
+
+
+@app.get("/api/hl/whale-positions")
+async def get_whale_positions_endpoint():
+    """Fetch current top leveraged whale positions from HyperLiquid (heavy, ~10s)."""
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, _fetch_whale_positions_sync)
+    return {
+        "longs": result.get("longs", []),
+        "shorts": result.get("shorts", []),
+        "timestamp": datetime.utcnow().isoformat(),
+    }
 
 
 # ── WebSocket for real-time data ──

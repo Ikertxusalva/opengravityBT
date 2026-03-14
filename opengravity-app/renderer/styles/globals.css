@@ -382,6 +382,66 @@ html, body {
 }
 .top-movers-ticker b { font-weight: 700; }
 
+/* ── HyperLiquid Prices Ticker ── */
+.hl-prices-ticker {
+  display: flex;
+  gap: 10px;
+  padding: 0 10px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  border-left: 1px solid var(--border);
+  -webkit-app-region: no-drag;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.hl-prices-ticker span {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.hl-prices-ticker b { font-weight: 700; }
+
+/* ── Liquidations Ticker ── */
+.liquidations-ticker {
+  display: flex;
+  gap: 10px;
+  padding: 0 10px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  border-left: 1px solid var(--border);
+  -webkit-app-region: no-drag;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.liquidations-ticker span {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.liquidations-ticker b { font-weight: 700; }
+
+/* ── Whale Ticker ── */
+.whale-ticker {
+  display: flex;
+  gap: 10px;
+  padding: 0 10px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  border-left: 1px solid var(--border);
+  -webkit-app-region: no-drag;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.whale-ticker span {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.whale-ticker b { font-weight: 700; }
+
 /* ── Window Controls ── */
 .window-controls {
   display: flex;
