@@ -13,7 +13,6 @@ apscheduler==3.10.4
 
 # RBI — análisis y backtesting
 backtesting>=0.3.3
-pandas-ta>=0.3.14b0,<0.4.0
 yfinance>=0.2.30
 plotly>=5.18.0
 hmmlearn>=0.3.2
