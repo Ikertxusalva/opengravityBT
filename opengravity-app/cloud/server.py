@@ -429,11 +429,42 @@ async def fetch_hl_prices():
 
 HL_LIQ_COINS = ["BTC", "ETH"]  # Real-time liquidation tracking for these
 
-async def fetch_liquidations():
-    """Fetch recent liquidation-like trades from HyperLiquid.
+# Maintenance margin rates for leverage estimation (HyperLiquid)
+# Maintenance margin ≈ 1 / (2 * maxLeverage) for most assets
+HL_MAINT_MARGIN = {"BTC": 0.01, "ETH": 0.01}  # ~1% → max 50x
+HL_DEFAULT_MAINT = 0.0333  # ~3.33% for most alts → max 15x
+MIN_LEVERAGE_FILTER = 10  # Only show liquidations estimated at x10+
 
-    System trades (hash = 0x000...0) are typically liquidations/ADL.
-    Also detects trades with very round sizes typical of liquidation engines.
+def _estimate_leverage(coin: str, px: float, sz: float) -> float:
+    """Estimate leverage of a liquidated position.
+
+    HyperLiquid liquidates when: margin_remaining <= maintenance_margin.
+    For a position at leverage L, initial margin = notional / L.
+    Liquidation happens when loss ≈ initial_margin - maintenance_margin.
+    System liquidation trades (hash=0x0...0) are partial/full liquidations.
+
+    Since we can't know the exact leverage, we use the notional size as a proxy:
+    - Small notional ($500-$5K) → likely low leverage (x2-x5) or small account
+    - Medium notional ($5K-$50K) → likely x10-x25
+    - Large notional ($50K+) → likely x10-x50 (institutional or high leverage)
+
+    We estimate conservatively: leverage ≈ notional / estimated_collateral,
+    where estimated_collateral = notional * maintenance_margin * 3 (safety factor).
+    """
+    maint = HL_MAINT_MARGIN.get(coin, HL_DEFAULT_MAINT)
+    notional = px * sz
+    # Conservative: assume collateral was ~3x maintenance margin
+    est_collateral = notional * maint * 3
+    if est_collateral <= 0:
+        return 1.0
+    return round(notional / est_collateral, 1)
+
+
+async def fetch_liquidations():
+    """Fetch recent liquidation-like trades from HyperLiquid perpetuals.
+
+    System trades (hash = 0x000...0) are liquidations/ADL on perps.
+    Only includes estimated leverage >= x10 (filters out low-leverage noise).
     """
     all_liqs: list[dict] = []
     # Check BTC and ETH + top stressed coins
@@ -451,7 +482,7 @@ async def fetch_liquidations():
                     continue
                 for t in trades:
                     # Detect system/liquidation trades:
-                    # 1. Hash is all zeros = system trade (liquidation/ADL)
+                    # Hash all zeros = system trade (liquidation/ADL) on perpetuals
                     h = t.get("hash", "")
                     is_system = h == "0x0000000000000000000000000000000000000000000000000000000000000000"
                     if not is_system:
@@ -459,10 +490,15 @@ async def fetch_liquidations():
                     # Side: "A" = ask (sell) = LONG liquidated, "B" = bid (buy) = SHORT liquidated
                     side = "LONG" if t.get("side") == "A" else "SHORT"
                     try:
-                        usd_size = float(t.get("px", 0)) * float(t.get("sz", 0))
+                        px = float(t.get("px", 0))
+                        sz = float(t.get("sz", 0))
+                        usd_size = px * sz
                     except (TypeError, ValueError):
-                        usd_size = 0.0
-                    if usd_size < 500:  # Filter out dust liquidations
+                        continue
+                    if usd_size < 500:
+                        continue
+                    est_lev = _estimate_leverage(coin, px, sz)
+                    if est_lev < MIN_LEVERAGE_FILTER:
                         continue
                     all_liqs.append({
                         "coin": coin,
@@ -472,6 +508,7 @@ async def fetch_liquidations():
                         "sz": t.get("sz", "0"),
                         "tid": t.get("tid", 0),
                         "time_ms": t.get("time", 0),
+                        "est_leverage": est_lev,
                     })
             except Exception:
                 pass
@@ -873,7 +910,7 @@ async def hl_websocket_client():
                                 })
 
                         elif channel == "trades":
-                            # Real-time liquidation detection from trade stream
+                            # Real-time liquidation detection from perpetual trade stream
                             trades_data = msg.get("data", [])
                             if not isinstance(trades_data, list):
                                 continue
@@ -886,16 +923,22 @@ async def hl_websocket_client():
                                 coin = t.get("coin", "")
                                 side = "LONG" if t.get("side") == "A" else "SHORT"
                                 try:
-                                    usd_size = float(t.get("px", 0)) * float(t.get("sz", 0))
+                                    px = float(t.get("px", 0))
+                                    sz = float(t.get("sz", 0))
+                                    usd_size = px * sz
                                 except (TypeError, ValueError):
                                     continue
-                                if usd_size < 500:  # Filter out dust liquidations
+                                if usd_size < 500:
+                                    continue
+                                est_lev = _estimate_leverage(coin, px, sz)
+                                if est_lev < MIN_LEVERAGE_FILTER:
                                     continue
                                 new_liqs.append({
                                     "coin": coin, "side": side,
                                     "usd_size": round(usd_size, 2),
                                     "px": t.get("px", "0"), "sz": t.get("sz", "0"),
                                     "tid": t.get("tid", 0), "time_ms": t.get("time", 0),
+                                    "est_leverage": est_lev,
                                 })
                             if new_liqs:
                                 global _last_liquidations
