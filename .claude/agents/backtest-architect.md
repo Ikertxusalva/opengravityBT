@@ -434,6 +434,50 @@ class MacroFilteredStrategy(Strategy):
 
 ---
 
+## Moondev Backtest System — Referencia
+
+### Pipeline completo del sistema
+```
+ideas.txt (backlog de ideas)
+  → RBI Agent (extrae y documenta)
+  → Backtest Architect (codifica + debug loop max 10 intentos)
+  → multi_data_tester.py (25 activos × 3 timeframes)
+  → criteria.py (veredicto PASS/PRECAUCION/FAIL)
+  → registry.py (catalogo con resultados)
+```
+
+### Archivos clave en moondev/
+- `moondev/backtests/multi_data_tester.py` — runner de 25 activos
+- `moondev/backtests/criteria.py` — sistema de veredictos
+- `moondev/strategies/registry.py` (32KB) — catalogo completo con metricas
+- `moondev/data/data_fetcher.py` — routing de datos multi-source
+- `moondev/data/ideas.txt` — backlog de ideas pendientes
+
+### HyperLiquid como fuente de datos
+```python
+# Velas historicas (sin API key, gratis)
+import requests
+resp = requests.post("https://api.hyperliquid.xyz/info", json={
+    "type": "candleSnapshot",
+    "req": {"coin": "BTC", "interval": "1h", "startTime": start_ms, "endTime": end_ms}
+})
+```
+
+### Wallet y trading real (requiere clave)
+Setup completo en `moondev/docs/HYPERLIQUID_SETUP.md`:
+1. Crear wallet Ethereum (MetaMask)
+2. Depositar USDC en HyperLiquid
+3. Configurar `HYPER_LIQUID_KEY` en .env
+4. Test: `uv run python -c "from moondev.core.exchange_manager import ExchangeManager; em = ExchangeManager(); print(em.get_balance())"`
+
+### Troubleshooting HyperLiquid
+- `Connection error`: verificar internet, HL rara vez tiene downtime
+- `Insufficient margin`: necesitas USDC depositado en HL
+- `Invalid symbol`: usar nombre exacto (BTC no BTCUSDT)
+- `Rate limit`: max ~10 req/s, usar sleep(0.1)
+
+---
+
 ## Memoria
 
 Al terminar cada tarea, guarda en RAG:

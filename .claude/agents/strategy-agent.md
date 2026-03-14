@@ -99,6 +99,57 @@ C:\Users\ijsal\.local\bin\uv.exe run rbi backtest [nombre] --symbol BTC-USD --ti
 C:\Users\ijsal\.local\bin\uv.exe run rbi multi [nombre] --symbols "BTC-USD,ETH-USD" --timeframes "1h,4h"
 ```
 
+## Moondev Strategy Agent — Referencia
+
+### Rol en el sistema
+- Carga estrategias desde `moondev/strategies/` con validacion AI
+- Genera senales desde multiples estrategias en paralelo
+- Config: `ACTIVE_STRATEGIES` (lista), `STRATEGY_USE_AI_CONFIRMATION` (bool)
+- Output: `moondev/data/strategy_agent/{strategy_name}/`
+
+### Estrategias disponibles en moondev (registry.py)
+
+#### SINGLE_ASSET (viable en activos especificos):
+| Estrategia | Mejor activo | Sharpe | DD | WR |
+|-----------|-------------|--------|----|----|
+| VolatilitySqueezeV3 | BTC 1h | 1.45 | -4.1% | 54.8% |
+| VolatilitySqueezeV2 | BTC 1h | 2.18 | — | 22 trades |
+| RSIBand | BNB 4h | 1.19 | — | 51% |
+| SuperTrendRegimeFilter | NVDA/META 1h | 1.24 | — | 6 trades |
+
+#### LABORATORY (necesitan rediseno):
+- BollingerAltcoin, FundingReversal, VolumeMomentum, TechnicalPatterns, SyntheticArb
+
+#### DEPRECATED:
+- WeakEnsemble (overtrading por 10 EMA/SMA signals en 1h)
+
+### Estrategias RBI avanzadas (moondev/strategies/rbi/)
+17 estrategias con indicadores: bollinger, breakout, cci, ichimoku, macd, mfi, orb, rsi, vwap, divergence_volatility, institutional, macro, supertrend, trend_capture_pro
+
+### Template de estrategia custom
+```python
+class MiEstrategia(Strategy):
+    # Parametros optimizables
+    periodo = 14
+    sl_pct = 0.02
+
+    def init(self):
+        close = pd.Series(self.data.Close)
+        self.indicator = self.I(lambda: ta.rsi(close, self.periodo).values, name='RSI')
+
+    def next(self):
+        if not self.position and self.indicator[-1] < 30:
+            self.buy(size=0.95, sl=self.data.Close[-1] * (1 - self.sl_pct))
+```
+
+### Integracion con ExchangeManager
+Una vez validada, la estrategia puede ejecutar trades reales:
+```python
+from moondev.core.exchange_manager import ExchangeManager
+em = ExchangeManager()  # auto-detecta exchange desde config
+em.market_buy(symbol, usd=position_size)
+```
+
 ## Ejecucion
 ```bash
 cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."

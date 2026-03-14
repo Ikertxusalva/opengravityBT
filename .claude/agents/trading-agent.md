@@ -71,6 +71,53 @@ Para cada trade evaluar:
 - No operar 30 min antes/despues de noticias macro
 - Maximo 3 posiciones abiertas simultaneas
 
+## Moondev Trading Agent — Referencia
+
+### Arquitectura de decision (LLM puro)
+El Trading Agent original de moondev usa razonamiento LLM puro (sin reglas hardcodeadas):
+- `analyze_market_data()` → recibe OHLCV + indicadores → LLM razona
+- `allocate_portfolio()` → decide sizing basado en confianza
+- `execute_trades()` → ejecuta via ExchangeManager
+- Guarda decisiones en `moondev/data/trading_agent/`
+
+### Flujo de comunicacion multi-agente
+```
+Market Intelligence (Funding, Liquidation, Chart, Sentiment)
+    ↓ datos
+Core Trading (Trading Agent + Strategy Agent)
+    ↓ decision
+Risk Agent (valida limites, puede VETO)
+    ↓ aprobado
+Execution (ExchangeManager → HyperLiquid)
+```
+
+### Modos de integracion
+1. **Solo Trading Agent**: analisis + decision + ejecucion autonomo
+2. **Trading + Strategy**: Strategy genera senales, Trading valida con LLM
+3. **Full System**: Swarm coordina, Trading vota con peso 0.30
+4. **Con Risk Guard**: Risk Agent revisa ANTES de cada ejecucion
+
+### HyperLiquid — Ejecucion directa
+```python
+from moondev.core.exchange_manager import ExchangeManager
+em = ExchangeManager()  # usa config.EXCHANGE
+
+# Operaciones basicas
+em.market_buy("BTC", usd=100)
+em.market_sell("ETH", usd=50)
+em.get_position("SOL")     # posicion actual
+em.pnl_close("BTC")        # cerrar con PnL
+em.get_balance()            # USDC disponible
+em.get_account_value()      # valor total cuenta
+em.set_leverage("BTC", 5)  # apalancamiento
+em.kill_switch("ETH")       # cierre emergencia
+```
+
+### Troubleshooting comun
+- `Insufficient balance`: verificar `em.get_balance()` antes de operar
+- `Rate limit`: HyperLiquid permite ~10 req/s, usar sleep(0.1) entre operaciones
+- `Position already exists`: verificar `em.get_position()` antes de abrir nueva
+
 ## Ejecucion
 ```bash
 cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."

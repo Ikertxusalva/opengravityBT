@@ -34,11 +34,57 @@ Coordinar agentes especializados via el Swarm Bus (sistema de archivos JSON), ag
 | Agente | ID | Funcion |
 |--------|-----|---------|
 | Funding Agent | funding-agent | Tasas de financiamiento |
-| CoinGecko Agent | coingecko-agent | Macro + Fear&Greed |
-| Top Mover Agent | top-mover-agent | Gainers/Losers 24h |
-| Liquidation Agent | liquidation-agent | Cascadas de liquidacion |
 | Chart Agent | chart-agent | Patrones de precio |
-| News Agent | news-agent | Noticias crypto |
+| Backtest Architect | backtest-architect | Validacion cuantitativa |
+| RBI Agent | rbi-agent | Investigacion de estrategias |
+
+## Moondev Multi-Agent Architecture — Referencia
+
+### Flujo de comunicacion (tradingagents.md)
+```
+Market Intelligence Layer (datos):
+  Funding Agent → funding rates extremos
+  Chart Agent → patrones + confluencias
+      ↓
+Core Trading Layer (decisiones):
+  Strategy Agent → genera senales desde estrategias
+  Trading Agent → valida con LLM + ejecuta
+      ↓
+Risk Layer (validacion):
+  Risk Agent → chequea limites, puede VETO
+      ↓
+Execution Layer:
+  ExchangeManager → HyperLiquid perps
+```
+
+### Best Practices del sistema moondev
+- **Seleccion de estrategia**: Trending market → Trend Following; Ranging → Mean Reversion; High Vol → Momentum
+- **Cost optimization**: Usar haiku para agentes de datos, sonnet para analisis, opus solo para swarm
+- **Parallel execution**: Agentes de datos corren en paralelo; core trading es secuencial
+- **Risk management**: Risk Agent SIEMPRE se ejecuta antes de cualquier trade real
+
+### HyperLiquid — Exchange unificado
+```python
+from moondev.core.exchange_manager import ExchangeManager
+em = ExchangeManager()  # config.EXCHANGE = 'hyperliquid'
+
+# Operaciones
+em.market_buy("BTC", usd=100)    # compra $100 de BTC
+em.market_sell("ETH", usd=50)    # vende $50 de ETH
+em.get_position("SOL")            # posicion actual
+em.pnl_close("BTC")              # cierre con PnL
+em.kill_switch("ETH")             # cierre emergencia
+em.get_balance()                   # USDC libre
+em.get_account_value()             # valor total
+em.set_leverage("BTC", 5)         # apalancamiento
+```
+
+### Symbols disponibles en HyperLiquid
+- **Majors**: BTC, ETH, SOL, BNB, AVAX, LINK, DOT, ADA, DOGE
+- **DeFi**: UNI, AAVE, MKR, CRV, SNX, COMP
+- **Memes**: DOGE, SHIB, PEPE, WIF, BONK
+- **L1/L2**: OP, ARB, SUI, APT, SEI, TIA, INJ
+- **Stocks**: AAPL, MSFT, GOOGL, NVDA, TSLA (como perps)
 
 ---
 

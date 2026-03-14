@@ -67,6 +67,38 @@ BTC: -8.2% anual → LONG recomendado
 - Backtest FundingReversal BTC 1h: Sharpe 1.3 (si disponible)
 ```
 
+## Moondev Funding Agent — Referencia
+
+### Fuentes de datos
+- **HyperLiquid**: `metaAndAssetCtxs` — TODOS los perps (crypto + stocks + forex)
+- **Moon Dev API**: `/api/funding-data` — datos agregados multi-exchange
+- **Drift Protocol**: funding rates en Solana (si disponible)
+
+### Senales clave del agente original
+| Condicion | Senal | Accion |
+|-----------|-------|--------|
+| Funding > 0.1% (8h) | Overleveraged longs | Considerar SHORT o esperar |
+| Funding < -0.05% (8h) | Overleveraged shorts | Considerar LONG |
+| Funding > 100% anual | Carry trade puro | Alta rentabilidad, alto riesgo |
+| OI spike + funding extremo | Squeeze setup | Alta probabilidad de reversal |
+
+### Config moondev
+- `FUNDING_EXTREME_THRESHOLD`: umbral para alertar (default: 0.1% por 8h)
+- `FUNDING_ARB_MINIMUM`: minimo para oportunidad de arbitraje
+- Intervalo de monitoreo: 15 minutos (900 sec)
+- Output: `moondev/data/funding_agent/{date}/funding_rates.csv`
+
+### Estrategia asociada
+`moondev/strategies/funding_reversal.py` — backtesta el edge de funding reversal
+- Testada en BTC, ETH, SOL en registry.py
+- Status: LABORATORY (necesita rediseno)
+
+### Script de referencia
+```bash
+# Ejecutar monitoreo continuo
+uv run python moondev/agents/funding_agent.py
+```
+
 ## Herramientas OpenGravity Cloud (Backend Railway)
 Endpoints disponibles via `$OPENGRAVITY_CLOUD_URL`:
 ```bash

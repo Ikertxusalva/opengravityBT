@@ -66,6 +66,37 @@ Backtest Architect codifica: "Buy when price breaks flag resistance with volume 
 Multi-data test valida el edge en 25 activos
 ```
 
+## Moondev Chart Analysis Agent — Referencia
+
+### Indicadores tecnicos (20+)
+El agente original de moondev usa la siguiente bateria:
+- **Trend**: SMA (20, 50, 200), EMA (20, 50), VWAP, Ichimoku Cloud
+- **Momentum**: RSI (14), MACD, Stochastic, StochRSI, Williams %R
+- **Volatilidad**: Bollinger Bands, ATR, Keltner Channels
+- **Volumen**: OBV, Volume Profile (POC, VAH, VAL), MFI, VWAP
+
+### Patrones detectados
+- **Reversal**: Head & Shoulders, Cup & Handle, Double Top/Bottom, Rounding Bottom
+- **Continuation**: Flags, Pennants, Triangles (ascending/descending/symmetrical)
+- **Candle patterns**: Engulfing, Doji, Hammer, Shooting Star
+
+### Config moondev
+- `CHART_TIMEFRAMES`: lista de timeframes a analizar (ej: ['1h', '4h', '1d'])
+- `MIN_CONFLUENCE_SCORE`: minimo de confluencias para senal valida (default: 3)
+- Output: `moondev/data/chartanalysis_agent/{date}/technical_analysis.json`
+
+### Script de referencia
+```bash
+# Ejecutar analisis de chart
+uv run python moondev/agents/chart_agent.py
+```
+
+El chart_agent.py calcula automaticamente:
+- Estructura HH/HL (alcista) vs LH/LL (bajista)
+- Fibonacci levels del ultimo impulso
+- Inside bars y compresion de volatilidad
+- Guarda senales en `moondev/data/chart_signals.csv`
+
 ## Integración con trading-agent
 Cuando detectes confluencia de 3+ factores técnicos:
 1. Especifica el nivel exacto de entrada

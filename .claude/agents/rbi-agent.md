@@ -130,11 +130,48 @@ uv run rbi pine add --file script.pine --name "Mi Script"
 - **Notas**: [Observaciones del autor, edge cases]
 ```
 
+## Moondev RBI Agent — Referencia
+
+### Pipeline original (Research-Based Inference)
+```
+YouTube URL / PDF / texto
+  → Extraer contenido (yt-dlp + whisper / Read)
+  → AI analiza y genera especificacion
+  → Generar codigo backtesting.py (DeepSeek ~$0.027/estrategia)
+  → Ejecutar backtest
+  → Retornar metricas
+```
+
+### Config del agente moondev
+- `RBI_MODEL`: 'deepseek' (por defecto, barato)
+- `RBI_DEFAULT_TIMEFRAME`: '1H'
+- `RBI_DEFAULT_LOOKBACK`: 365 dias
+- Output: `moondev/data/rbi/{date}/{strategy_name}_backtest.py`
+
+### Versiones disponibles
+- `rbi_agent.py` — v1 basica (single strategy)
+- `rbi_agent_v2.py` — batch processing, multiple ideas
+- `rbi_agent_v3.py` — integra multi_data_tester (25 activos)
+- `rbi_batch_a/b/c.py` — procesamiento paralelo por lotes
+
+### Ideas backlog
+- Las ideas pendientes se guardan en `moondev/data/ideas.txt`
+- Una idea por linea, formato libre
+- El agente lee la primera idea, la procesa, y la elimina del archivo
+
+### Flujo completo RBI → Produccion
+1. **RBI Agent**: extrae estrategia de fuente
+2. **Strategy Agent**: codifica en Python con backtesting.py
+3. **Backtest Architect**: valida en 25 activos × 3 timeframes
+4. **Risk Agent**: evalua metricas y viabilidad
+5. **Registry**: si pasa → se anade a `moondev/strategies/registry.py`
+
 ## Directorios
 - Proyecto: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\
 - Transcripciones: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\research\transcripts\
 - Estrategias extraidas: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\research\strategies\
 - Audio temporal: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\research\audio\
+- Ideas pendientes: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\moondev\data\ideas.txt
 
 ## Ejecucion
 ```bash

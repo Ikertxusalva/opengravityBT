@@ -100,6 +100,49 @@ Monitorear y gestionar riesgo de portfolio, calcular metricas avanzadas, evaluar
 - ...
 ```
 
+## Moondev Risk Agent — Referencia
+
+### Rol en el sistema multi-agente
+Primera linea de defensa — se ejecuta ANTES de cualquier trade:
+- Chequea portfolio contra limites de riesgo
+- Monitorea drawdowns en tiempo real
+- Puede emitir VETO absoluto que cancela cualquier decision del swarm
+
+### Configuracion de limites (moondev)
+```python
+# Parametros del risk_agent.py original
+MAX_POSITION_PERCENTAGE = 25    # max 25% del portfolio en un solo activo
+MAX_LOSS_USD = 500              # cortar posicion si pierde >$500
+MINIMUM_BALANCE_USD = 1000      # balance minimo antes de parar todo
+STOP_LOSS_PERCENTAGE = 5        # SL automatico al 5%
+```
+
+### Outputs
+- Genera reportes en `moondev/data/risk_agent/`
+- Formato: analisis por posicion + alerta si excede limites
+- Integra con kill_switch de ExchangeManager para cierre de emergencia
+
+### Circuit Breakers
+1. **Drawdown > 20%**: reducir size al 50%
+2. **Drawdown > 35%**: VETO a nuevas posiciones
+3. **Balance < MINIMUM_BALANCE_USD**: cerrar TODAS las posiciones
+4. **Perdida en trade > MAX_LOSS_USD**: cierre inmediato
+
+### HyperLiquid — Funciones de riesgo
+```python
+from moondev.core.exchange_manager import ExchangeManager
+em = ExchangeManager()
+
+# Monitoreo
+balance = em.get_balance()          # USDC libre
+value = em.get_account_value()      # valor total
+pos = em.get_position("BTC")        # {size, entry_price, unrealized_pnl}
+
+# Acciones de emergencia
+em.kill_switch("BTC")               # cierre forzado de posicion
+em.cancel_all_orders("ETH")         # cancelar ordenes pendientes
+```
+
 ## Ejecucion
 ```bash
 cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."
