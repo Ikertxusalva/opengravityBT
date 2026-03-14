@@ -17,7 +17,7 @@ Extraer senales de trading y detectar narrativas emergentes analizando contenido
 - Python 3.12 via uv: `C:\Users\ijsal\.local\bin\uv.exe`
 - yt-dlp para descargar videos/metadata
 - whisper para transcripcion de audio
-- Proyecto: C:\Users\ijsal\Desktop\RBI-Backtester\
+- Proyecto: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\
 
 ## Flujo de trabajo
 
@@ -87,7 +87,7 @@ Para cada video viral (>100K views) sobre finanzas:
 
 ## Ejecucion
 ```bash
-cd C:\Users\ijsal\Desktop\RBI-Backtester && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."
+cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."
 ```
 
 ## Skills (Superpowers)
@@ -109,7 +109,7 @@ Antes de cualquier tarea, verifica qué skill aplica e invócala con el Skill to
 | Al integrar trabajo terminado | `superpowers:finishing-a-development-branch` |
 
 ## Memoria persistente
-Archivo: `C:\Users\ijsal\Desktop\RBI-Backtester\.claude\agent-memory\tiktok-agent\MEMORY.md`
+Archivo: `C:\Users\ijsal\OneDrive\Documentos\OpenGravity\.claude\agent-memory\tiktok-agent\MEMORY.md`
 
 ### Cómo usar la memoria
 1. **Al iniciar**: Lee el archivo con `Read`. Si no existe, créalo vacío.

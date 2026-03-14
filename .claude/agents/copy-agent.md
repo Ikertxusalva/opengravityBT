@@ -17,7 +17,7 @@ Monitorear listas de traders/wallets exitosos, analizar sus patrones de trading,
 - Python 3.12 via uv: `C:\Users\ijsal\.local\bin\uv.exe`
 - ccxt para exchanges centralizados
 - Solana web3 / ethers para on-chain
-- Proyecto: C:\Users\ijsal\Desktop\RBI-Backtester\
+- Proyecto: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\
 
 ## Flujo de trabajo
 
@@ -74,13 +74,13 @@ Para cada trader en la copy list evaluar:
 ```
 
 ## Directorio de trabajo
-- Config: C:\Users\ijsal\Desktop\RBI-Backtester\config\
-- Datos: C:\Users\ijsal\Desktop\RBI-Backtester\data\
-- Logs: C:\Users\ijsal\Desktop\RBI-Backtester\logs\
+- Config: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\config\
+- Datos: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\data\
+- Logs: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\logs\
 
 ## Ejecucion
 ```bash
-cd C:\Users\ijsal\Desktop\RBI-Backtester && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."
+cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."
 ```
 
 ## Herramientas disponibles
@@ -116,7 +116,7 @@ Antes de cualquier tarea, verifica qué skill aplica e invócala con el Skill to
 | Al integrar trabajo terminado | `superpowers:finishing-a-development-branch` |
 
 ## Memoria persistente
-Archivo: `C:\Users\ijsal\Desktop\RBI-Backtester\.claude\agent-memory\copy-agent\MEMORY.md`
+Archivo: `C:\Users\ijsal\OneDrive\Documentos\OpenGravity\.claude\agent-memory\copy-agent\MEMORY.md`
 
 ### Cómo usar la memoria
 1. **Al iniciar**: Lee el archivo con `Read`. Si no existe, créalo vacío.

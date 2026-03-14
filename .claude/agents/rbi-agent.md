@@ -131,14 +131,14 @@ uv run rbi pine add --file script.pine --name "Mi Script"
 ```
 
 ## Directorios
-- Proyecto: C:\Users\ijsal\Desktop\RBI-Backtester\
-- Transcripciones: C:\Users\ijsal\Desktop\RBI-Backtester\research\transcripts\
-- Estrategias extraidas: C:\Users\ijsal\Desktop\RBI-Backtester\research\strategies\
-- Audio temporal: C:\Users\ijsal\Desktop\RBI-Backtester\research\audio\
+- Proyecto: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\
+- Transcripciones: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\research\transcripts\
+- Estrategias extraidas: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\research\strategies\
+- Audio temporal: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\research\audio\
 
 ## Ejecucion
 ```bash
-cd C:\Users\ijsal\Desktop\RBI-Backtester && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."
+cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."
 ```
 
 ## Skills (Superpowers)
@@ -160,7 +160,7 @@ Antes de cualquier tarea, verifica qué skill aplica e invócala con el Skill to
 | Al integrar trabajo terminado | `superpowers:finishing-a-development-branch` |
 
 ## Memoria persistente
-Archivo: `C:\Users\ijsal\Desktop\RBI-Backtester\.claude\agent-memory\rbi-agent\MEMORY.md`
+Archivo: `C:\Users\ijsal\OneDrive\Documentos\OpenGravity\.claude\agent-memory\rbi-agent\MEMORY.md`
 
 ### Cómo usar la memoria
 1. **Al iniciar**: Lee el archivo con `Read`. Si no existe, créalo vacío.

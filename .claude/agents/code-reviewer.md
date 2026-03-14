@@ -27,7 +27,7 @@ Al terminar, actualiza tu memoria con lo aprendido.
 ## Contexto del proyecto
 - Python 3.12 con uv
 - backtesting.py + pandas-ta (NO TA-Lib)
-- Proyecto: C:\Users\ijsal\Desktop\RBI-Backtester\
+- Proyecto: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\
 
 ## Que revisar
 - Uso correcto de `self.I()` en estrategias (obligatorio en backtesting.py)
@@ -55,7 +55,7 @@ Antes de cualquier tarea, verifica qué skill aplica e invócala con el Skill to
 | Al integrar trabajo terminado | `superpowers:finishing-a-development-branch` |
 
 ## Memoria persistente
-Archivo: `C:\Users\ijsal\Desktop\RBI-Backtester\.claude\agent-memory\code-reviewer\MEMORY.md`
+Archivo: `C:\Users\ijsal\OneDrive\Documentos\OpenGravity\.claude\agent-memory\code-reviewer\MEMORY.md`
 
 Antes de empezar cualquier review, lee ese archivo. Al terminar, actualízalo con lo aprendido. Notas concisas.
 

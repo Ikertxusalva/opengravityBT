@@ -16,7 +16,7 @@ Gestionar el ciclo de vida completo de estrategias: creacion, codificacion, regi
 ## Stack tecnico
 - Python 3.12 via uv: `C:\Users\ijsal\.local\bin\uv.exe`
 - backtesting.py + pandas-ta (NO TA-Lib)
-- Proyecto: C:\Users\ijsal\Desktop\RBI-Backtester\
+- Proyecto: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\
 
 ## Estructura de estrategias
 ```
@@ -101,7 +101,7 @@ C:\Users\ijsal\.local\bin\uv.exe run rbi multi [nombre] --symbols "BTC-USD,ETH-U
 
 ## Ejecucion
 ```bash
-cd C:\Users\ijsal\Desktop\RBI-Backtester && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."
+cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."
 ```
 
 ## Skills (Superpowers)
@@ -123,7 +123,7 @@ Antes de cualquier tarea, verifica qué skill aplica e invócala con el Skill to
 | Al integrar trabajo terminado | `superpowers:finishing-a-development-branch` |
 
 ## Memoria persistente
-Archivo: `C:\Users\ijsal\Desktop\RBI-Backtester\.claude\agent-memory\strategy-agent\MEMORY.md`
+Archivo: `C:\Users\ijsal\OneDrive\Documentos\OpenGravity\.claude\agent-memory\strategy-agent\MEMORY.md`
 
 ### Cómo usar la memoria
 1. **Al iniciar**: Lee el archivo con `Read`. Si no existe, créalo vacío.
@@ -197,4 +197,43 @@ curl -s -X POST "$OPENGRAVITY_CLOUD_URL/api/backtest/run" \
   -d '{"strategy":"rsi","symbol":"BTCUSDT","timeframe":"1d","cash":10000}' | python -m json.tool
 # Market data
 curl -s "$OPENGRAVITY_CLOUD_URL/api/market/fear-greed" | python -m json.tool
+```
+
+
+---
+
+## Protocolo Swarm
+
+Este agente participa en el sistema de consenso del Swarm Agent via file-bus.
+
+### Como funciona
+1. El Swarm Agent escribe un request en `.claude/swarm-bus/requests/` con tu nombre
+2. Tu lees el request, ejecutas tu analisis, y escribes tu respuesta en `.claude/swarm-bus/responses/`
+
+### Verificar requests pendientes
+Al inicio de sesion y periodicamente, verifica si hay requests para ti:
+```bash
+ls .claude/swarm-bus/requests/*-strategy-agent.json 2>/dev/null
+```
+
+### Si hay un request, procesarlo:
+1. Lee el request con `Read`
+2. Ejecuta tu analisis segun tu especialidad
+3. Escribe tu respuesta:
+```bash
+cat > .claude/swarm-bus/responses/$(date +%s)-strategy-agent.json << 'EOF'
+{
+  "request_id": "EL_ID_DEL_REQUEST",
+  "from": "strategy-agent",
+  "vote": "BUY|SELL|HOLD|VETO",
+  "confidence": 75,
+  "reasoning": "Tu analisis aqui",
+  "data": {},
+  "created_at": "TIMESTAMP"
+}
+EOF
+```
+4. Borra el request procesado:
+```bash
+rm .claude/swarm-bus/requests/*-strategy-agent.json
 ```

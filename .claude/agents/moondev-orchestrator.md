@@ -20,7 +20,7 @@ Los scripts Python en `moondev/agents/` son procesos aislados. Tú los ejecutas 
 
 ```bash
 # Directorio base
-cd C:\Users\ijsal\Desktop\RBI-Backtester
+cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity
 
 # Ejecutor Python
 C:\Users\ijsal\.local\bin\uv.exe run python <script.py>
@@ -57,7 +57,7 @@ Si existe HALT → leer razón y NO continuar.
 
 ```bash
 # 1. Ejecutar script Python
-cd C:\Users\ijsal\Desktop\RBI-Backtester
+cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity
 C:\Users\ijsal\.local\bin\uv.exe run python moondev/agents/regime_agent.py BTC 1h
 
 # 2. Leer resultado

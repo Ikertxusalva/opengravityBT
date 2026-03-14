@@ -14,6 +14,7 @@ import { Vault } from './security/vault';
 
 // ── Active PTY sessions ──
 const sessions: Map<string, IPty> = new Map();
+const agentMap: Map<string, string> = new Map(); // termId → agentId
 
 // ── Semaphore: max 2 concurrent Claude spawns (same as RBI) ──
 let activeSpawns = 0;
@@ -154,6 +155,7 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
 
       console.log(`[PTY] Session created: ${termId} (PID: ${ptyProcess.pid})`);
       sessions.set(termId, ptyProcess);
+      agentMap.set(termId, agentId);
 
       // Forward PTY output to renderer
       ptyProcess.onData((data: string) => {
@@ -246,6 +248,7 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
     if (pty) {
       pty.kill();
       sessions.delete(termId);
+      agentMap.delete(termId);
     }
   });
 
@@ -255,5 +258,28 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       try { pty.kill(); } catch {}
     }
     sessions.clear();
+    agentMap.clear();
+  });
+
+  // Inject a prompt into a running agent's PTY by agentId
+  ipcMain.handle('pty-inject', async (_event, targetAgentId: string, prompt: string) => {
+    for (const [termId, agId] of agentMap.entries()) {
+      if (agId === targetAgentId && sessions.has(termId)) {
+        sessions.get(termId)?.write(prompt + '\r');
+        return { success: true, termId };
+      }
+    }
+    return { success: false, error: 'Agent not found' };
+  });
+
+  // Read swarm bus status
+  ipcMain.handle('swarm-get-status', async () => {
+    const statusPath = path.join(process.cwd(), '.claude', 'swarm-bus', 'status.json');
+    try {
+      if (fs.existsSync(statusPath)) {
+        return JSON.parse(fs.readFileSync(statusPath, 'utf-8'));
+      }
+    } catch {}
+    return { status: 'idle' };
   });
 }

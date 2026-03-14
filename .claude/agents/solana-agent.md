@@ -18,7 +18,7 @@ Analizar el flujo de nuevos tokens en Solana, coordinar datos del Sniper Agent y
 - solana-py / solders para interaccion on-chain
 - Jupiter API para swaps
 - Birdeye / DexScreener APIs para datos de mercado
-- Proyecto: C:\Users\ijsal\Desktop\RBI-Backtester\
+- Proyecto: C:\Users\ijsal\OneDrive\Documentos\OpenGravity\
 
 ## Criterios de seleccion
 
@@ -79,7 +79,7 @@ Analizar el flujo de nuevos tokens en Solana, coordinar datos del Sniper Agent y
 
 ## Ejecucion
 ```bash
-cd C:\Users\ijsal\Desktop\RBI-Backtester && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."
+cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity && C:\Users\ijsal\.local\bin\uv.exe run python -c "..."
 ```
 
 ## Herramientas disponibles
@@ -130,7 +130,7 @@ Antes de cualquier tarea, verifica qué skill aplica e invócala con el Skill to
 | Al integrar trabajo terminado | `superpowers:finishing-a-development-branch` |
 
 ## Memoria persistente
-Archivo: `C:\Users\ijsal\Desktop\RBI-Backtester\.claude\agent-memory\solana-agent\MEMORY.md`
+Archivo: `C:\Users\ijsal\OneDrive\Documentos\OpenGravity\.claude\agent-memory\solana-agent\MEMORY.md`
 
 ### Cómo usar la memoria
 1. **Al iniciar**: Lee el archivo con `Read`. Si no existe, créalo vacío.

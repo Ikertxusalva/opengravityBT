@@ -34,4 +34,11 @@ contextBridge.exposeInMainWorld('electron', {
   vault: {
     get: (key: string) => ipcRenderer.invoke('vault-get', key),
   },
+
+  // Swarm orchestration
+  swarm: {
+    getStatus: () => ipcRenderer.invoke('swarm-get-status'),
+    inject: (agentId: string, prompt: string) =>
+      ipcRenderer.invoke('pty-inject', agentId, prompt),
+  },
 });

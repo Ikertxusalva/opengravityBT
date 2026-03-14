@@ -145,6 +145,55 @@ html, body {
   background-color: #388bfd;
 }
 
+/* ── Swarm Button & Badge ── */
+.btn-swarm {
+  background-color: transparent;
+  color: var(--neon-purple);
+  border: 1px solid var(--neon-purple);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 0 10px;
+  height: 26px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.btn-swarm:hover {
+  background-color: rgba(188, 140, 255, 0.15);
+}
+
+.swarm-badge {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border-radius: 4px;
+  animation: swarmPulse 2s ease-in-out infinite;
+}
+
+.swarm-badge.decided-buy {
+  color: var(--neon-green);
+  background-color: rgba(63, 185, 80, 0.15);
+}
+
+.swarm-badge.decided-sell {
+  color: #ff4444;
+  background-color: rgba(255, 68, 68, 0.15);
+}
+
+.swarm-badge.decided-hold {
+  color: #f0c040;
+  background-color: rgba(240, 192, 64, 0.15);
+}
+
+@keyframes swarmPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 /* ── View Toggle (Grid / Tab) ── */
 .view-toggle {
   display: flex;

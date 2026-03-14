@@ -228,7 +228,7 @@ Después de que la estrategia funciona en un símbolo, ejecutar contra todos:
 
 ```bash
 # El script multi_data_tester.py está en moondev/backtests/
-cd C:\Users\ijsal\Desktop\RBI-Backtester
+cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity
 C:\Users\ijsal\.local\bin\uv.exe run python moondev/backtests/multi_data_tester.py <strategy_file.py> <StrategyClass>
 ```
 
@@ -283,7 +283,7 @@ VEREDICTO GLOBAL: 🟢 VIABLE — funciona en múltiples activos y timeframes
 
 ```bash
 # Entorno
-cd C:\Users\ijsal\Desktop\RBI-Backtester
+cd C:\Users\ijsal\OneDrive\Documentos\OpenGravity
 C:\Users\ijsal\.local\bin\uv.exe run python <script.py>
 
 # Multi-test

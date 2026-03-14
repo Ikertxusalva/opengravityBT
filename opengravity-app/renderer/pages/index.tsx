@@ -62,6 +62,8 @@ export default function HomePage() {
   const [cloudStatus, setCloudStatus] = React.useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [prices, setPrices] = React.useState<Record<string, number>>({});
   const [fearGreed, setFearGreed] = React.useState<{ value: number; classification: string } | null>(null);
+  const [swarmStatus, setSwarmStatus] = React.useState<'idle' | 'voting' | 'decided'>('idle');
+  const [lastSwarmDecision, setLastSwarmDecision] = React.useState<{ decision: string; symbol: string; consensus_score: number } | null>(null);
   
   const startupDoneRef = React.useRef(false);
   const wsRef = React.useRef<WebSocket | null>(null);
@@ -71,6 +73,10 @@ export default function HomePage() {
     const electron = (window as any).electron;
     if (electron?.vault?.get) {
       electron.vault.get('OPENGRAVITY_API_TOKEN').then((t: string) => { tokenRef.current = t; });
+    }
+    // Request notification permission
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
   }, []);
 
@@ -150,6 +156,16 @@ export default function HomePage() {
               setPrices((prev: Record<string, number>) => ({ ...prev, [data.symbol]: data.price }));
             } else if (data.type === 'fear_greed') {
               setFearGreed({ value: data.value, classification: data.classification });
+            } else if (data.type === 'swarm_decision') {
+              setLastSwarmDecision({ decision: data.decision, symbol: data.symbol, consensus_score: data.consensus_score });
+              setSwarmStatus('decided');
+              setTimeout(() => setSwarmStatus('idle'), 30000);
+              // Native notification
+              if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                new Notification(`Swarm: ${data.decision} ${data.symbol || ''}`, {
+                  body: `Consenso: ${data.consensus_score != null ? Math.round(data.consensus_score * 100) + '%' : 'N/A'}`,
+                });
+              }
             }
           } catch {}
         };
@@ -234,6 +250,25 @@ export default function HomePage() {
             title={`Fear & Greed: ${fearGreed.classification}`}
           >
             F&G <b>{fearGreed.value}</b>
+          </div>
+        )}
+
+        <button
+          className="btn-swarm"
+          title="Iniciar Swarm Analysis"
+          onClick={() => {
+            const existing = terminals.find(t => t.agentId === 'swarm-agent');
+            if (!existing) addTerminal('swarm-agent');
+            else setActiveTab(existing.id);
+            setSwarmStatus('voting');
+          }}
+        >
+          {swarmStatus === 'idle' ? '🐝 Swarm' : swarmStatus === 'voting' ? '🐝 Voting...' : `🐝 ${lastSwarmDecision?.decision || 'OK'}`}
+        </button>
+
+        {lastSwarmDecision && swarmStatus === 'decided' && (
+          <div className={`swarm-badge decided-${lastSwarmDecision.decision.toLowerCase()}`}>
+            {lastSwarmDecision.decision} {lastSwarmDecision.symbol} {lastSwarmDecision.consensus_score != null ? `${Math.round(lastSwarmDecision.consensus_score * 100)}%` : ''}
           </div>
         )}
 

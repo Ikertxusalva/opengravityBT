@@ -68,3 +68,42 @@ Contexto:
 - Wallets acumulando últimas 72h: 23 nuevas ballenas
 - BIAS: ALCISTA — acumulación institucional confirmada
 ```
+
+
+---
+
+## Protocolo Swarm
+
+Este agente participa en el sistema de consenso del Swarm Agent via file-bus.
+
+### Como funciona
+1. El Swarm Agent escribe un request en `.claude/swarm-bus/requests/` con tu nombre
+2. Tu lees el request, ejecutas tu analisis, y escribes tu respuesta en `.claude/swarm-bus/responses/`
+
+### Verificar requests pendientes
+Al inicio de sesion y periodicamente, verifica si hay requests para ti:
+```bash
+ls .claude/swarm-bus/requests/*-whale-agent.json 2>/dev/null
+```
+
+### Si hay un request, procesarlo:
+1. Lee el request con `Read`
+2. Ejecuta tu analisis segun tu especialidad
+3. Escribe tu respuesta:
+```bash
+cat > .claude/swarm-bus/responses/$(date +%s)-whale-agent.json << 'EOF'
+{
+  "request_id": "EL_ID_DEL_REQUEST",
+  "from": "whale-agent",
+  "vote": "BUY|SELL|HOLD|VETO",
+  "confidence": 75,
+  "reasoning": "Tu analisis aqui",
+  "data": {},
+  "created_at": "TIMESTAMP"
+}
+EOF
+```
+4. Borra el request procesado:
+```bash
+rm .claude/swarm-bus/requests/*-whale-agent.json
+```

@@ -96,6 +96,20 @@ class StrategyResult(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class SwarmDecision(Base):
+    """Swarm consensus decisions from multi-agent voting."""
+    __tablename__ = "swarm_decisions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    workflow = Column(String(50))                                   # market_analysis, rbi_pipeline, etc.
+    symbol = Column(String(20))
+    decision = Column(String(20), nullable=False)                  # BUY, SELL, HOLD, ESCALATE
+    consensus_score = Column(Float)                                 # -1.0 to 1.0
+    confidence_avg = Column(Float)                                  # 0-100
+    votes = Column(Text)                                            # JSON: {agent_id: {vote, confidence, reasoning}}
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 # Create tables
 try:
     Base.metadata.create_all(bind=engine)
@@ -608,6 +622,69 @@ async def run_backtest(params: dict):
         raise HTTPException(status_code=503, detail=f"RBI modules not available: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Swarm Consensus Endpoints ──
+
+@app.post("/api/swarm/decision")
+async def create_swarm_decision(decision: dict):
+    """Store a swarm consensus decision and broadcast via WebSocket."""
+    db = SessionLocal()
+    try:
+        entry = SwarmDecision(
+            workflow=decision.get("workflow", "market_analysis"),
+            symbol=decision.get("symbol"),
+            decision=decision.get("decision", "HOLD"),
+            consensus_score=decision.get("consensus_score"),
+            confidence_avg=decision.get("confidence_avg"),
+            votes=json.dumps(decision.get("votes", {})),
+        )
+        db.add(entry)
+        db.commit()
+
+        # Broadcast to all connected WebSocket clients
+        await manager.broadcast({
+            "type": "swarm_decision",
+            "id": entry.id,
+            "workflow": entry.workflow,
+            "symbol": entry.symbol,
+            "decision": entry.decision,
+            "consensus_score": entry.consensus_score,
+            "confidence_avg": entry.confidence_avg,
+            "timestamp": datetime.utcnow().isoformat(),
+        })
+
+        return {"status": "ok", "id": entry.id}
+    finally:
+        db.close()
+
+
+@app.get("/api/swarm/decisions")
+async def get_swarm_decisions(limit: int = 20):
+    """Get recent swarm decisions."""
+    db = SessionLocal()
+    try:
+        results = (
+            db.query(SwarmDecision)
+            .order_by(SwarmDecision.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "id": r.id,
+                "workflow": r.workflow,
+                "symbol": r.symbol,
+                "decision": r.decision,
+                "consensus_score": r.consensus_score,
+                "confidence_avg": r.confidence_avg,
+                "votes": json.loads(r.votes) if r.votes else {},
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in results
+        ]
+    finally:
+        db.close()
 
 
 # ── WebSocket for real-time data ──
