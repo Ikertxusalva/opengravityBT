@@ -234,7 +234,6 @@ export default function HomePage() {
     <div className="app-container">
       <Head>
         <title>OpenGravity</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
       </Head>
 
       <div className="accent-bar" />
