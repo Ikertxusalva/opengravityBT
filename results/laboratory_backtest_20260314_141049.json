@@ -1,0 +1,2972 @@
+[
+  {
+    "name": "RBI-BollingerRSI",
+    "passing": 0,
+    "total": 9,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "USDJPY 1h Sharpe=1.20 Ret=+14.5% DD=-4.9%",
+    "worst": "ETH 1h Ret=-44.6%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -18.227374872126255,
+        "sharpe": -1.0941711314924114,
+        "dd": -43.95342325114581,
+        "trades": 54,
+        "wr": 31.48148148148148,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -44.58613799099515,
+        "sharpe": -3.4618676159665775,
+        "dd": -50.014285828961256,
+        "trades": 91,
+        "wr": 28.57142857142857,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -6.558070048400114,
+        "sharpe": -0.21585823773298737,
+        "dd": -43.678760399494955,
+        "trades": 97,
+        "wr": 36.08247422680412,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": -8.27162580601438,
+        "sharpe": -0.7593217898006624,
+        "dd": -14.522359879402869,
+        "trades": 8,
+        "wr": 25.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": -15.025808150599387,
+        "sharpe": -1.0921859080404281,
+        "dd": -28.596964248087918,
+        "trades": 12,
+        "wr": 25.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": 6.0545363855779035,
+        "sharpe": 0.32387490470765706,
+        "dd": -12.742788699893126,
+        "trades": 20,
+        "wr": 40.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": -11.462760623871782,
+        "sharpe": -0.4993290955748349,
+        "dd": -31.80803950180132,
+        "trades": 34,
+        "wr": 35.294117647058826,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": -9.185285627473021,
+        "sharpe": -1.2264366605386168,
+        "dd": -10.861398472901895,
+        "trades": 3,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 14.535538466272918,
+        "sharpe": 1.1998558192299655,
+        "dd": -4.857188445129646,
+        "trades": 4,
+        "wr": 75.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-BreakoutRetestSniper",
+    "passing": 0,
+    "total": 9,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "NVDA 1h Sharpe=0.47 Ret=+8.7% DD=-7.5%",
+    "worst": "USDJPY 1h Ret=-43.9%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -33.10554650245641,
+        "sharpe": -6.404397582499765,
+        "dd": -34.16569567469872,
+        "trades": 173,
+        "wr": 27.74566473988439,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -40.79949591186103,
+        "sharpe": -6.909922985167561,
+        "dd": -41.71836913602112,
+        "trades": 154,
+        "wr": 31.16883116883117,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -38.91838881706481,
+        "sharpe": -4.100248881456986,
+        "dd": -45.20485918165652,
+        "trades": 182,
+        "wr": 32.417582417582416,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": -25.43484801526755,
+        "sharpe": -4.845569326770246,
+        "dd": -26.074094335906373,
+        "trades": 69,
+        "wr": 21.73913043478261,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": -12.904467550054033,
+        "sharpe": -1.9610033772787958,
+        "dd": -15.902012761434047,
+        "trades": 74,
+        "wr": 32.432432432432435,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": -12.492287295773732,
+        "sharpe": -1.0786235545254452,
+        "dd": -18.52491948705215,
+        "trades": 54,
+        "wr": 40.74074074074074,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": 8.66212527827054,
+        "sharpe": 0.4655737735884791,
+        "dd": -7.493086844943964,
+        "trades": 60,
+        "wr": 43.333333333333336,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": -41.823673212101085,
+        "sharpe": -16.76357541449751,
+        "dd": -41.98510958435628,
+        "trades": 242,
+        "wr": 16.115702479338843,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": -43.92842338059461,
+        "sharpe": -14.234977746983267,
+        "dd": -43.928423380594616,
+        "trades": 252,
+        "wr": 28.57142857142857,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-SuperTrendAdaptive",
+    "passing": 1,
+    "total": 9,
+    "pct_pass": 11.11111111111111,
+    "verdict": "NO_VIABLE",
+    "best": "AAPL 1h Sharpe=1.09 Ret=+22.3% DD=-11.7%",
+    "worst": "BTC 1h Ret=-32.4%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -32.379065107255585,
+        "sharpe": -5.693287610505953,
+        "dd": -34.856955578692485,
+        "trades": 78,
+        "wr": 11.538461538461538,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -5.442082155234746,
+        "sharpe": -0.39050275613403,
+        "dd": -25.609725953257158,
+        "trades": 73,
+        "wr": 23.28767123287671,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -23.798124725368787,
+        "sharpe": -1.9434731560304528,
+        "dd": -30.75020260137623,
+        "trades": 73,
+        "wr": 19.17808219178082,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": -6.682438964644589,
+        "sharpe": -1.025088944698956,
+        "dd": -9.272221511758637,
+        "trades": 34,
+        "wr": 20.588235294117645,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": -11.328402975814116,
+        "sharpe": -1.1191004481895503,
+        "dd": -18.794662575409138,
+        "trades": 36,
+        "wr": 13.88888888888889,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": 22.27652252885093,
+        "sharpe": 1.0939436031400438,
+        "dd": -11.657146109110661,
+        "trades": 28,
+        "wr": 42.857142857142854,
+        "verdict": "PASS",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": 10.333323566701365,
+        "sharpe": 0.4857928170421203,
+        "dd": -13.18363072922304,
+        "trades": 41,
+        "wr": 26.82926829268293,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": -16.823717170570255,
+        "sharpe": -6.145789045589572,
+        "dd": -16.82371717057025,
+        "trades": 79,
+        "wr": 17.72151898734177,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": -10.79734268361006,
+        "sharpe": -2.7124911900528113,
+        "dd": -11.531468003460665,
+        "trades": 67,
+        "wr": 26.865671641791046,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-PineMicurobertEmaCross",
+    "passing": 0,
+    "total": 6,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "ETH 1d Sharpe=0.44 Ret=+99.3% DD=-46.6%",
+    "worst": "SOL 1h Ret=-67.8%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -52.65150790503921,
+        "sharpe": -6.294617980373196,
+        "dd": -55.9095804000305,
+        "trades": 490,
+        "wr": 21.020408163265305,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -64.07063151819521,
+        "sharpe": -8.411820418559428,
+        "dd": -73.98119838147991,
+        "trades": 531,
+        "wr": 20.33898305084746,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -67.82488985000012,
+        "sharpe": -7.052342239166517,
+        "dd": -82.86598126116658,
+        "trades": 458,
+        "wr": 23.799126637554586,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": -12.100584591575677,
+        "sharpe": -0.16974314736963675,
+        "dd": -31.486613181488245,
+        "trades": 69,
+        "wr": 33.33333333333333,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 99.25005253578234,
+        "sharpe": 0.4358934552324926,
+        "dd": -46.56271235474375,
+        "trades": 63,
+        "wr": 38.095238095238095,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1d",
+        "ret": -15.2054611776047,
+        "sharpe": -0.5795210290412386,
+        "dd": -25.41051102558789,
+        "trades": 45,
+        "wr": 24.444444444444443,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-PineUltimateStrategyTemplate",
+    "passing": 0,
+    "total": 6,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "ETH 1d Sharpe=0.52 Ret=+88.3% DD=-36.5%",
+    "worst": "ETH 1h Ret=-34.8%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -13.654272540794018,
+        "sharpe": -0.6753691392782949,
+        "dd": -34.164003394270324,
+        "trades": 91,
+        "wr": 27.472527472527474,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -34.829638862450594,
+        "sharpe": -1.5915168738548808,
+        "dd": -45.04357511480688,
+        "trades": 98,
+        "wr": 25.510204081632654,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -32.677143935999936,
+        "sharpe": -1.1441916031543646,
+        "dd": -50.49642760631794,
+        "trades": 88,
+        "wr": 31.818181818181817,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": 14.305290992775326,
+        "sharpe": 0.162904920219227,
+        "dd": -38.58138573547328,
+        "trades": 14,
+        "wr": 35.714285714285715,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 88.26839617633266,
+        "sharpe": 0.5208094074000681,
+        "dd": -36.53864060305823,
+        "trades": 12,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1d",
+        "ret": 10.152895186447294,
+        "sharpe": 0.31745828121260006,
+        "dd": -14.222670280638638,
+        "trades": 8,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-PineBestAbcdPattern",
+    "passing": 0,
+    "total": 6,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "ETH 1d Sharpe=0.52 Ret=+88.3% DD=-36.5%",
+    "worst": "ETH 1h Ret=-34.8%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -13.654272540794018,
+        "sharpe": -0.6753691392782949,
+        "dd": -34.164003394270324,
+        "trades": 91,
+        "wr": 27.472527472527474,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -34.826938768622334,
+        "sharpe": -1.5913000675347964,
+        "dd": -45.04357511480688,
+        "trades": 98,
+        "wr": 25.510204081632654,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -32.677143935999936,
+        "sharpe": -1.1441916031543646,
+        "dd": -50.49642760631794,
+        "trades": 88,
+        "wr": 31.818181818181817,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": 14.305290992775326,
+        "sharpe": 0.162904920219227,
+        "dd": -38.58138573547328,
+        "trades": 14,
+        "wr": 35.714285714285715,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 88.26839617633266,
+        "sharpe": 0.5208094074000681,
+        "dd": -36.53864060305823,
+        "trades": 12,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1d",
+        "ret": 10.152878568473444,
+        "sharpe": 0.317457578125971,
+        "dd": -14.222672470880394,
+        "trades": 8,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-PineRiskManagement",
+    "passing": 0,
+    "total": 6,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "ETH 1d Sharpe=0.52 Ret=+88.3% DD=-36.5%",
+    "worst": "ETH 1h Ret=-34.8%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -13.654272540794018,
+        "sharpe": -0.6753691392782949,
+        "dd": -34.164003394270324,
+        "trades": 91,
+        "wr": 27.472527472527474,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -34.829638862450594,
+        "sharpe": -1.5915168738548808,
+        "dd": -45.04357511480688,
+        "trades": 98,
+        "wr": 25.510204081632654,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -33.184855489499874,
+        "sharpe": -1.1771715380181367,
+        "dd": -50.432799230722836,
+        "trades": 89,
+        "wr": 31.46067415730337,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": 14.305290992775326,
+        "sharpe": 0.162904920219227,
+        "dd": -38.58138573547328,
+        "trades": 14,
+        "wr": 35.714285714285715,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 88.26839617633266,
+        "sharpe": 0.5208094074000681,
+        "dd": -36.53864060305823,
+        "trades": 12,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1d",
+        "ret": 10.152917380358467,
+        "sharpe": 0.31745891365968676,
+        "dd": -14.222671236774275,
+        "trades": 8,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-PineTimeLimiting",
+    "passing": 0,
+    "total": 6,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "ETH 1d Sharpe=0.52 Ret=+88.3% DD=-36.5%",
+    "worst": "ETH 1h Ret=-34.8%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -13.654272540794018,
+        "sharpe": -0.6753691392782949,
+        "dd": -34.164003394270324,
+        "trades": 91,
+        "wr": 27.472527472527474,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -34.83503905010712,
+        "sharpe": -1.5919505161036933,
+        "dd": -45.04357511480688,
+        "trades": 98,
+        "wr": 25.510204081632654,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -33.184855489499874,
+        "sharpe": -1.1771715380181367,
+        "dd": -50.432799230722836,
+        "trades": 89,
+        "wr": 31.46067415730337,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": 14.305290992775326,
+        "sharpe": 0.162904920219227,
+        "dd": -38.58138573547328,
+        "trades": 14,
+        "wr": 35.714285714285715,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 88.26839617633266,
+        "sharpe": 0.5208094074000681,
+        "dd": -36.53864060305823,
+        "trades": 12,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1d",
+        "ret": 10.152828960601074,
+        "sharpe": 0.31745601187422046,
+        "dd": -14.222688058857635,
+        "trades": 8,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-PineCombo220EmaBullPower",
+    "passing": 0,
+    "total": 6,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "ETH 1d Sharpe=0.52 Ret=+88.3% DD=-36.5%",
+    "worst": "ETH 1h Ret=-34.8%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -13.654272540794018,
+        "sharpe": -0.6753691392782949,
+        "dd": -34.164003394270324,
+        "trades": 91,
+        "wr": 27.472527472527474,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -34.83773914393538,
+        "sharpe": -1.592167352028325,
+        "dd": -45.04357511480688,
+        "trades": 98,
+        "wr": 25.510204081632654,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -33.184855489499874,
+        "sharpe": -1.1771715380181367,
+        "dd": -50.432799230722836,
+        "trades": 89,
+        "wr": 31.46067415730337,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": 14.305290992775326,
+        "sharpe": 0.162904920219227,
+        "dd": -38.58138573547328,
+        "trades": 14,
+        "wr": 35.714285714285715,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 88.26839617633266,
+        "sharpe": 0.5208094074000681,
+        "dd": -36.53864060305823,
+        "trades": 12,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1d",
+        "ret": 10.152843884861941,
+        "sharpe": 0.31745663456205897,
+        "dd": -14.222677042167554,
+        "trades": 8,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-MoonATRChannelSystem",
+    "passing": 0,
+    "total": 11,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "AAPL 1h Sharpe=0.95 Ret=+19.7% DD=-10.2%",
+    "worst": "NVDA 1h Ret=-53.0%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -27.18726066142737,
+        "sharpe": -2.5169762973678873,
+        "dd": -34.27942463549061,
+        "trades": 177,
+        "wr": 36.72316384180791,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -7.685826836232621,
+        "sharpe": -0.35813261362045307,
+        "dd": -31.835703319222564,
+        "trades": 194,
+        "wr": 40.20618556701031,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -46.90087415649987,
+        "sharpe": -3.792507842732088,
+        "dd": -56.19712591090151,
+        "trades": 221,
+        "wr": 34.38914027149321,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": -7.969289696319646,
+        "sharpe": -0.7739263006226725,
+        "dd": -15.267575655398813,
+        "trades": 31,
+        "wr": 35.483870967741936,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": -6.5189926212615505,
+        "sharpe": -0.5470849787259935,
+        "dd": -19.837192923823675,
+        "trades": 47,
+        "wr": 38.297872340425535,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": 19.68217065585328,
+        "sharpe": 0.9493541504954861,
+        "dd": -10.235183696105487,
+        "trades": 65,
+        "wr": 47.69230769230769,
+        "verdict": "PRECAUCION",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": -53.011335736492136,
+        "sharpe": -3.7836425141871324,
+        "dd": -55.871234374384294,
+        "trades": 87,
+        "wr": 31.03448275862069,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": -9.911970970216446,
+        "sharpe": -0.21253213508523622,
+        "dd": -33.751607042644864,
+        "trades": 34,
+        "wr": 38.23529411764706,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 13.58971649982077,
+        "sharpe": 0.13165578863175464,
+        "dd": -28.521663577397426,
+        "trades": 37,
+        "wr": 48.64864864864865,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-MoonBollingerReversion",
+    "passing": 0,
+    "total": 11,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "SOL 1h Sharpe=0.20 Ret=+2.9% DD=-17.0%",
+    "worst": "EURUSD 1h Ret=-50.3%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -15.854132441455643,
+        "sharpe": -1.809429114785529,
+        "dd": -22.991611287777257,
+        "trades": 98,
+        "wr": 53.06122448979592,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -13.18545570833586,
+        "sharpe": -1.132434182098406,
+        "dd": -22.14567778021337,
+        "trades": 70,
+        "wr": 61.42857142857143,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": 2.9092730759999905,
+        "sharpe": 0.19707039461480233,
+        "dd": -16.97806042503941,
+        "trades": 60,
+        "wr": 75.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": -6.284809915710467,
+        "sharpe": -1.2915752674316534,
+        "dd": -7.804932801727338,
+        "trades": 44,
+        "wr": 45.45454545454545,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": -1.7553427417908096,
+        "sharpe": -0.3214838401917536,
+        "dd": -4.674926984863282,
+        "trades": 32,
+        "wr": 56.25,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": -9.607581460792499,
+        "sharpe": -1.4295225986434716,
+        "dd": -11.983799298244534,
+        "trades": 21,
+        "wr": 52.38095238095239,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": 0.3968708210220575,
+        "sharpe": 0.04025293933339188,
+        "dd": -14.918450461801292,
+        "trades": 20,
+        "wr": 65.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": -50.26152032240623,
+        "sharpe": -21.787995877167013,
+        "dd": -50.26152032240623,
+        "trades": 343,
+        "wr": 3.7900874635568513,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": -43.286612838294886,
+        "sharpe": -13.606766487625496,
+        "dd": -43.29643123820175,
+        "trades": 272,
+        "wr": 11.76470588235294,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": -14.756924235499119,
+        "sharpe": -0.6432146843133943,
+        "dd": -19.625131336342527,
+        "trades": 6,
+        "wr": 33.33333333333333,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": -40.302724414660375,
+        "sharpe": -1.033419205337927,
+        "dd": -50.63187408466915,
+        "trades": 3,
+        "wr": 33.33333333333333,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-MoonHybridMomentumReversion",
+    "passing": 3,
+    "total": 11,
+    "pct_pass": 27.27272727272727,
+    "verdict": "SELECTIVO",
+    "best": "QQQ 1h Sharpe=1.42 Ret=+14.4% DD=-5.8%",
+    "worst": "BTC 1d Ret=-24.7%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -5.524576556358276,
+        "sharpe": -0.4846748451826534,
+        "dd": -20.404206942838755,
+        "trades": 95,
+        "wr": 49.473684210526315,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -22.654389508785403,
+        "sharpe": -2.0782758691108683,
+        "dd": -31.44254426161105,
+        "trades": 80,
+        "wr": 45.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": 14.311010859000017,
+        "sharpe": 0.5541049154975883,
+        "dd": -22.007188421862523,
+        "trades": 88,
+        "wr": 46.590909090909086,
+        "verdict": "PRECAUCION",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": 10.07382267492676,
+        "sharpe": 1.3461592481345466,
+        "dd": -3.9929664485123584,
+        "trades": 26,
+        "wr": 53.84615384615385,
+        "verdict": "PASS",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": 14.407209606582692,
+        "sharpe": 1.415406862682222,
+        "dd": -5.782166135388078,
+        "trades": 25,
+        "wr": 64.0,
+        "verdict": "PASS",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": -13.164653551376324,
+        "sharpe": -1.2345307306901574,
+        "dd": -20.203229638576413,
+        "trades": 26,
+        "wr": 42.30769230769231,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": 24.52959057700349,
+        "sharpe": 1.1186089619684394,
+        "dd": -8.836895450451909,
+        "trades": 30,
+        "wr": 66.66666666666666,
+        "verdict": "PASS",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": -24.685408357455753,
+        "sharpe": -0.8923315005955367,
+        "dd": -30.729468360651236,
+        "trades": 13,
+        "wr": 38.46153846153847,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 60.01055166018586,
+        "sharpe": 0.937385925549983,
+        "dd": -20.346034853312023,
+        "trades": 8,
+        "wr": 62.5,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-MoonMACDDivergence",
+    "passing": 0,
+    "total": 11,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "BTC 1h Sharpe=0.00 Ret=+0.0% DD=-0.0%",
+    "worst": "BTC 1h Ret=+0.0%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-MoonRSIMeanReversion",
+    "passing": 0,
+    "total": 11,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "NVDA 1h Sharpe=0.38 Ret=+13.3% DD=-17.0%",
+    "worst": "USDJPY 1h Ret=-45.7%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -23.644043042217554,
+        "sharpe": -1.6863743309049302,
+        "dd": -28.52376286076558,
+        "trades": 166,
+        "wr": 60.8433734939759,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -39.70971318253295,
+        "sharpe": -2.679608485076422,
+        "dd": -45.84307233103253,
+        "trades": 159,
+        "wr": 60.37735849056604,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -28.64009070750015,
+        "sharpe": -1.206535704591808,
+        "dd": -48.687022068594466,
+        "trades": 159,
+        "wr": 65.40880503144653,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": 1.53200380145272,
+        "sharpe": 0.11633874474539982,
+        "dd": -9.827304462757347,
+        "trades": 63,
+        "wr": 61.904761904761905,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": -3.4859822721709866,
+        "sharpe": -0.21841999228936487,
+        "dd": -16.373964995445245,
+        "trades": 56,
+        "wr": 58.92857142857143,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": -16.80413609682455,
+        "sharpe": -0.8127448840978199,
+        "dd": -26.818046615216083,
+        "trades": 62,
+        "wr": 48.38709677419355,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": 13.265532563842772,
+        "sharpe": 0.3849501394263661,
+        "dd": -16.99453829317993,
+        "trades": 54,
+        "wr": 66.66666666666666,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": -38.23280818812548,
+        "sharpe": -10.543135818801977,
+        "dd": -38.232808188125475,
+        "trades": 245,
+        "wr": 25.71428571428571,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": -45.72260771999367,
+        "sharpe": -10.898271408077289,
+        "dd": -45.865596409461816,
+        "trades": 213,
+        "wr": 31.92488262910798,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": -17.064349308935615,
+        "sharpe": -0.24218996360689612,
+        "dd": -51.307331217351184,
+        "trades": 22,
+        "wr": 72.72727272727273,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": -28.795175119274152,
+        "sharpe": -0.36518090597064257,
+        "dd": -46.38317511091363,
+        "trades": 19,
+        "wr": 47.368421052631575,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-MoonSimpleMomentumCross",
+    "passing": 0,
+    "total": 11,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "BTC 1h Sharpe=0.10 Ret=+1.7% DD=-19.3%",
+    "worst": "SOL 1h Ret=-41.0%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": 1.7083318398215066,
+        "sharpe": 0.10338120875266425,
+        "dd": -19.279078170120524,
+        "trades": 67,
+        "wr": 31.343283582089555,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -0.6193513024577536,
+        "sharpe": -0.03329287113051297,
+        "dd": -21.368493949382273,
+        "trades": 69,
+        "wr": 37.68115942028986,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -41.034968644000045,
+        "sharpe": -4.313949026789056,
+        "dd": -53.038977343730174,
+        "trades": 72,
+        "wr": 20.833333333333336,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": -13.154633326538095,
+        "sharpe": -1.2859286833001196,
+        "dd": -18.04350988043939,
+        "trades": 23,
+        "wr": 17.391304347826086,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": -4.026995263046229,
+        "sharpe": -0.3113750339870263,
+        "dd": -11.30635478823947,
+        "trades": 24,
+        "wr": 33.33333333333333,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": -3.1514752088928075,
+        "sharpe": -0.19980951350081674,
+        "dd": -14.343130744436062,
+        "trades": 21,
+        "wr": 38.095238095238095,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": -3.9321789436989643,
+        "sharpe": -0.24022609465612063,
+        "dd": -14.92885568673512,
+        "trades": 23,
+        "wr": 43.47826086956522,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": -11.593709670090588,
+        "sharpe": -0.9523495988946026,
+        "dd": -13.204356229495495,
+        "trades": 4,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": -5.313437680979562,
+        "sharpe": -0.10383412721102783,
+        "dd": -28.656418058016985,
+        "trades": 10,
+        "wr": 20.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-MoonStochasticMomentum",
+    "passing": 0,
+    "total": 11,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "BTC 1h Sharpe=0.00 Ret=+0.0% DD=-0.0%",
+    "worst": "NVDA 1h Ret=-1.3%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -1.1036037599999873,
+        "sharpe": -1.3384692221255312,
+        "dd": -1.5984400143683741,
+        "trades": 1,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": -1.2790738795280412,
+        "sharpe": -1.012880903504875,
+        "dd": -1.2790738795280365,
+        "trades": 1,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-MoonTrendFollowingMA",
+    "passing": 0,
+    "total": 11,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "AAPL 1h Sharpe=0.35 Ret=+6.5% DD=-18.2%",
+    "worst": "BTC 1h Ret=-49.3%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -49.31954643500059,
+        "sharpe": -8.451844141314261,
+        "dd": -50.01780648414213,
+        "trades": 344,
+        "wr": 26.744186046511626,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -26.745668543231933,
+        "sharpe": -1.7518004388727517,
+        "dd": -29.342418442654004,
+        "trades": 330,
+        "wr": 30.909090909090907,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -42.663430192999954,
+        "sharpe": -3.3009390897549444,
+        "dd": -50.829371259457126,
+        "trades": 333,
+        "wr": 31.83183183183183,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": -28.489406799011125,
+        "sharpe": -3.8917428976082435,
+        "dd": -34.087500479254885,
+        "trades": 126,
+        "wr": 25.396825396825395,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": -29.815828946807905,
+        "sharpe": -3.9798847626786102,
+        "dd": -34.2299301173558,
+        "trades": 124,
+        "wr": 30.64516129032258,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": 6.455586655220031,
+        "sharpe": 0.3506227608131205,
+        "dd": -18.190640074782515,
+        "trades": 110,
+        "wr": 29.09090909090909,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": -32.81809498320384,
+        "sharpe": -2.139919965387398,
+        "dd": -39.47267728895271,
+        "trades": 125,
+        "wr": 27.200000000000003,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": -25.78134317208051,
+        "sharpe": -0.6440156020022827,
+        "dd": -36.69938156696416,
+        "trades": 54,
+        "wr": 40.74074074074074,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 19.517680359063498,
+        "sharpe": 0.23986457864649635,
+        "dd": -24.48857835629307,
+        "trades": 51,
+        "wr": 37.254901960784316,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-MoonVolatilityBreakout",
+    "passing": 0,
+    "total": 11,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "BTC 1d Sharpe=0.22 Ret=+13.6% DD=-25.6%",
+    "worst": "BTC 1h Ret=-35.0%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -34.99587647996436,
+        "sharpe": -3.438740346435826,
+        "dd": -38.81275047224059,
+        "trades": 183,
+        "wr": 33.33333333333333,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -13.262686964621976,
+        "sharpe": -0.5641114702055404,
+        "dd": -33.35479930922569,
+        "trades": 160,
+        "wr": 39.375,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -12.00096636749995,
+        "sharpe": -0.354827878712966,
+        "dd": -41.787371738195546,
+        "trades": 165,
+        "wr": 39.39393939393939,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": -0.3356396410826892,
+        "sharpe": -0.028606889357952386,
+        "dd": -20.437746322623173,
+        "trades": 55,
+        "wr": 38.18181818181819,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": -21.527654747207635,
+        "sharpe": -1.837474845916363,
+        "dd": -30.540664064148338,
+        "trades": 69,
+        "wr": 31.88405797101449,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": -10.823135831466589,
+        "sharpe": -0.6006667660653601,
+        "dd": -27.78224780718499,
+        "trades": 59,
+        "wr": 40.67796610169492,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": -30.96361214167403,
+        "sharpe": -1.4852882213381886,
+        "dd": -42.69710439959452,
+        "trades": 70,
+        "wr": 35.714285714285715,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": 13.583651669326205,
+        "sharpe": 0.21838536317715138,
+        "dd": -25.556023075593416,
+        "trades": 23,
+        "wr": 39.130434782608695,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": -5.417841275750759,
+        "sharpe": -0.06911139887908264,
+        "dd": -43.70771185984951,
+        "trades": 27,
+        "wr": 40.74074074074074,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-MoonVolumeWeightedBreakout",
+    "passing": 0,
+    "total": 11,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "AAPL 1h Sharpe=0.59 Ret=+12.2% DD=-9.8%",
+    "worst": "SOL 1h Ret=-61.1%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -39.91452112460115,
+        "sharpe": -4.772290850407593,
+        "dd": -42.891692770081114,
+        "trades": 263,
+        "wr": 29.277566539923956,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -22.413519336047045,
+        "sharpe": -1.2965957918210447,
+        "dd": -43.84366985229171,
+        "trades": 317,
+        "wr": 35.33123028391167,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -61.11209962999996,
+        "sharpe": -8.211608781578223,
+        "dd": -67.21765542583793,
+        "trades": 336,
+        "wr": 31.845238095238095,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": -16.43451532315059,
+        "sharpe": -2.27850156297252,
+        "dd": -21.39374227768558,
+        "trades": 64,
+        "wr": 26.5625,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": -19.826906969757076,
+        "sharpe": -2.1000484959217487,
+        "dd": -25.63333102359221,
+        "trades": 86,
+        "wr": 29.069767441860467,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": 12.151936694221476,
+        "sharpe": 0.5912397781664621,
+        "dd": -9.844784737998303,
+        "trades": 90,
+        "wr": 38.88888888888889,
+        "verdict": "PRECAUCION",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": -47.90160506282807,
+        "sharpe": -3.8867380761841166,
+        "dd": -48.75074800538286,
+        "trades": 124,
+        "wr": 28.225806451612907,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1d",
+        "ret": -26.230782101552137,
+        "sharpe": -0.989043705725452,
+        "dd": -26.23078210155213,
+        "trades": 60,
+        "wr": 36.666666666666664,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1d",
+        "ret": 25.536333802156637,
+        "sharpe": 0.41082947863036196,
+        "dd": -27.062461752430245,
+        "trades": 69,
+        "wr": 53.62318840579711,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-TrendCapturePro",
+    "passing": 0,
+    "total": 9,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "ETH 1h Sharpe=0.73 Ret=+8.7% DD=-13.9%",
+    "worst": "SOL 1h Ret=-6.4%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -4.368394501233134,
+        "sharpe": -1.2084498541613438,
+        "dd": -7.242836743186231,
+        "trades": 7,
+        "wr": 42.857142857142854,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": 8.677873507354349,
+        "sharpe": 0.729779697320416,
+        "dd": -13.853311563502368,
+        "trades": 17,
+        "wr": 47.05882352941176,
+        "verdict": "PRECAUCION",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -6.3900557139998995,
+        "sharpe": -0.5523541235234787,
+        "dd": -26.625566761947216,
+        "trades": 25,
+        "wr": 36.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": -1.392568018737802,
+        "sharpe": -0.38383772060970456,
+        "dd": -4.936302892255274,
+        "trades": 1,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": -1.4829018571777306,
+        "sharpe": -0.4697200322190833,
+        "dd": -4.160893560613665,
+        "trades": 1,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": -0.9732194785156025,
+        "sharpe": -0.24755861923799127,
+        "dd": -5.121199048094782,
+        "trades": 3,
+        "wr": 33.33333333333333,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": 2.255923728786438,
+        "sharpe": 0.24898250376790587,
+        "dd": -10.879689047297314,
+        "trades": 7,
+        "wr": 57.14285714285714,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-SelectiveMomentumSwing",
+    "passing": 0,
+    "total": 9,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "BTC 1h Sharpe=0.00 Ret=+0.0% DD=-0.0%",
+    "worst": "BTC 1h Ret=+0.0%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-DivergenceVolatilityEnhanced",
+    "passing": 0,
+    "total": 9,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "SOL 1h Sharpe=2.13 Ret=+7.7% DD=-1.2%",
+    "worst": "BTC 1h Ret=-0.6%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -0.6039873725558584,
+        "sharpe": -0.30749135264368016,
+        "dd": -3.3990215440293015,
+        "trades": 3,
+        "wr": 66.66666666666666,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": 3.379401760461164,
+        "sharpe": 1.013167538334395,
+        "dd": -3.737367093219224,
+        "trades": 6,
+        "wr": 66.66666666666666,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": 7.722521473999969,
+        "sharpe": 2.133914790479068,
+        "dd": -1.2459994996460444,
+        "trades": 6,
+        "wr": 83.33333333333334,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": 0.08268851985167203,
+        "sharpe": 0.04721577181044658,
+        "dd": -1.1848402581795314,
+        "trades": 1,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-OrderBookImbalance",
+    "passing": 0,
+    "total": 7,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "BTC 1h Sharpe=0.00 Ret=+0.0% DD=-0.0%",
+    "worst": "BTC 1h Ret=+0.0%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": 0.0,
+        "sharpe": 0.0,
+        "dd": -0.0,
+        "trades": 0,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-LiquidationCascade",
+    "passing": 0,
+    "total": 7,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "QQQ 1h Sharpe=1.13 Ret=+9.3% DD=-4.4%",
+    "worst": "BTC 1h Ret=-20.7%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -20.728824989492576,
+        "sharpe": -2.0797377092211264,
+        "dd": -27.478403302495067,
+        "trades": 38,
+        "wr": 42.10526315789473,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": -19.496350283172355,
+        "sharpe": -1.5259238162652795,
+        "dd": -30.125641477243605,
+        "trades": 48,
+        "wr": 54.166666666666664,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": -20.407862867499997,
+        "sharpe": -1.6699564514169973,
+        "dd": -32.35278216769326,
+        "trades": 45,
+        "wr": 60.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": 8.10858223895264,
+        "sharpe": 1.097175965971817,
+        "dd": -4.463925323656981,
+        "trades": 13,
+        "wr": 76.92307692307693,
+        "verdict": "PRECAUCION",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": 9.329026435852029,
+        "sharpe": 1.1328102528811852,
+        "dd": -4.410738255065938,
+        "trades": 15,
+        "wr": 66.66666666666666,
+        "verdict": "PRECAUCION",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": -9.623672156570464,
+        "sharpe": -0.6527337794790424,
+        "dd": -15.963175906112115,
+        "trades": 14,
+        "wr": 28.57142857142857,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": 17.603412709640452,
+        "sharpe": 0.9963645131172035,
+        "dd": -8.930324692886348,
+        "trades": 14,
+        "wr": 71.42857142857143,
+        "verdict": "PRECAUCION",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-HeatMapRotation",
+    "passing": 3,
+    "total": 7,
+    "pct_pass": 42.857142857142854,
+    "verdict": "VIABLE",
+    "best": "SOL 1h Sharpe=2.76 Ret=+35.0% DD=-5.8%",
+    "worst": "NVDA 1h Ret=-2.9%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": 9.252128452589666,
+        "sharpe": 1.6008857189411394,
+        "dd": -4.977934961799235,
+        "trades": 42,
+        "wr": 64.28571428571429,
+        "verdict": "PASS",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "1h",
+        "ret": 12.920129300743163,
+        "sharpe": 1.7852669447394345,
+        "dd": -5.808108293396053,
+        "trades": 34,
+        "wr": 55.88235294117647,
+        "verdict": "PASS",
+        "error": null
+      },
+      {
+        "symbol": "SOL",
+        "interval": "1h",
+        "ret": 35.0374276365,
+        "sharpe": 2.7632392159570447,
+        "dd": -5.8223358640626,
+        "trades": 35,
+        "wr": 71.42857142857143,
+        "verdict": "PASS",
+        "error": null
+      },
+      {
+        "symbol": "SPY",
+        "interval": "1h",
+        "ret": -2.514319135345486,
+        "sharpe": -0.44156711314175606,
+        "dd": -5.030950616082008,
+        "trades": 26,
+        "wr": 53.84615384615385,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1h",
+        "ret": 1.689691826370272,
+        "sharpe": 0.26307050646398483,
+        "dd": -5.957375204254167,
+        "trades": 26,
+        "wr": 69.23076923076923,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1h",
+        "ret": 23.138297058815024,
+        "sharpe": 1.207925525185528,
+        "dd": -7.241303205496685,
+        "trades": 18,
+        "wr": 55.55555555555556,
+        "verdict": "PRECAUCION",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1h",
+        "ret": -2.852981779296897,
+        "sharpe": -0.19769927332472992,
+        "dd": -20.64617248641969,
+        "trades": 23,
+        "wr": 47.82608695652174,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-VIXFearMeanReversion",
+    "passing": 0,
+    "total": 5,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "AAPL 1d Sharpe=0.73 Ret=+9.9% DD=-1.2%",
+    "worst": "MSFT 1d Ret=+1.0%",
+    "results": [
+      {
+        "symbol": "SPY",
+        "interval": "1d",
+        "ret": 2.3955250145278297,
+        "sharpe": 0.4909566711351983,
+        "dd": -0.3925988546066961,
+        "trades": 1,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1d",
+        "ret": 2.969223913436599,
+        "sharpe": 0.35653333798418274,
+        "dd": -1.7007529996030168,
+        "trades": 1,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1d",
+        "ret": 9.907306266270972,
+        "sharpe": 0.7319088266546867,
+        "dd": -1.1669528680624763,
+        "trades": 1,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1d",
+        "ret": 1.4495866403253421,
+        "sharpe": 0.06465942573744894,
+        "dd": -6.489288309228813,
+        "trades": 1,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "MSFT",
+        "interval": "1d",
+        "ret": 1.0211257080966971,
+        "sharpe": 0.13145849177136662,
+        "dd": -2.2854467534294765,
+        "trades": 1,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-DXYForexRotation",
+    "passing": 0,
+    "total": 7,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "NVDA 1d Sharpe=0.76 Ret=+609.2% DD=-41.5%",
+    "worst": "USDJPY 1d Ret=+4.8%",
+    "results": [
+      {
+        "symbol": "SPY",
+        "interval": "1d",
+        "ret": 49.723684490611724,
+        "sharpe": 0.607526973860441,
+        "dd": -18.28012680891067,
+        "trades": 2,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1d",
+        "ret": 59.31922714500635,
+        "sharpe": 0.5322461506192955,
+        "dd": -22.50557324405419,
+        "trades": 2,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1d",
+        "ret": 50.70463775638833,
+        "sharpe": 0.3747154567786839,
+        "dd": -33.108793438338616,
+        "trades": 2,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1d",
+        "ret": 609.1782640080021,
+        "sharpe": 0.7619703510182584,
+        "dd": -41.53501167066105,
+        "trades": 2,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "MSFT",
+        "interval": "1d",
+        "ret": 66.19343575483552,
+        "sharpe": 0.501084404371276,
+        "dd": -26.330023336732367,
+        "trades": 2,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "EURUSD",
+        "interval": "1d",
+        "ret": 14.06250126422561,
+        "sharpe": 0.43022827276962944,
+        "dd": -9.305522732007699,
+        "trades": 2,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "USDJPY",
+        "interval": "1d",
+        "ret": 4.79737869260407,
+        "sharpe": 0.11153915872112766,
+        "dd": -14.637548692829572,
+        "trades": 2,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "RBI-YieldCurveSignal",
+    "passing": 0,
+    "total": 5,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "NVDA 1d Sharpe=0.14 Ret=+33.2% DD=-68.1%",
+    "worst": "MSFT 1d Ret=-11.0%",
+    "results": [
+      {
+        "symbol": "SPY",
+        "interval": "1d",
+        "ret": 9.838597201414395,
+        "sharpe": 0.1318253333089609,
+        "dd": -29.766116988500123,
+        "trades": 2,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "QQQ",
+        "interval": "1d",
+        "ret": -5.024645451103752,
+        "sharpe": -0.05672123792970161,
+        "dd": -43.242632970951746,
+        "trades": 2,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "AAPL",
+        "interval": "1d",
+        "ret": 12.566510725263289,
+        "sharpe": 0.10016393524918817,
+        "dd": -43.971235747100366,
+        "trades": 2,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "NVDA",
+        "interval": "1d",
+        "ret": 33.19551671176136,
+        "sharpe": 0.13702448285141308,
+        "dd": -68.07945245029423,
+        "trades": 2,
+        "wr": 100.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "MSFT",
+        "interval": "1d",
+        "ret": -10.990140215573101,
+        "sharpe": -0.11157545020977329,
+        "dd": -41.33457807744632,
+        "trades": 2,
+        "wr": 0.0,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  },
+  {
+    "name": "PairsBTCETH",
+    "passing": 0,
+    "total": 3,
+    "pct_pass": 0.0,
+    "verdict": "NO_VIABLE",
+    "best": "BTC 4h Sharpe=0.37 Ret=+20.3% DD=-26.8%",
+    "worst": "ETH 4h Ret=-44.2%",
+    "results": [
+      {
+        "symbol": "BTC",
+        "interval": "4h",
+        "ret": 20.264313429426654,
+        "sharpe": 0.36658168881775194,
+        "dd": -26.82666974619117,
+        "trades": 17,
+        "wr": 58.82352941176471,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "BTC",
+        "interval": "1h",
+        "ret": -25.871511460390256,
+        "sharpe": -2.066108352110507,
+        "dd": -36.31484054288586,
+        "trades": 16,
+        "wr": 50.0,
+        "verdict": "FAIL",
+        "error": null
+      },
+      {
+        "symbol": "ETH",
+        "interval": "4h",
+        "ret": -44.248061362336266,
+        "sharpe": -1.1189271258590683,
+        "dd": -50.06899553747437,
+        "trades": 18,
+        "wr": 44.44444444444444,
+        "verdict": "FAIL",
+        "error": null
+      }
+    ]
+  }
+]
