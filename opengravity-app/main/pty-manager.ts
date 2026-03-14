@@ -34,6 +34,36 @@ function stripAnsi(str: string): string {
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 }
 
+// Semantic filter: discard lines with zero informational value
+function isUsefulLine(line: string): boolean {
+  if (line.length < 4) return false;
+  // Spinners and "Working…" animations
+  if (/^[\s✻✶*✢·⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏▁▂▃▄▅▆▇█]+Working[….]?$/u.test(line)) return false;
+  if (/^Working[….]?$/.test(line)) return false;
+  // Voice mode noise
+  if (/^Voice:\s*(processing|listening|recording)[….]?$/i.test(line)) return false;
+  if (/^listening[….]?$/.test(line)) return false;
+  // UI box-drawing lines (Claude splash screen)
+  if (/^[─│╭╰╮╯├┤┬┴┼▛▜▝▘▟▙▗▖\s]+$/.test(line)) return false;
+  // Escaped ANSI/control remnants that survived stripAnsi
+  if (/^\[>[0-9]/.test(line)) return false;
+  if (/^hift[+\s]/i.test(line)) return false;
+  // Claude CLI status bar / UI chrome
+  if (/hold\s*Space\s*to\s*speak/i.test(line)) return false;
+  if (/bypasspermissions/i.test(line)) return false;
+  if (/^◐\s*(low|medium|high)/u.test(line)) return false;
+  if (/^[⏵⏵]+/u.test(line)) return false;
+  if (/Checkingforupdates/i.test(line)) return false;
+  if (/Welcomeback\w/i.test(line)) return false;
+  if (/Tipsforgetting/i.test(line)) return false;
+  if (/Norecentactivity/i.test(line)) return false;
+  if (/Recentactivity$/i.test(line)) return false;
+  // Lines dominated by box-drawing chars (>30%)
+  const boxChars = (line.match(/[─│╭╰╮╯▛▜▝▘▟▙]/g) || []).length;
+  if (boxChars > line.length * 0.3) return false;
+  return true;
+}
+
 function ensureContextDir() {
   if (!fs.existsSync(CONTEXT_DIR)) fs.mkdirSync(CONTEXT_DIR, { recursive: true });
 }
@@ -47,7 +77,7 @@ function saveAgentContext(agentId: string, buffer: string[]) {
   const cleanLines = buffer
     .map(stripAnsi)
     .map(l => l.trim())
-    .filter(l => l.length > 2);
+    .filter(isUsefulLine);
   if (cleanLines.length === 0) return;
 
   // Read existing context to preserve history (keep last 2 sessions)
@@ -59,12 +89,12 @@ function saveAgentContext(agentId: string, buffer: string[]) {
       const sections = existing.split(/^---$/m).filter(s => s.trim());
       if (sections.length > 0) {
         // Keep at most 1 previous session for context continuity
-        prevSessions = '\n---\n## Sesión anterior\n' + sections[0].trim().slice(0, 2000) + '\n';
+        prevSessions = '\n---\n## Sesión anterior\n' + sections[0].trim().slice(0, 400) + '\n';
       }
     }
   } catch {}
 
-  const content = `# Contexto del agente: ${agentId}\n## Última sesión: ${now}\n\n${cleanLines.slice(-100).join('\n')}${prevSessions}`;
+  const content = `# Contexto del agente: ${agentId}\n## Última sesión: ${now}\n\n${cleanLines.slice(-40).join('\n')}${prevSessions}`;
   try {
     fs.writeFileSync(contextFile, content, 'utf-8');
   } catch (e) {
@@ -91,7 +121,7 @@ export function saveAllContexts() {
 
 // ── Periodic auto-save: protects terminal work if app crashes ──
 let autoSaveTimer: ReturnType<typeof setInterval> | null = null;
-const AUTO_SAVE_INTERVAL_MS = 30_000; // every 30 seconds
+const AUTO_SAVE_INTERVAL_MS = 90_000; // 90s — reduce mid-work spinner saves
 
 function startAutoSave() {
   if (autoSaveTimer) return;
