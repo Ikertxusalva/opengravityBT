@@ -283,38 +283,43 @@ export default function HomePage() {
       </nav>
 
       <div className="terminal-area">
-        {activeView === 'polymarket' ? (
-          <PolymarketPanel />
-        ) : activeView === 'market' ? (
-          <MarketPanel fundingData={fundingData} stressData={stressData} liquidationData={liquidationData} whaleData={whaleData} />
-        ) : terminals.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">⌨</div>
-            <button className="empty-btn" onClick={() => setShowPicker(true)}>+ Nueva Terminal</button>
-          </div>
-        ) : isGridView ? (
-          <div className={gridClass}>
-            {terminals.map(term => (
-              <XTermPanel key={term.id} terminal={term} onClose={() => closeTerminal(term.id)} instancesRef={xtermInstancesRef} />
-            ))}
-          </div>
-        ) : (
-          <div className="terminal-tabs">
-            <div className="tab-bar">
+        {/* All panels always mounted — hidden via CSS to preserve terminal state */}
+        <div style={{ display: activeView === 'terminals' ? 'contents' : 'none' }}>
+          {terminals.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">⌨</div>
+              <button className="empty-btn" onClick={() => setShowPicker(true)}>+ Nueva Terminal</button>
+            </div>
+          ) : isGridView ? (
+            <div className={gridClass}>
               {terminals.map(term => (
-                <div key={term.id} className={`tab-item ${activeTab === term.id ? 'active' : ''}`} onClick={() => setActiveTab(term.id)}>
-                  <span>{term.agentIcon} {term.agentName}</span>
-                  <button className="tab-close" onClick={(e) => { e.stopPropagation(); closeTerminal(term.id); }}>✕</button>
-                </div>
+                <XTermPanel key={term.id} terminal={term} onClose={() => closeTerminal(term.id)} instancesRef={xtermInstancesRef} />
               ))}
             </div>
-            <div className="tab-content">
-              {terminals.filter(t => t.id === activeTab).map(term => (
-                <XTermPanel key={term.id} terminal={term} onClose={() => closeTerminal(term.id)} showHeader={false} instancesRef={xtermInstancesRef} />
-              ))}
+          ) : (
+            <div className="terminal-tabs">
+              <div className="tab-bar">
+                {terminals.map(term => (
+                  <div key={term.id} className={`tab-item ${activeTab === term.id ? 'active' : ''}`} onClick={() => setActiveTab(term.id)}>
+                    <span>{term.agentIcon} {term.agentName}</span>
+                    <button className="tab-close" onClick={(e) => { e.stopPropagation(); closeTerminal(term.id); }}>✕</button>
+                  </div>
+                ))}
+              </div>
+              <div className="tab-content">
+                {terminals.filter(t => t.id === activeTab).map(term => (
+                  <XTermPanel key={term.id} terminal={term} onClose={() => closeTerminal(term.id)} showHeader={false} instancesRef={xtermInstancesRef} />
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+        <div style={{ display: activeView === 'market' ? 'contents' : 'none' }}>
+          <MarketPanel fundingData={fundingData} stressData={stressData} liquidationData={liquidationData} whaleData={whaleData} />
+        </div>
+        <div style={{ display: activeView === 'polymarket' ? 'contents' : 'none' }}>
+          <PolymarketPanel />
+        </div>
       </div>
 
       {showPicker && (
