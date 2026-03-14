@@ -4,7 +4,8 @@ WORKDIR /app
 
 # System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev curl \
+    gcc g++ gfortran libpq-dev curl \
+    liblapack-dev libblas-dev libhdf5-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Python deps
@@ -14,6 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # App code
 COPY . .
 
-EXPOSE 8080
+# Railway provides PORT env var. We use a default for local testing.
+ENV PORT=8080
 
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080"]
+EXPOSE $PORT
+
+# Run with dynamic port
+CMD sh -c "uvicorn server:app --host 0.0.0.0 --port $PORT"
