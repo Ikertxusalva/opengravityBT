@@ -815,6 +815,24 @@ function PolymarketPanel() {
                   title="Ejecutar ciclo copy trading: discover + copy + discard"
                   style={{ padding: '3px 8px', fontSize: '9px', fontWeight: 600, background: '#1a1a2e', color: '#ffab00', border: '1px solid var(--border)', borderRadius: '3px', cursor: 'pointer' }}
                 >FULL CYCLE</button>
+                <button
+                  onClick={async () => {
+                    const e = (window as any).electron;
+                    const r = await e?.polymarket?.daemonInstall?.();
+                    alert(r?.output || 'Daemon instalado. Se ejecutará al iniciar sesión (2 min tras login).');
+                  }}
+                  title="Instalar daemon en Windows Task Scheduler — corre automáticamente al login, sin app abierta"
+                  style={{ padding: '3px 8px', fontSize: '9px', fontWeight: 600, background: '#0d2b0d', color: '#4caf50', border: '1px solid #4caf50', borderRadius: '3px', cursor: 'pointer' }}
+                >INSTALL DAEMON</button>
+                <button
+                  onClick={async () => {
+                    const e = (window as any).electron;
+                    const r = await e?.polymarket?.daemonStatus?.();
+                    alert(r?.output || 'Daemon no instalado.');
+                  }}
+                  title="Ver estado del daemon y últimas líneas del log"
+                  style={{ padding: '3px 8px', fontSize: '9px', fontWeight: 600, background: '#1a1a1a', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '3px', cursor: 'pointer' }}
+                >DAEMON LOG</button>
               </div>
             </div>
 

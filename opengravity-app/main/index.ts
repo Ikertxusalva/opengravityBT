@@ -349,6 +349,24 @@ function runCopyCycle(): Promise<{ ok: boolean; error?: string }> {
 
 ipcMain.handle('polymarket-copy-cycle', async () => runCopyCycle());
 
+// ── Copy Daemon control (Task Scheduler) ─────────────────────────────────────
+const COPY_DAEMON_SCRIPT = path.join(process.cwd(), 'scripts', 'polymarket', 'copy_daemon.py');
+
+function runDaemonCmd(arg: string): Promise<{ ok: boolean; output: string }> {
+  const { execFile } = require('child_process');
+  return new Promise((resolve) => {
+    execFile('python', [COPY_DAEMON_SCRIPT, arg], {
+      cwd: POLY_CWD, timeout: 30_000, env: { ...process.env },
+    }, (error: any, stdout: string, stderr: string) => {
+      resolve({ ok: !error, output: stdout || stderr || error?.message || '' });
+    });
+  });
+}
+
+ipcMain.handle('copy-daemon-install', async () => runDaemonCmd('--install'));
+ipcMain.handle('copy-daemon-uninstall', async () => runDaemonCmd('--uninstall'));
+ipcMain.handle('copy-daemon-status', async () => runDaemonCmd('--status'));
+
 function startCopyCycleLoop() {
   if (copyCycleTimer) return;
   // First copy cycle 2 min after app start

@@ -52,6 +52,9 @@ contextBridge.exposeInMainWorld('electron', {
     walletDiscover: () => ipcRenderer.invoke('polymarket-wallet-discover'),
     walletUpdate: () => ipcRenderer.invoke('polymarket-wallet-update'),
     copyCycle: () => ipcRenderer.invoke('polymarket-copy-cycle'),
+    daemonInstall: () => ipcRenderer.invoke('copy-daemon-install'),
+    daemonUninstall: () => ipcRenderer.invoke('copy-daemon-uninstall'),
+    daemonStatus: () => ipcRenderer.invoke('copy-daemon-status'),
     onUpdate: (callback: (data: any) => void) => {
       const handler = (_event: any, data: any) => callback(data);
       ipcRenderer.on('polymarket-update', handler);
