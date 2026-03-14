@@ -19,6 +19,7 @@ from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, 
 from sqlalchemy.orm import sessionmaker, declarative_base
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import httpx
+import re
 import time
 import secrets
 from collections import defaultdict
@@ -217,16 +218,25 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 def verify_token(authorization: str = Header(None)):
     if not API_TOKEN:
-        # In development, if no token is set, we might allow access, 
+        # In development, if no token is set, we might allow access,
         # but in production, this is a CRITICAL configuration error.
         return
-    
+
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-    
+
     token = authorization.replace("Bearer ", "")
     if not secrets.compare_digest(token, API_TOKEN):
         raise HTTPException(status_code=403, detail="Invalid API Token")
+
+
+_AGENT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
+
+def validate_agent_id(agent_id: str) -> str:
+    """Validates agent_id format to prevent path traversal or injection attempts."""
+    if not _AGENT_ID_PATTERN.match(agent_id):
+        raise HTTPException(status_code=400, detail="Invalid agent_id format")
+    return agent_id
 
 
 # ── Scheduler for data ingestion ──
@@ -1126,11 +1136,20 @@ app = FastAPI(
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "app://.",            # Electron production origin
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this to specific origins
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -1602,7 +1621,7 @@ async def run_backtest(params: dict):
 
 # ── Swarm Consensus Endpoints ──
 
-@app.post("/api/swarm/decision")
+@app.post("/api/swarm/decision", dependencies=[Depends(verify_token)])
 async def create_swarm_decision(decision: dict):
     """Store a swarm consensus decision and broadcast via WebSocket."""
     db = SessionLocal()
@@ -1635,7 +1654,7 @@ async def create_swarm_decision(decision: dict):
         db.close()
 
 
-@app.get("/api/swarm/decisions")
+@app.get("/api/swarm/decisions", dependencies=[Depends(verify_token)])
 async def get_swarm_decisions(limit: int = 20):
     """Get recent swarm decisions."""
     db = SessionLocal()
@@ -1668,6 +1687,7 @@ async def get_swarm_decisions(limit: int = 20):
 @app.get("/api/agent/context/{agent_id}")
 async def get_agent_context(agent_id: str):
     """Get saved conversational context for an agent (no auth — context is not sensitive)."""
+    agent_id = validate_agent_id(agent_id)
     db = SessionLocal()
     try:
         ctx = db.query(AgentContext).filter(AgentContext.agent_id == agent_id).first()
@@ -1682,9 +1702,10 @@ async def get_agent_context(agent_id: str):
         db.close()
 
 
-@app.post("/api/agent/context/{agent_id}")
+@app.post("/api/agent/context/{agent_id}", dependencies=[Depends(verify_token)])
 async def save_agent_context(agent_id: str, data: dict):
     """Save or update conversational context for an agent."""
+    agent_id = validate_agent_id(agent_id)
     db = SessionLocal()
     try:
         ctx = db.query(AgentContext).filter(AgentContext.agent_id == agent_id).first()
@@ -1781,12 +1802,14 @@ async def websocket_endpoint(ws: WebSocket):
             if data.get("type") == "ping":
                 await ws.send_json({"type": "pong"})
             elif data.get("type") == "subscribe":
-                # Verify token in the first message or every message
+                # Verify token — close connection immediately on failure
                 if API_TOKEN:
                     token = data.get("token")
                     if not token or not secrets.compare_digest(token, API_TOKEN):
                         await ws.send_json({"type": "error", "message": "Authentication required"})
-                        continue
+                        await ws.close(code=1008)  # 1008 = Policy Violation
+                        manager.disconnect(ws)
+                        return
                 await ws.send_json({"type": "subscribed", "symbols": data.get("symbols", [])})
     except WebSocketDisconnect:
         manager.disconnect(ws)

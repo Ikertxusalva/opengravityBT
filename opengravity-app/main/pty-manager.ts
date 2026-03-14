@@ -65,11 +65,15 @@ function saveAgentContext(agentId: string, buffer: string[]) {
   } catch (e) {
     console.warn(`[Context] Failed to write context for ${agentId}:`, e);
   }
-  // Async backup to Railway (fire and forget)
-  fetch(`${CLOUD_URL}/api/agent/context/${agentId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ context_summary: content }),
+  // Async backup to Railway (fire and forget) — include auth token
+  Vault.get('OPENGRAVITY_API_TOKEN').then(token => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    fetch(`${CLOUD_URL}/api/agent/context/${agentId}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ context_summary: content }),
+    }).catch(() => {});
   }).catch(() => {});
 }
 
