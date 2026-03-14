@@ -714,7 +714,7 @@ function PolymarketPanel() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                 <thead>
                   <tr style={{ color: 'var(--muted)', fontSize: '9px' }}>
-                    {['WALLET', 'PnL', 'WR%', 'TRADES', 'STATUS'].map(h => (
+                    {['WALLET', 'PnL', 'ROI%', 'SCORE', 'STATUS'].map(h => (
                       <th key={h} style={{ padding: '4px 6px', textAlign: h === 'WALLET' ? 'left' : 'right', fontWeight: 400, borderBottom: '1px solid var(--border)' }}>{h}</th>
                     ))}
                   </tr>
@@ -723,15 +723,17 @@ function PolymarketPanel() {
                   {(trackedWallets || []).slice(0, 15).map((w: any, i: number) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle, #1a1a2e)' }}>
                       <td style={{ padding: '3px 6px', fontFamily: 'monospace', fontSize: '9px' }} title={w.address}>
-                        {w.address ? `${w.address.slice(0, 6)}...${w.address.slice(-4)}` : '—'}
+                        {w.name || (w.address ? `${w.address.slice(0, 6)}...${w.address.slice(-4)}` : '—')}
                       </td>
                       <td style={{ padding: '3px 6px', textAlign: 'right', color: (w.pnl ?? 0) >= 0 ? 'var(--neon-green)' : 'var(--red)' }}>
-                        ${(w.pnl ?? 0).toFixed(0)}
+                        ${((w.pnl ?? 0) / 1000).toFixed(0)}K
                       </td>
-                      <td style={{ padding: '3px 6px', textAlign: 'right', color: (w.win_rate ?? 0) >= 60 ? 'var(--neon-green)' : 'var(--muted)' }}>
-                        {((w.win_rate ?? 0) * 100).toFixed(0)}%
+                      <td style={{ padding: '3px 6px', textAlign: 'right', color: (w.roi_pct ?? 0) >= 10 ? 'var(--neon-green)' : 'var(--muted)' }}>
+                        {(w.roi_pct ?? 0).toFixed(1)}%
                       </td>
-                      <td style={{ padding: '3px 6px', textAlign: 'right', color: 'var(--muted)' }}>{w.trades ?? 0}</td>
+                      <td style={{ padding: '3px 6px', textAlign: 'right', color: (w.score ?? 0) >= 70 ? 'var(--neon-green)' : (w.score ?? 0) >= 40 ? '#ffab00' : 'var(--muted)' }}>
+                        {w.score ?? 0}
+                      </td>
                       <td style={{ padding: '3px 6px', textAlign: 'right' }}>
                         <span style={{
                           fontSize: '8px', padding: '1px 4px', borderRadius: '3px', fontWeight: 600,

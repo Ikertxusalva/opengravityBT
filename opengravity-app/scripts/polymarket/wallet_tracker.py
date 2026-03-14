@@ -1,3 +1,6 @@
+import sys, io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+
 """
 Polymarket Wallet Tracker — Hybrid Signal Model
 =================================================
@@ -26,6 +29,7 @@ from statistics import mean
 
 # ── APIs ──────────────────────────────────────────────────────────────────────
 GAMMA = "https://gamma-api.polymarket.com"
+DATA_API = "https://data-api.polymarket.com"
 CLOB = "https://clob.polymarket.com"
 POLYGONSCAN = "https://api.polygonscan.com/api"
 
@@ -64,36 +68,32 @@ def _append_jsonl(path: Path, record: dict):
 # ── 1. DISCOVER — Fetch leaderboard y filtrar top wallets ────────────────────
 
 def fetch_leaderboard(limit: int = 100) -> list:
-    """Fetch top traders del leaderboard de Polymarket."""
-    traders = []
-    try:
-        # Gamma API leaderboard endpoint
-        resp = httpx.get(f"{GAMMA}/leaderboard", params={
-            "limit": limit,
-            "window": "all",  # all-time performance
-        }, timeout=20)
-        if resp.status_code == 200:
-            data = resp.json()
-            if isinstance(data, list):
-                traders = data
-            elif isinstance(data, dict):
-                traders = data.get("leaderboard", data.get("data", []))
-    except Exception as e:
-        print(f"  [WARN] Leaderboard fetch failed: {e}")
-
-    # Fallback: buscar profiles directamente si el leaderboard no funciona
-    if not traders:
+    """Fetch top traders del leaderboard de Polymarket via Data API."""
+    all_traders = []
+    # API max 50 per request, paginate with offset
+    for offset in range(0, limit, 50):
+        batch = min(50, limit - offset)
         try:
-            resp = httpx.get(f"{GAMMA}/profiles", params={
-                "limit": limit,
-                "_sort": "profit:desc",
+            resp = httpx.get(f"{DATA_API}/v1/leaderboard", params={
+                "limit": batch,
+                "offset": offset,
+                "timePeriod": "ALL",
+                "orderBy": "PNL",
             }, timeout=20)
             if resp.status_code == 200:
-                traders = resp.json() if isinstance(resp.json(), list) else []
+                data = resp.json()
+                if isinstance(data, list):
+                    all_traders.extend(data)
+                else:
+                    break
+            else:
+                print(f"  [WARN] Leaderboard API returned {resp.status_code}")
+                break
         except Exception as e:
-            print(f"  [WARN] Profiles fallback failed: {e}")
-
-    return traders
+            print(f"  [WARN] Leaderboard fetch failed: {e}")
+            break
+        time.sleep(0.3)  # Rate limit courtesy
+    return all_traders
 
 
 def fetch_wallet_positions(address: str) -> list:
@@ -124,58 +124,53 @@ def fetch_wallet_trades(address: str, limit: int = 100) -> list:
     return []
 
 
-def score_wallet(trader: dict) -> dict:
+def score_wallet(trader: dict) -> dict | None:
     """Calcula métricas de calidad para una wallet del leaderboard."""
-    address = (trader.get("address") or trader.get("id") or "").lower()
+    address = (trader.get("proxyWallet") or trader.get("address") or "").lower()
     if not address:
         return None
 
-    # Extraer métricas del leaderboard (formato varía)
-    pnl = float(trader.get("profit", 0) or trader.get("pnl", 0) or 0)
-    volume = float(trader.get("volume", 0) or trader.get("totalVolume", 0) or 0)
-    trades = int(trader.get("numTrades", 0) or trader.get("trades", 0) or 0)
-    markets = int(trader.get("numMarkets", 0) or trader.get("markets", 0) or 0)
+    pnl = float(trader.get("pnl", 0) or 0)
+    volume = float(trader.get("vol", 0) or trader.get("volume", 0) or 0)
+    rank = int(trader.get("rank", 999) or 999)
+    name = trader.get("userName") or trader.get("name") or address[:10]
 
-    # Win rate (si disponible)
-    wins = int(trader.get("wins", 0) or 0)
-    losses = int(trader.get("losses", 0) or 0)
-    if wins + losses > 0:
-        win_rate = wins / (wins + losses)
-    elif trades > 0 and pnl > 0:
-        win_rate = 0.55  # estimado conservador si es rentable
-    else:
-        win_rate = 0.0
+    # ROI basado en volumen
+    roi = (pnl / volume * 100) if volume > 0 else 0
 
-    # Score compuesto (0-100)
+    # Score compuesto (0-100) basado en PnL, volumen, ROI, rank
     score = 0
     if pnl >= MIN_PNL_USD:
-        score += 30
-    if pnl >= MIN_PNL_USD * 5:
+        score += 25
+    if pnl >= MIN_PNL_USD * 10:
         score += 15
-    if trades >= MIN_TRADES:
-        score += 20
-    if trades >= MIN_TRADES * 5:
+    if pnl >= MIN_PNL_USD * 50:
         score += 10
-    if win_rate >= MIN_WIN_RATE:
-        score += 20
-    if win_rate >= 0.65:
+    if volume >= 10_000:
+        score += 15
+    if volume >= 100_000:
         score += 10
-    if markets >= 5:
-        score += 5
+    if roi >= 5:
+        score += 15
+    if roi >= 20:
+        score += 10
+    if rank <= 50:
+        score += 10
 
-    # ROI si tenemos volumen
-    roi = (pnl / volume * 100) if volume > 0 else 0
+    # Filtro mínimo
+    if pnl < MIN_PNL_USD:
+        return None
 
     return {
         "address": address,
-        "pnl_usd": round(pnl, 2),
-        "volume_usd": round(volume, 2),
-        "trades": trades,
-        "markets": markets,
-        "win_rate": round(win_rate, 4),
+        "pnl": round(pnl, 2),
+        "volume": round(volume, 2),
         "roi_pct": round(roi, 2),
+        "rank": rank,
         "score": min(100, score),
-        "name": trader.get("name") or trader.get("username") or address[:10],
+        "name": name,
+        "trades": 0,  # Se actualiza al hacer update
+        "win_rate": 0,  # Se actualiza al hacer update
         "discovered_at": datetime.now(timezone.utc).isoformat(),
         "validated": False,
         "validation_start": None,
@@ -194,15 +189,14 @@ def cmd_discover():
         # Fallback: buscar wallets con trades grandes en mercados populares
         return
 
-    # Score y filtrar
-    scored = []
-    for t in traders:
-        s = score_wallet(t)
-        if s and s["score"] >= 30 and s["pnl_usd"] >= MIN_PNL_USD:
-            scored.append(s)
-
+    # Score y filtrar (score_wallet returns None if below MIN_PNL_USD)
+    scored = [s for t in traders if (s := score_wallet(t)) is not None]
     scored.sort(key=lambda x: x["score"], reverse=True)
     top = scored[:MAX_WALLETS]
+
+    if not top:
+        print("  ❌ Ninguna wallet pasó los filtros mínimos")
+        return []
 
     # Merge con wallets existentes (no perder validated status)
     existing = _load_json(WALLETS_FILE, [])
@@ -211,19 +205,17 @@ def cmd_discover():
     for wallet in top:
         addr = wallet["address"]
         if addr in existing_map:
-            # Preservar validation status
             wallet["validated"] = existing_map[addr].get("validated", False)
             wallet["validation_start"] = existing_map[addr].get("validation_start")
             wallet["paper_pnl"] = existing_map[addr].get("paper_pnl", 0)
         else:
-            # Nueva wallet — empezar validación
             wallet["validation_start"] = datetime.now(timezone.utc).isoformat()
             wallet["paper_pnl"] = 0
 
     _save_json(WALLETS_FILE, top)
     print(f"  ✅ {len(top)} wallets guardadas en tracked_wallets.json")
     for w in top[:5]:
-        print(f"    {w['name']}: PnL ${w['pnl_usd']:,.0f} | WR {w['win_rate']:.0%} | Score {w['score']}")
+        print(f"    {w['name']}: PnL ${w['pnl']:,.0f} | ROI {w['roi_pct']:.1f}% | Score {w['score']}")
 
     return top
 
