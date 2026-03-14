@@ -49,7 +49,7 @@ export default function HomePage() {
   const [cloudStatus, setCloudStatus] = React.useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [swarmStatus, setSwarmStatus] = React.useState<'idle' | 'voting' | 'decided'>('idle');
   const [lastSwarmDecision, setLastSwarmDecision] = React.useState<{ decision: string; symbol: string; consensus_score: number } | null>(null);
-  const [activeView, setActiveView] = React.useState<'terminals' | 'market' | 'polymarket'>('terminals');
+  const [activeView, setActiveView] = React.useState<'terminals' | 'market' | 'polymarket' | 'strategies'>('terminals');
   const [fundingData, setFundingData] = React.useState<Record<string, { h8_pct: number; annual_pct: number }>>({});
   const [stressData, setStressData] = React.useState<Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>>([]);
   const [liquidationData, setLiquidationData] = React.useState<Array<{ coin: string; side: string; usd_size: number; px?: string; sz?: string; time_ms?: number; tid?: number; leverage?: number; liq_px?: string; entry_px?: string; margin_used?: string; _new?: boolean }>>([]);
@@ -244,6 +244,7 @@ export default function HomePage() {
         <button className={`nav-tab ${activeView === 'terminals' ? 'active' : ''}`} onClick={() => setActiveView('terminals')}>TERMINALS</button>
         <button className={`nav-tab ${activeView === 'market' ? 'active' : ''}`} onClick={() => { setActiveView('market'); fetchMarketData(); }}>MARKET</button>
         <button className={`nav-tab ${activeView === 'polymarket' ? 'active' : ''}`} onClick={() => setActiveView('polymarket')}>POLYMARKET</button>
+        <button className={`nav-tab ${activeView === 'strategies' ? 'active' : ''}`} onClick={() => setActiveView('strategies')}>STRATEGIES</button>
         <div className="nav-spacer" />
 
         <button className="btn-new-terminal" onClick={() => setShowPicker(true)}>+ Terminal</button>
@@ -1265,7 +1266,7 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
       return true;
     });
 
-    xterm.onData((d: string) => electron?.pty?.write(terminal.id, d));
+    const xtermDataDisposable = xterm.onData((d: string) => electron?.pty?.write(terminal.id, d));
 
     // Use cleanup-capable listener to prevent memory leaks
     const removeDataListener = electron?.pty?.onData((id: string, d: string) => {
@@ -1305,6 +1306,7 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
     return () => {
       if (openPoll) clearInterval(openPoll);
       clearTimeout(resizeTimer);
+      xtermDataDisposable?.dispose();
       removeDataListener?.();
       window.removeEventListener('resize', doFit);
       observer?.disconnect();

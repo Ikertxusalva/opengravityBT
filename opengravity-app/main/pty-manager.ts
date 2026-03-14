@@ -69,47 +69,52 @@ function ensureContextDir() {
 }
 
 
-function saveAgentContext(agentId: string, buffer: string[]) {
-  if (buffer.length === 0) return;
-  ensureContextDir();
-  const contextFile = path.join(CONTEXT_DIR, `${agentId}.md`);
-  const now = new Date().toISOString();
-  const cleanLines = buffer
-    .map(stripAnsi)
-    .map(l => l.trim())
-    .filter(isUsefulLine);
-  if (cleanLines.length === 0) return;
+// Debounce guard: prevent overlapping saves for the same agent
+const savingAgents = new Set<string>();
 
-  // Read existing context to preserve history (keep last 2 sessions)
-  let prevSessions = '';
+async function saveAgentContext(agentId: string, buffer: string[]) {
+  if (buffer.length === 0) return;
+  if (savingAgents.has(agentId)) return; // Skip if already saving
+  savingAgents.add(agentId);
+
   try {
-    if (fs.existsSync(contextFile)) {
-      const existing = fs.readFileSync(contextFile, 'utf-8');
-      // Keep only the previous session block (between --- markers)
+    ensureContextDir();
+    const contextFile = path.join(CONTEXT_DIR, `${agentId}.md`);
+    const now = new Date().toISOString();
+    const cleanLines = buffer
+      .map(stripAnsi)
+      .map(l => l.trim())
+      .filter(isUsefulLine);
+    if (cleanLines.length === 0) return;
+
+    // Read existing context to preserve history (keep last 2 sessions)
+    let prevSessions = '';
+    try {
+      const existing = await fs.promises.readFile(contextFile, 'utf-8');
       const sections = existing.split(/^---$/m).filter(s => s.trim());
       if (sections.length > 0) {
-        // Keep at most 1 previous session for context continuity
         prevSessions = '\n---\n## Sesión anterior\n' + sections[0].trim().slice(0, 400) + '\n';
       }
-    }
-  } catch {}
+    } catch {} // File doesn't exist yet — OK
 
-  const content = `# Contexto del agente: ${agentId}\n## Última sesión: ${now}\n\n${cleanLines.slice(-40).join('\n')}${prevSessions}`;
-  try {
-    fs.writeFileSync(contextFile, content, 'utf-8');
+    const content = `# Contexto del agente: ${agentId}\n## Última sesión: ${now}\n\n${cleanLines.slice(-40).join('\n')}${prevSessions}`;
+    await fs.promises.writeFile(contextFile, content, 'utf-8');
+
+    // Async backup to Railway (fire and forget)
+    Vault.get('OPENGRAVITY_API_TOKEN').then(token => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      fetch(`${CLOUD_URL}/api/agent/context/${agentId}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ context_summary: content }),
+      }).catch(() => {});
+    }).catch(() => {});
   } catch (e) {
     console.warn(`[Context] Failed to write context for ${agentId}:`, e);
+  } finally {
+    savingAgents.delete(agentId);
   }
-  // Async backup to Railway (fire and forget) — include auth token
-  Vault.get('OPENGRAVITY_API_TOKEN').then(token => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    fetch(`${CLOUD_URL}/api/agent/context/${agentId}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ context_summary: content }),
-    }).catch(() => {});
-  }).catch(() => {});
 }
 
 export function saveAllContexts() {
@@ -140,9 +145,9 @@ function stopAutoSave() {
   }
 }
 
-// ── Semaphore: max 2 concurrent Claude spawns (same as RBI) ──
+// ── Semaphore: max 3 concurrent Claude spawns ──
 let activeSpawns = 0;
-const MAX_CONCURRENT_SPAWNS = 2;
+const MAX_CONCURRENT_SPAWNS = 3;
 const spawnQueue: Array<() => void> = [];
 
 function acquireSpawnSlot(): Promise<void> {
@@ -272,9 +277,9 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
 
       // Handle PTY exit with auto-restart (same as RBI)
       ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
-        // Save context before cleanup
+        // Save context asynchronously before cleanup
         const buf = sessionBuffers.get(termId) || [];
-        if (buf.length > 0) saveAgentContext(agentId, buf);
+        if (buf.length > 0) saveAgentContext(agentId, [...buf]);
         sessionBuffers.delete(termId);
 
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -321,14 +326,17 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
     }
   });
 
-  // Resize PTY
+  // Resize PTY — throttled to prevent flooding from multiple terminals
+  const resizeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   ipcMain.on('pty-resize', (_event, termId: string, cols: number, rows: number) => {
-    const pty = sessions.get(termId);
-    if (pty) {
-      try {
-        pty.resize(cols, rows);
-      } catch {}
-    }
+    if (resizeTimers.has(termId)) clearTimeout(resizeTimers.get(termId)!);
+    resizeTimers.set(termId, setTimeout(() => {
+      resizeTimers.delete(termId);
+      const pty = sessions.get(termId);
+      if (pty) {
+        try { pty.resize(cols, rows); } catch {}
+      }
+    }, 50));
   });
 
   // Kill PTY
@@ -336,7 +344,7 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
     const agId = agentMap.get(termId);
     if (agId) {
       const buf = sessionBuffers.get(termId) || [];
-      if (buf.length > 0) saveAgentContext(agId, buf);
+      if (buf.length > 0) saveAgentContext(agId, [...buf]);
       sessionBuffers.delete(termId);
     }
     const pty = sessions.get(termId);
