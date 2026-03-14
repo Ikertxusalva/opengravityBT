@@ -359,8 +359,8 @@ export default function HomePage() {
 function PolymarketPanel() {
   const [data, setData] = React.useState<any>(null);
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
-  const [botRunning, setBotRunning] = React.useState<string | null>(null);
-  const [botOutput, setBotOutput] = React.useState<string | null>(null);
+  const [cycleRunning, setCycleRunning] = React.useState(false);
+  const [nextCycle, setNextCycle] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     const electron = (window as any).electron;
@@ -372,40 +372,31 @@ function PolymarketPanel() {
     } catch {}
   }, []);
 
-  const runBot = React.useCallback(async (command: string) => {
+  const manualRefresh = React.useCallback(async () => {
     const electron = (window as any).electron;
-    if (!electron?.polymarket?.runBot || botRunning) return;
-    setBotRunning(command);
-    setBotOutput(null);
-    try {
-      const result = await electron.polymarket.runBot(command);
-      if (result.ok) {
-        setData(result.data);
-        setLastUpdated(new Date());
-        setBotOutput(`${command.toUpperCase()} completado`);
-      } else {
-        setBotOutput(`Error: ${result.error || result.stderr || 'Unknown'}`);
-      }
-    } catch (e: any) {
-      setBotOutput(`Error: ${e.message}`);
-    } finally {
-      setBotRunning(null);
-      setTimeout(() => setBotOutput(null), 5000);
-    }
-  }, [botRunning]);
+    if (!electron?.polymarket?.runCycle || cycleRunning) return;
+    await electron.polymarket.runCycle();
+  }, [cycleRunning]);
 
   React.useEffect(() => {
     load();
-    const interval = setInterval(load, 30000);
-    // Listen for real-time file changes
     const electron = (window as any).electron;
-    const unsub = electron?.polymarket?.onUpdate?.((newData: any) => {
+    // Real-time data push from fs.watch + bot cycles
+    const unsubData = electron?.polymarket?.onUpdate?.((newData: any) => {
       setData(newData);
       setLastUpdated(new Date());
     });
+    // Cycle status (running/done)
+    const unsubStatus = electron?.polymarket?.onCycleStatus?.((status: any) => {
+      setCycleRunning(status.running);
+      if (!status.running && status.lastCycle) {
+        const next = new Date(new Date(status.lastCycle).getTime() + 15 * 60 * 1000);
+        setNextCycle(next.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }));
+      }
+    });
     return () => {
-      clearInterval(interval);
-      unsub?.();
+      unsubData?.();
+      unsubStatus?.();
     };
   }, [load]);
 
@@ -482,38 +473,32 @@ function PolymarketPanel() {
           ))}
         </div>
 
-        {/* Bot control panel */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '160px' }}>
-          <div style={{ fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.05em', marginBottom: '2px' }}>BOT CONTROL</div>
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-            {([
-              { cmd: 'scan', label: 'SCAN', icon: '🔍', tip: 'Escanear mercados y abrir posiciones' },
-              { cmd: 'update', label: 'UPDATE', icon: '↻', tip: 'Actualizar precios y stop-loss' },
-              { cmd: 'resolve', label: 'RESOLVE', icon: '✓', tip: 'Cerrar mercados resueltos' },
-            ] as const).map(btn => (
-              <button
-                key={btn.cmd}
-                title={btn.tip}
-                disabled={!!botRunning}
-                onClick={() => runBot(btn.cmd)}
-                style={{
-                  flex: 1, padding: '4px 8px', fontSize: '10px', fontWeight: 600,
-                  background: botRunning === btn.cmd ? 'var(--neon-cyan)' : '#1a1a2e',
-                  color: botRunning === btn.cmd ? '#000' : 'var(--text-primary)',
-                  border: '1px solid var(--border)', borderRadius: '4px', cursor: botRunning ? 'wait' : 'pointer',
-                  opacity: botRunning && botRunning !== btn.cmd ? 0.4 : 1,
-                  transition: 'all 0.2s',
-                }}
-              >
-                {botRunning === btn.cmd ? '...' : `${btn.icon} ${btn.label}`}
-              </button>
-            ))}
+        {/* Bot status + refresh */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '140px', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: cycleRunning ? '#ffab00' : '#00e676', animation: cycleRunning ? 'pulse 1s infinite' : 'none' }} />
+            <span style={{ fontSize: '10px', color: cycleRunning ? '#ffab00' : 'var(--muted)', fontWeight: 600 }}>
+              {cycleRunning ? 'EJECUTANDO...' : 'AUTO 15min'}
+            </span>
           </div>
-          {botOutput && (
-            <div style={{ fontSize: '9px', color: botOutput.startsWith('Error') ? 'var(--red)' : 'var(--neon-green)', marginTop: '2px' }}>
-              {botOutput}
-            </div>
+          {nextCycle && !cycleRunning && (
+            <div style={{ fontSize: '9px', color: 'var(--muted)' }}>Prox: {nextCycle}</div>
           )}
+          <button
+            disabled={cycleRunning}
+            onClick={manualRefresh}
+            title="Ejecutar ciclo ahora: scan + update + resolve"
+            style={{
+              padding: '5px 10px', fontSize: '10px', fontWeight: 600,
+              background: cycleRunning ? '#1a1a2e' : 'var(--neon-cyan)',
+              color: cycleRunning ? 'var(--muted)' : '#000',
+              border: '1px solid var(--border)', borderRadius: '4px',
+              cursor: cycleRunning ? 'wait' : 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            {cycleRunning ? '...' : 'REFRESH'}
+          </button>
         </div>
       </div>
 

@@ -186,33 +186,57 @@ function readPolymarketData() {
 
 ipcMain.handle('polymarket-data', async () => readPolymarketData());
 
-// Run bot commands: scan, update, resolve, status
-ipcMain.handle('polymarket-run', async (_event, command: string) => {
-  const { execFile } = require('child_process');
-  const allowed = ['scan', 'scan-only', 'update', 'resolve', 'status', 'report'];
-  if (!allowed.includes(command)) return { ok: false, error: 'Invalid command' };
+// ── Polymarket Bot Auto-Cycle ────────────────────────────────────────────────
+const POLY_SCRIPT = path.join(process.cwd(), 'scripts', 'polymarket', 'paper_trader.py');
+const POLY_CWD = path.join(process.cwd(), 'scripts', 'polymarket');
+let polyCycleRunning = false;
+const POLY_CYCLE_INTERVAL_MS = 15 * 60 * 1000; // 15 min
 
-  const scriptPath = path.join(process.cwd(), 'scripts', 'polymarket', 'paper_trader.py');
-  const pythonPath = 'python';
+function runPolyCycle(): Promise<{ ok: boolean; error?: string }> {
+  const { execFile } = require('child_process');
+  if (polyCycleRunning) return Promise.resolve({ ok: false, error: 'Cycle already running' });
+  polyCycleRunning = true;
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('polymarket-cycle-status', { running: true });
+  }
 
   return new Promise((resolve) => {
-    execFile(pythonPath, [scriptPath, command], {
-      cwd: path.join(process.cwd(), 'scripts', 'polymarket'),
-      timeout: 120_000,
+    execFile('python', [POLY_SCRIPT, 'cycle'], {
+      cwd: POLY_CWD,
+      timeout: 180_000,
       env: { ...process.env },
-    }, (error: any, stdout: string, stderr: string) => {
-      if (error) {
-        resolve({ ok: false, error: error.message, stderr, stdout });
-      } else {
-        // Re-read data after bot execution
-        const data = readPolymarketData();
-        resolve({ ok: true, stdout, data });
+    }, (error: any, _stdout: string) => {
+      polyCycleRunning = false;
+      const data = readPolymarketData();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('polymarket-update', data);
+        mainWindow.webContents.send('polymarket-cycle-status', {
+          running: false,
+          error: error?.message,
+          lastCycle: new Date().toISOString(),
+        });
       }
+      resolve(error ? { ok: false, error: error.message } : { ok: true });
     });
   });
-});
+}
 
-// Watch polymarket data files for changes → push to renderer
+// Manual refresh — triggers a full cycle
+ipcMain.handle('polymarket-run', async () => runPolyCycle());
+
+// Auto-cycle loop
+let polyCycleTimer: ReturnType<typeof setInterval> | null = null;
+
+function startPolyCycleLoop() {
+  if (polyCycleTimer) return;
+  // First cycle 30s after app start
+  setTimeout(() => runPolyCycle().catch(() => {}), 30_000);
+  // Then every 15 min
+  polyCycleTimer = setInterval(() => runPolyCycle().catch(() => {}), POLY_CYCLE_INTERVAL_MS);
+}
+
+// Watch data files for real-time push to renderer
 let polyWatcher: fs.FSWatcher | null = null;
 let polyDebounce: ReturnType<typeof setTimeout> | null = null;
 
@@ -221,13 +245,11 @@ function startPolymarketWatcher() {
   try {
     fs.mkdirSync(POLY_DATA_DIR, { recursive: true });
     polyWatcher = fs.watch(POLY_DATA_DIR, (_eventType, filename) => {
-      if (!filename || !filename.endsWith('.json') && !filename.endsWith('.jsonl')) return;
-      // Debounce: wait 500ms after last change before pushing
+      if (!filename || (!filename.endsWith('.json') && !filename.endsWith('.jsonl'))) return;
       if (polyDebounce) clearTimeout(polyDebounce);
       polyDebounce = setTimeout(() => {
         if (mainWindow && !mainWindow.isDestroyed()) {
-          const data = readPolymarketData();
-          mainWindow.webContents.send('polymarket-update', data);
+          mainWindow.webContents.send('polymarket-update', readPolymarketData());
         }
       }, 500);
     });
@@ -236,4 +258,5 @@ function startPolymarketWatcher() {
 
 app.whenReady().then(() => {
   startPolymarketWatcher();
+  startPolyCycleLoop();
 });

@@ -1470,6 +1470,33 @@ def cmd_loop(interval_min=30):
 #  ENTRY POINT
 # ==============================================================================
 
+def cmd_cycle():
+    """Single cycle: update prices → resolve closed → scan for new edge. Returns JSON summary."""
+    import json as _json
+
+    # 1. Update existing positions (prices + SL/TP)
+    cmd_update()
+    # 2. Resolve any markets that closed
+    cmd_resolve()
+    # 3. Scan for new opportunities
+    cmd_scan(auto_open=True)
+
+    # Output JSON summary for the UI
+    db = load_db()
+    positions = db.get("positions", [])
+    closed = db.get("closed", [])
+    stats = db.get("stats", {})
+    summary = {
+        "cycle_time": datetime.now(timezone.utc).isoformat(),
+        "open_positions": len(positions),
+        "closed_total": len(closed),
+        "total_pnl": stats.get("total_pnl", 0),
+        "wins": stats.get("wins", 0),
+        "trades": stats.get("trades", 0),
+    }
+    print(f"\n__CYCLE_JSON__{_json.dumps(summary)}")
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
 
@@ -1487,6 +1514,8 @@ if __name__ == "__main__":
         cmd_resolve()
     elif cmd == "report":
         cmd_report()
+    elif cmd == "cycle":
+        cmd_cycle()
     elif cmd == "loop":
         interval = int(sys.argv[2]) if len(sys.argv) > 2 else 30
         cmd_loop(interval)
