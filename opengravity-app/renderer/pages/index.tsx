@@ -52,7 +52,7 @@ export default function HomePage() {
   const [activeView, setActiveView] = React.useState<'terminals' | 'market' | 'polymarket'>('terminals');
   const [fundingData, setFundingData] = React.useState<Record<string, { h8_pct: number; annual_pct: number }>>({});
   const [stressData, setStressData] = React.useState<Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>>([]);
-  const [liquidationData, setLiquidationData] = React.useState<Array<{ coin: string; side: string; usd_size: number }>>([]);
+  const [liquidationData, setLiquidationData] = React.useState<Array<{ coin: string; side: string; usd_size: number; px?: string; sz?: string; time_ms?: number; tid?: number; _new?: boolean }>>([]);
   const [whaleData, setWhaleData] = React.useState<{ longs: any[]; shorts: any[] }>({ longs: [], shorts: [] });
   
   const startupDoneRef = React.useRef(false);
@@ -68,7 +68,7 @@ export default function HomePage() {
       const snap = await res.json();
       if (snap.stress?.length > 0) setStressData(snap.stress);
       if (snap.funding && Object.keys(snap.funding).length > 0) setFundingData(snap.funding);
-      if (snap.liquidations?.length > 0) setLiquidationData(snap.liquidations);
+      if (snap.liquidations?.length > 0) setLiquidationData(snap.liquidations.map((l: any) => ({ ...l, _new: false })));
       if (snap.whales?.longs?.length > 0 || snap.whales?.shorts?.length > 0) {
         setWhaleData(snap.whales);
       }
@@ -173,7 +173,17 @@ export default function HomePage() {
             }
             if (data.type === 'funding_update') setFundingData(data.rates || {});
             if (data.type === 'stress_update') setStressData(data.rankings || []);
-            if (data.type === 'liquidation_update') setLiquidationData(data.liquidations || []);
+            if (data.type === 'liquidation_update') {
+              const incoming = (data.liquidations || []).map((l: any) => ({ ...l, _new: true }));
+              setLiquidationData(prev => {
+                // Deduplicate by tid, then merge (new first), keep max 50
+                const existingTids = new Set(prev.map(p => p.tid).filter(Boolean));
+                const fresh = incoming.filter((l: any) => !l.tid || !existingTids.has(l.tid));
+                if (fresh.length === 0) return prev;
+                const merged = [...fresh, ...prev.map(p => ({ ...p, _new: false }))].slice(0, 50);
+                return merged;
+              });
+            }
             if (data.type === 'whale_update') setWhaleData({ longs: data.longs || [], shorts: data.shorts || [] });
           } catch {}
         };
@@ -778,7 +788,7 @@ function PolymarketPanel() {
 function MarketPanel(props: {
   fundingData: Record<string, { h8_pct: number; annual_pct: number }>;
   stressData: Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>;
-  liquidationData: Array<{ coin: string; side: string; usd_size: number; px?: string; sz?: string; time_ms?: number }>;
+  liquidationData: Array<{ coin: string; side: string; usd_size: number; px?: string; sz?: string; time_ms?: number; tid?: number; _new?: boolean }>;
   whaleData: { longs: any[]; shorts: any[] };
 }) {
   const { fundingData, stressData, liquidationData } = props;
@@ -907,7 +917,7 @@ function MarketPanel(props: {
       <div style={sectionStyle}>
         <div style={{ ...titleStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span>LIQUIDACIONES BTC / ETH — REAL-TIME</span>
-          <span style={{ fontSize: '9px', color: '#00e676', fontWeight: 700, letterSpacing: '0' }}>● LIVE</span>
+          <span style={{ fontSize: '9px', color: '#00e676', fontWeight: 700, letterSpacing: '0', animation: 'pulse 1.5s infinite' }}>● LIVE</span>
         </div>
 
         {/* Summary bars */}
@@ -950,10 +960,11 @@ function MarketPanel(props: {
         ) : (
           <div style={scrollStyle}>
             {btcEthLiqs.slice(0, 30).map((liq, i) => (
-              <div key={`${liq.coin}-${liq.time_ms || i}`} style={{
+              <div key={`${liq.coin}-${(liq as any).tid || liq.time_ms || i}`} style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px',
                 borderBottom: '1px solid #0e0e1a',
-                background: i === 0 ? (liq.side === 'LONG' ? '#00e67608' : '#ff445508') : 'transparent',
+                background: (liq as any)._new ? (liq.side === 'LONG' ? '#00e67615' : '#ff445515') : 'transparent',
+                animation: (liq as any)._new ? 'liq-flash 1.5s ease-out' : 'none',
               }}>
                 <span style={{ fontSize: '9px', color: '#4a4a6a', fontFamily: 'monospace', width: '52px', flexShrink: 0 }}>
                   {formatLiqTime(liq.time_ms)}
