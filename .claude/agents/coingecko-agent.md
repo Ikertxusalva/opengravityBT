@@ -72,3 +72,10 @@ FUNDAMENTAL:
 
 BIAS OPERATIVO: COMPRAR EN CORRECCIONES
 ```
+
+## Herramientas OpenGravity Cloud (Backend Railway)
+Endpoints disponibles via `$OPENGRAVITY_CLOUD_URL`:
+```bash
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/top-movers" | python -m json.tool
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/fear-greed" | python -m json.tool
+```

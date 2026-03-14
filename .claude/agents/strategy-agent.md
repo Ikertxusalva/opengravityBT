@@ -185,3 +185,16 @@ from rbi.research.pine_registry import PineRegistry
 reg = PineRegistry()
 reg.update_best(script_id, best_params=best_combo, best_metrics=best_metrics)
 ```
+
+## Herramientas OpenGravity Cloud (Backend Railway)
+Endpoints disponibles via `$OPENGRAVITY_CLOUD_URL`:
+```bash
+# Listar estrategias disponibles
+curl -s "$OPENGRAVITY_CLOUD_URL/api/strategies/list" | python -m json.tool
+# Ejecutar backtest remoto
+curl -s -X POST "$OPENGRAVITY_CLOUD_URL/api/backtest/run" \
+  -H "Content-Type: application/json" \
+  -d '{"strategy":"rsi","symbol":"BTCUSDT","timeframe":"1d","cash":10000}' | python -m json.tool
+# Market data
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/fear-greed" | python -m json.tool
+```

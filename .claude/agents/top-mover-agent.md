@@ -62,3 +62,10 @@ LOSERS:
 1. DEF -35% — Vol: 5x promedio | Hack confirmado
    → EVITAR: riesgo sistémico
 ```
+
+## Herramientas OpenGravity Cloud (Backend Railway)
+Endpoints disponibles via `$OPENGRAVITY_CLOUD_URL`:
+```bash
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/top-movers" | python -m json.tool
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/fear-greed" | python -m json.tool
+```

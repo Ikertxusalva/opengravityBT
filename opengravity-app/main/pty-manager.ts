@@ -9,6 +9,8 @@ import { ipcMain, BrowserWindow } from 'electron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
+import { AuditLog } from './security/audit';
+import { Vault } from './security/vault';
 
 // ── Active PTY sessions ──
 const sessions: Map<string, IPty> = new Map();
@@ -19,7 +21,7 @@ const MAX_CONCURRENT_SPAWNS = 2;
 const spawnQueue: Array<() => void> = [];
 
 function acquireSpawnSlot(): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise<void>((resolve) => {
     if (activeSpawns < MAX_CONCURRENT_SPAWNS) {
       activeSpawns++;
       resolve();
@@ -35,7 +37,7 @@ function acquireSpawnSlot(): Promise<void> {
 function releaseSpawnSlot() {
   activeSpawns--;
   if (spawnQueue.length > 0) {
-    const next = spawnQueue.shift();
+    const next: (() => void) | undefined = spawnQueue.shift();
     next?.();
   }
 }
@@ -47,12 +49,19 @@ function buildClaudeEnv(): Record<string, string> {
   env['TERM'] = 'xterm-256color';
   env['COLORTERM'] = 'truecolor';
   env['FORCE_COLOR'] = '1';
+  // Increase memory limit for Claude Code (CLI)
+  env['NODE_OPTIONS'] = '--max-old-space-size=4096';
 
-  // Remove Claude Code session detection variables (prevents nested session errors)
+  // OpenGravity Cloud API (public endpoints, no auth needed)
+  env['OPENGRAVITY_CLOUD_URL'] = 'https://chic-encouragement-production.up.railway.app';
+
+  // Remove sensitive variables from PTY environment
   const cleanVars = [
     'CLAUDECODE', 'CLAUDE_CODE', 'ANTHROPIC_CLAUDE_CODE',
     'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID',
     'ANTHROPIC_CLAUDE_CODE_SESSION_ID',
+    'OPENGRAVITY_API_TOKEN', 'SECRET_KEY', 'DATABASE_URL',
+    'ANTHROPIC_API_KEY', 'HELIUS_API_KEY', 'OPENAI_API_KEY',
   ];
   for (const v of cleanVars) {
     delete env[v];
@@ -115,14 +124,26 @@ function extractAgentName(filePath: string): string {
 export function setupPtyManager(mainWindow: BrowserWindow) {
   // Create a new terminal session
   ipcMain.handle('pty-create', async (_event, termId: string, agentId: string, rows: number, cols: number) => {
+    console.log(`[PTY] Creating session for ${agentId} (${termId})`);
+    AuditLog.log({
+      agent: agentId,
+      action: 'PTY_CREATE',
+      details: `Creating terminal session for agent ${agentId}`,
+      level: 'INFO',
+      result: 'ALLOWED'
+    });
     await acquireSpawnSlot();
 
     const env = buildClaudeEnv();
-    const shell = 'claude';
-    const args = ['--dangerously-skip-permissions'];
+    const isWin = process.platform === 'win32';
+    const shell = isWin ? 'cmd.exe' : 'claude';
+    const args = isWin 
+      ? ['/c', 'claude', '--dangerously-skip-permissions'] 
+      : ['--dangerously-skip-permissions'];
     const cwd = process.cwd();
 
     try {
+      console.log(`[PTY] Spawning shell: ${shell} with args:`, args);
       const ptyProcess = spawn(shell, args, {
         name: 'xterm-256color',
         cols: cols || 80,
@@ -131,6 +152,7 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
         env,
       });
 
+      console.log(`[PTY] Session created: ${termId} (PID: ${ptyProcess.pid})`);
       sessions.set(termId, ptyProcess);
 
       // Forward PTY output to renderer
@@ -141,7 +163,7 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       });
 
       // Handle PTY exit with auto-restart (same as RBI)
-      ptyProcess.onExit(({ exitCode }) => {
+      ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('pty-data', termId,
             `\r\n\x1b[33m[Claude salió (code: ${exitCode}) · Reiniciando en 1s...]\x1b[0m\r\n`
@@ -149,6 +171,13 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
 
           // Auto-restart after 1 second
           setTimeout(async () => {
+            AuditLog.log({
+              agent: agentId,
+              action: 'PTY_EXIT',
+              details: `PTY process exited with code ${exitCode}`,
+              level: exitCode !== 0 ? 'WARNING' : 'INFO',
+              result: 'ALLOWED'
+            });
             if (sessions.has(termId)) {
               sessions.delete(termId);
               // Trigger re-create from renderer
@@ -222,7 +251,7 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
 
   // Kill all on app quit
   ipcMain.on('pty-kill-all', () => {
-    for (const [id, pty] of sessions) {
+    for (const pty of sessions.values()) {
       try { pty.kill(); } catch {}
     }
     sessions.clear();

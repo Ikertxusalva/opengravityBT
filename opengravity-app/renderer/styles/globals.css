@@ -325,8 +325,8 @@ html, body {
 .terminal-grid {
   flex: 1;
   display: grid;
-  gap: 3px;
-  padding: 3px;
+  gap: 6px;
+  padding: 6px;
   background-color: var(--bg);
 }
 
@@ -430,6 +430,7 @@ html, body {
 
 .terminal-panel:hover {
   border-color: var(--muted);
+  background-color: var(--surface-hover);
 }
 
 .terminal-panel .terminal-header {
@@ -447,7 +448,7 @@ html, body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: var(--green);
+  background-color: var(--neon-green);
   animation: pulse 2s ease-in-out infinite;
 }
 
@@ -508,7 +509,7 @@ html, body {
 }
 
 .terminal-panel .terminal-body .prompt {
-  color: var(--green);
+  color: var(--neon-green);
 }
 
 .terminal-panel .terminal-body .cmd {

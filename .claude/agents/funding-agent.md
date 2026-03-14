@@ -66,3 +66,12 @@ BTC: -8.2% anual → LONG recomendado
 - Confianza: 72%
 - Backtest FundingReversal BTC 1h: Sharpe 1.3 (si disponible)
 ```
+
+## Herramientas OpenGravity Cloud (Backend Railway)
+Endpoints disponibles via `$OPENGRAVITY_CLOUD_URL`:
+```bash
+# Funding rates por símbolo
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/funding/BTC" | python -m json.tool
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/funding/ETH" | python -m json.tool
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/funding/SOL" | python -m json.tool
+```

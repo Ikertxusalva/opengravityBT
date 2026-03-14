@@ -19,10 +19,19 @@ contextBridge.exposeInMainWorld('electron', {
     killAll: () =>
       ipcRenderer.send('pty-kill-all'),
     onData: (callback: (termId: string, data: string) => void) => {
-      ipcRenderer.on('pty-data', (_event, termId, data) => callback(termId, data));
+      const handler = (_event: any, termId: string, data: string) => callback(termId, data);
+      ipcRenderer.on('pty-data', handler);
+      return () => { ipcRenderer.removeListener('pty-data', handler); };
     },
     onRestart: (callback: (termId: string, agentId: string) => void) => {
-      ipcRenderer.on('pty-restart', (_event, termId, agentId) => callback(termId, agentId));
+      const handler = (_event: any, termId: string, agentId: string) => callback(termId, agentId);
+      ipcRenderer.on('pty-restart', handler);
+      return () => { ipcRenderer.removeListener('pty-restart', handler); };
     },
+  },
+
+  // Vault/Security
+  vault: {
+    get: (key: string) => ipcRenderer.invoke('vault-get', key),
   },
 });

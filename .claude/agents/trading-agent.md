@@ -144,3 +144,15 @@ Guarda:
 - Sesgo del modelo y correcciones necesarias
 - Codepaths clave: engine.py:run_backtest(), fetcher.py:fetch_yfinance()
 - Configuraciones que dieron mejores resultados por simbolo/timeframe
+
+## Herramientas OpenGravity Cloud (Backend Railway)
+Endpoints disponibles via `$OPENGRAVITY_CLOUD_URL`:
+```bash
+# Market data (sin auth)
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/fear-greed" | python -m json.tool
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/top-movers" | python -m json.tool
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/funding/BTC" | python -m json.tool
+curl -s "$OPENGRAVITY_CLOUD_URL/api/market/funding/ETH" | python -m json.tool
+curl -s "$OPENGRAVITY_CLOUD_URL/health" | python -m json.tool
+```
+Usa estos endpoints cuando necesites datos de mercado rápidos sin llamar APIs externas directamente.

@@ -269,6 +269,7 @@ export default function HomePage() {
               {terminals.map(term => (
                 <div key={term.id} className={`tab-item ${activeTab === term.id ? 'active' : ''}`} onClick={() => setActiveTab(term.id)}>
                   <span>{term.agentIcon} {term.agentName}</span>
+                  <button className="tab-close" onClick={(e) => { e.stopPropagation(); closeTerminal(term.id); }}>✕</button>
                 </div>
               ))}
             </div>
@@ -293,8 +294,10 @@ export default function HomePage() {
             />
             <div className="modal-body">
               {filteredAgents.map(agent => (
-                <div key={agent.id} className="agent-option" onClick={() => addTerminal(agent.id)}>
-                  <span>{agent.icon} {agent.name}</span>
+                <div key={agent.id} className="agent-option" onClick={() => addTerminal(agent.id)} style={{flexWrap: 'wrap'}}>
+                  <span className="agent-name" style={{flex: 1}}>{agent.icon} {agent.name}</span>
+                  <span className={`agent-badge ${agent.model}`}>{agent.model}</span>
+                  <span style={{width: '100%', fontSize: '10px', color: '#666', marginTop: '2px'}}>{agent.description}</span>
                 </div>
               ))}
             </div>
@@ -329,15 +332,28 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
 
     const electron = (window as any).electron;
     xterm.onData((d: string) => electron?.pty?.write(terminal.id, d));
-    electron?.pty?.onData((id: string, d: string) => { if (id === terminal.id) xterm.write(d); });
+
+    // Use cleanup-capable listener to prevent memory leaks
+    const removeDataListener = electron?.pty?.onData((id: string, d: string) => {
+      if (id === terminal.id) xterm.write(d);
+    });
+
     electron?.pty?.create(terminal.id, terminal.agentId, xterm.rows, xterm.cols);
 
+    // Debounced resize handler
+    let resizeTimer: ReturnType<typeof setTimeout>;
     const handleResize = () => {
-      fitAddonRef.current?.fit();
-      electron?.pty?.resize(terminal.id, termInstanceRef.current?.cols, termInstanceRef.current?.rows);
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        fitAddonRef.current?.fit();
+        electron?.pty?.resize(terminal.id, termInstanceRef.current?.cols, termInstanceRef.current?.rows);
+      }, 100);
     };
     window.addEventListener('resize', handleResize);
+
     return () => {
+      clearTimeout(resizeTimer);
+      removeDataListener?.();
       window.removeEventListener('resize', handleResize);
       xterm.dispose();
     };
