@@ -610,10 +610,10 @@ function PolymarketPanel() {
 function MarketPanel(props: {
   fundingData: Record<string, { h8_pct: number; annual_pct: number }>;
   stressData: Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>;
-  liquidationData: Array<{ coin: string; side: string; usd_size: number }>;
+  liquidationData: Array<{ coin: string; side: string; usd_size: number; px?: string; sz?: string; time_ms?: number }>;
   whaleData: { longs: any[]; shorts: any[] };
 }) {
-  const { fundingData, stressData, liquidationData, whaleData } = props;
+  const { fundingData, stressData, liquidationData } = props;
 
   const fundingColor = (annual: number) => {
     if (annual > 100) return '#ff4455';
@@ -633,49 +633,67 @@ function MarketPanel(props: {
     score >= 30 ? 'linear-gradient(90deg, #ffab00, #ff8f00)' :
     'linear-gradient(90deg, #3a3a5c, #4a4a6c)';
 
-  const sortedFunding = Object.entries(fundingData)
-    .sort(([, a], [, b]) => Math.abs(b.annual_pct) - Math.abs(a.annual_pct))
-    .slice(0, 20);
+  const liqSizeColor = (usd: number) =>
+    usd >= 1_000_000 ? '#ff1744' : usd >= 500_000 ? '#ff4455' : usd >= 100_000 ? '#ff8c00' : usd >= 50_000 ? '#ffab00' : '#6a6a8a';
 
-  const allWhales = [...(whaleData.longs || []).slice(0, 5), ...(whaleData.shorts || []).slice(0, 5)];
+  const formatLiqSize = (usd: number) =>
+    usd >= 1_000_000 ? `$${(usd / 1_000_000).toFixed(2)}M` : usd >= 1_000 ? `$${(usd / 1_000).toFixed(1)}K` : `$${usd.toFixed(0)}`;
+
+  const formatLiqTime = (ms?: number) => {
+    if (!ms) return '';
+    const d = new Date(ms);
+    return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
+  const sortedFunding = Object.entries(fundingData)
+    .sort(([, a], [, b]) => Math.abs(b.annual_pct) - Math.abs(a.annual_pct));
+
+  // Split liquidations by coin
+  const btcLiqs = liquidationData.filter(l => l.coin === 'BTC');
+  const ethLiqs = liquidationData.filter(l => l.coin === 'ETH');
+  const btcLongTotal = btcLiqs.filter(l => l.side === 'LONG').reduce((s, l) => s + l.usd_size, 0);
+  const btcShortTotal = btcLiqs.filter(l => l.side === 'SHORT').reduce((s, l) => s + l.usd_size, 0);
+  const ethLongTotal = ethLiqs.filter(l => l.side === 'LONG').reduce((s, l) => s + l.usd_size, 0);
+  const ethShortTotal = ethLiqs.filter(l => l.side === 'SHORT').reduce((s, l) => s + l.usd_size, 0);
 
   const sectionStyle: React.CSSProperties = {
     background: '#0a0a14', border: '1px solid #1a1a2e', borderRadius: '8px', overflow: 'hidden',
+    display: 'flex', flexDirection: 'column', minHeight: 0,
   };
   const titleStyle: React.CSSProperties = {
-    padding: '10px 14px', borderBottom: '1px solid #1a1a2e', fontSize: '11px',
-    letterSpacing: '0.1em', color: '#6a6a8a', fontWeight: 600,
+    padding: '8px 14px', borderBottom: '1px solid #1a1a2e', fontSize: '11px',
+    letterSpacing: '0.1em', color: '#6a6a8a', fontWeight: 600, flexShrink: 0,
   };
   const emptyStyle: React.CSSProperties = {
     padding: '24px', textAlign: 'center', color: '#4a4a6a', fontSize: '12px',
   };
-  const scrollStyle: React.CSSProperties = { overflowY: 'auto', maxHeight: '100%' };
+  const scrollStyle: React.CSSProperties = { overflowY: 'auto', flex: 1, minHeight: 0 };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '10px', padding: '12px', height: '100%', boxSizing: 'border-box' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', padding: '12px', height: '100%', boxSizing: 'border-box', minHeight: 0 }}>
 
-      {/* Stress Index */}
+      {/* Column 1: Stress Index — full height */}
       <div style={sectionStyle}>
-        <div style={titleStyle}>STRESS INDEX</div>
+        <div style={titleStyle}>STRESS INDEX — ALL ASSETS</div>
         {stressData.length === 0 ? (
           <div style={emptyStyle}>Esperando datos...</div>
         ) : (
           <div style={scrollStyle}>
             {stressData.map(item => (
-              <div key={item.coin} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 14px', borderBottom: '1px solid #12121e' }}>
-                <span style={{ width: '42px', fontSize: '12px', fontWeight: 600, color: '#e0e0f0' }}>{item.coin}</span>
-                <div style={{ flex: 1, height: '6px', background: '#12121e', borderRadius: '3px', overflow: 'hidden' }}>
+              <div key={item.coin} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderBottom: '1px solid #0e0e1a' }}>
+                <span style={{ width: '38px', fontSize: '11px', fontWeight: 600, color: '#e0e0f0' }}>{item.coin}</span>
+                <div style={{ flex: 1, height: '5px', background: '#12121e', borderRadius: '3px', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${item.score}%`, background: scoreBarGradient(item.score), borderRadius: '3px', transition: 'width 0.5s' }} />
                 </div>
-                <span style={{ width: '28px', fontSize: '11px', fontWeight: 700, color: scoreColor(item.score), textAlign: 'right' }}>{item.score}</span>
-                <span style={{ width: '50px', fontSize: '10px', color: fundingColor(item.annual_funding_pct), textAlign: 'right' }}>
-                  {item.annual_funding_pct > 0 ? '+' : ''}{item.annual_funding_pct.toFixed(0)}%/y
+                <span style={{ width: '24px', fontSize: '10px', fontWeight: 700, color: scoreColor(item.score), textAlign: 'right' }}>{item.score}</span>
+                <span style={{ width: '48px', fontSize: '10px', color: fundingColor(item.annual_funding_pct), textAlign: 'right' }}>
+                  {item.annual_funding_pct > 0 ? '+' : ''}{item.annual_funding_pct.toFixed(0)}%
                 </span>
-                {item.direction !== 'NEUTRAL' && (
-                  <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '3px', fontWeight: 600,
-                    background: item.direction.includes('SQUEEZE') ? '#ff445520' : item.direction.includes('CAPITULATION') ? '#00e67620' : 'transparent',
+                {(item.direction.includes('SQUEEZE') || item.direction.includes('CAPITULATION')) && (
+                  <span style={{ fontSize: '8px', padding: '1px 4px', borderRadius: '3px', fontWeight: 700,
+                    background: item.direction.includes('SQUEEZE') ? '#ff445522' : '#00e67622',
                     color: item.direction.includes('SQUEEZE') ? '#ff4455' : '#00e676' }}>
-                    {item.direction.includes('SQUEEZE') ? 'SQZ' : item.direction.includes('CAPITULATION') ? 'CAP' : ''}
+                    {item.direction.includes('SQUEEZE') ? 'SQZ' : 'CAP'}
                   </span>
                 )}
               </div>
@@ -684,7 +702,7 @@ function MarketPanel(props: {
         )}
       </div>
 
-      {/* Funding Rates */}
+      {/* Column 2: Funding Rates — full height */}
       <div style={sectionStyle}>
         <div style={titleStyle}>FUNDING RATES — HYPERLIQUID</div>
         {sortedFunding.length === 0 ? (
@@ -692,20 +710,20 @@ function MarketPanel(props: {
         ) : (
           <div style={scrollStyle}>
             {sortedFunding.map(([coin, data]) => (
-              <div key={coin} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 14px', borderBottom: '1px solid #12121e' }}>
-                <span style={{ width: '42px', fontSize: '12px', fontWeight: 600, color: '#e0e0f0' }}>{coin}</span>
+              <div key={coin} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderBottom: '1px solid #0e0e1a' }}>
+                <span style={{ width: '38px', fontSize: '11px', fontWeight: 600, color: '#e0e0f0' }}>{coin}</span>
                 <div style={{ flex: 1, height: '4px', background: '#12121e', borderRadius: '2px', overflow: 'hidden', position: 'relative' }}>
                   <div style={{
                     position: 'absolute', height: '100%', borderRadius: '2px',
-                    left: data.annual_pct >= 0 ? '50%' : `${50 + (data.annual_pct / 4)}%`,
+                    left: data.annual_pct >= 0 ? '50%' : `${50 + Math.max(data.annual_pct / 4, -50)}%`,
                     width: `${Math.min(Math.abs(data.annual_pct) / 4, 50)}%`,
                     background: fundingColor(data.annual_pct),
                   }} />
                 </div>
-                <span style={{ width: '60px', fontSize: '11px', color: fundingColor(data.annual_pct), textAlign: 'right', fontFamily: 'monospace' }}>
+                <span style={{ width: '56px', fontSize: '10px', color: fundingColor(data.annual_pct), textAlign: 'right', fontFamily: 'monospace' }}>
                   {data.h8_pct > 0 ? '+' : ''}{data.h8_pct.toFixed(4)}%
                 </span>
-                <span style={{ width: '55px', fontSize: '11px', color: fundingColor(data.annual_pct), textAlign: 'right', fontWeight: 600 }}>
+                <span style={{ width: '48px', fontSize: '10px', color: fundingColor(data.annual_pct), textAlign: 'right', fontWeight: 600 }}>
                   {data.annual_pct > 0 ? '+' : ''}{data.annual_pct.toFixed(0)}%/y
                 </span>
               </div>
@@ -714,55 +732,80 @@ function MarketPanel(props: {
         )}
       </div>
 
-      {/* Liquidations */}
+      {/* Column 3: Liquidation Tracker BTC/ETH — full height */}
       <div style={sectionStyle}>
-        <div style={titleStyle}>LIQUIDACIONES RECIENTES</div>
+        <div style={{ ...titleStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>LIQUIDACIONES BTC / ETH — REAL-TIME</span>
+          <span style={{ fontSize: '9px', color: '#00e676', fontWeight: 700, letterSpacing: '0' }}>● LIVE</span>
+        </div>
+
+        {/* Summary bars */}
+        <div style={{ padding: '8px 12px', borderBottom: '1px solid #1a1a2e', flexShrink: 0 }}>
+          {/* BTC summary */}
+          <div style={{ marginBottom: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#f7931a' }}>BTC</span>
+              <span style={{ fontSize: '10px', color: '#6a6a8a' }}>{btcLiqs.length} liqs</span>
+            </div>
+            <div style={{ display: 'flex', gap: '2px', height: '6px' }}>
+              <div style={{ flex: btcLongTotal || 1, background: 'linear-gradient(90deg, #ff445580, #ff4455)', borderRadius: '3px 0 0 3px', transition: 'flex 0.5s' }} />
+              <div style={{ flex: btcShortTotal || 1, background: 'linear-gradient(90deg, #00e676, #00e67680)', borderRadius: '0 3px 3px 0', transition: 'flex 0.5s' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+              <span style={{ fontSize: '9px', color: '#ff4455' }}>LONG {formatLiqSize(btcLongTotal)}</span>
+              <span style={{ fontSize: '9px', color: '#00e676' }}>SHORT {formatLiqSize(btcShortTotal)}</span>
+            </div>
+          </div>
+          {/* ETH summary */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#627eea' }}>ETH</span>
+              <span style={{ fontSize: '10px', color: '#6a6a8a' }}>{ethLiqs.length} liqs</span>
+            </div>
+            <div style={{ display: 'flex', gap: '2px', height: '6px' }}>
+              <div style={{ flex: ethLongTotal || 1, background: 'linear-gradient(90deg, #ff445580, #ff4455)', borderRadius: '3px 0 0 3px', transition: 'flex 0.5s' }} />
+              <div style={{ flex: ethShortTotal || 1, background: 'linear-gradient(90deg, #00e676, #00e67680)', borderRadius: '0 3px 3px 0', transition: 'flex 0.5s' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+              <span style={{ fontSize: '9px', color: '#ff4455' }}>LONG {formatLiqSize(ethLongTotal)}</span>
+              <span style={{ fontSize: '9px', color: '#00e676' }}>SHORT {formatLiqSize(ethShortTotal)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Live feed */}
         {liquidationData.length === 0 ? (
-          <div style={emptyStyle}>Sin liquidaciones recientes</div>
+          <div style={emptyStyle}>Esperando liquidaciones...</div>
         ) : (
           <div style={scrollStyle}>
-            {liquidationData.slice(0, 20).map((liq, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 14px', borderBottom: '1px solid #12121e' }}>
+            {liquidationData.slice(0, 30).map((liq, i) => (
+              <div key={`${liq.coin}-${liq.time_ms || i}`} style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px',
+                borderBottom: '1px solid #0e0e1a',
+                background: i === 0 ? (liq.side === 'LONG' ? '#ff445508' : '#00e67608') : 'transparent',
+              }}>
+                <span style={{ fontSize: '9px', color: '#4a4a6a', fontFamily: 'monospace', width: '52px', flexShrink: 0 }}>
+                  {formatLiqTime(liq.time_ms)}
+                </span>
                 <span style={{
-                  fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', width: '42px', textAlign: 'center',
+                  fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '3px', width: '36px', textAlign: 'center', flexShrink: 0,
                   background: liq.side === 'LONG' ? '#ff445520' : '#00e67620',
                   color: liq.side === 'LONG' ? '#ff4455' : '#00e676',
                 }}>{liq.side}</span>
-                <span style={{ flex: 1, fontSize: '12px', color: '#e0e0f0', fontWeight: 500 }}>{liq.coin}</span>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: liq.usd_size > 100000 ? '#ff8c00' : '#8888aa', fontFamily: 'monospace' }}>
-                  ${liq.usd_size >= 1000000 ? (liq.usd_size / 1000000).toFixed(1) + 'M' : (liq.usd_size / 1000).toFixed(1) + 'K'}
+                <span style={{ fontSize: '11px', fontWeight: 700, color: liq.coin === 'BTC' ? '#f7931a' : '#627eea', width: '28px', flexShrink: 0 }}>
+                  {liq.coin}
                 </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Whale Positions */}
-      <div style={sectionStyle}>
-        <div style={titleStyle}>BALLENAS — POSICIONES PELIGROSAS</div>
-        {allWhales.length === 0 ? (
-          <div style={emptyStyle}>Sin datos de ballenas</div>
-        ) : (
-          <div style={scrollStyle}>
-            {allWhales.map((pos, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 14px', borderBottom: '1px solid #12121e' }}>
+                <span style={{ fontSize: '10px', color: '#8888aa', fontFamily: 'monospace', flex: 1, textAlign: 'right' }}>
+                  @{liq.px ? Number(liq.px).toLocaleString('en-US', { maximumFractionDigits: liq.coin === 'BTC' ? 0 : 2 }) : '—'}
+                </span>
                 <span style={{
-                  fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', width: '42px', textAlign: 'center',
-                  background: pos.side === 'LONG' ? '#00e67620' : '#ff445520',
-                  color: pos.side === 'LONG' ? '#00e676' : '#ff4455',
-                }}>{pos.side}</span>
-                <span style={{ flex: 1, fontSize: '12px', color: '#e0e0f0', fontWeight: 500 }}>{pos.coin}</span>
-                <span style={{ fontSize: '11px', color: '#8888aa', fontFamily: 'monospace' }}>
-                  ${(pos.size_usd / 1000).toFixed(0)}K
+                  fontSize: '11px', fontWeight: 700, fontFamily: 'monospace', textAlign: 'right', width: '68px', flexShrink: 0,
+                  color: liqSizeColor(liq.usd_size),
+                }}>
+                  {formatLiqSize(liq.usd_size)}
                 </span>
-                <span style={{ fontSize: '10px', color: pos.leverage >= 20 ? '#ff8c00' : '#6a6a8a', fontWeight: 600 }}>
-                  {pos.leverage}x
-                </span>
-                {pos.dist_pct != null && (
-                  <span style={{ fontSize: '10px', fontWeight: 600, color: pos.dist_pct < 5 ? '#ff4455' : pos.dist_pct < 10 ? '#ff8c00' : '#6a6a8a' }}>
-                    {pos.dist_pct.toFixed(1)}%
-                  </span>
+                {liq.usd_size >= 500_000 && (
+                  <span style={{ fontSize: '10px' }}>🔥</span>
                 )}
               </div>
             ))}
