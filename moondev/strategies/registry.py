@@ -146,18 +146,26 @@ STRATEGIES: List[StrategyEntry] = [
         notes="Proxy de liquidaciones, sin datos reales; no viable",
     ),
     StrategyEntry(
-        name="SupertrendAdaptive",
+        name="SuperTrendAdaptive",
         module="moondev.strategies.supertrend_adaptive",
-        class_name="SupertrendAdaptive",
+        class_name="SuperTrendAdaptive",   # ojo: T mayúscula
         status=StrategyStatus.LABORATORY,
-        notes="Pendiente de multi-test formal",
+        notes="Multi-test 2026-03-14 | 25 activos 1h 1y | 0/24 PASS. "
+              "Whipsawing severo en crypto: 100-180 trades/año, WR 27-35%. "
+              "Forex catastrophico (Sharpe -5 a -12). Mejor NVDA Sharpe 0.48. "
+              "Diagnóstico: trend-follower sin filtro de régimen en mercado lateral. "
+              "Próximo paso: re-test con RegimeInterpreter (solo BULL) o escalar a 4h.",
     ),
     StrategyEntry(
         name="GapAndGo",
         module="moondev.strategies.gap_and_go",
         class_name="GapAndGo",
-        status=StrategyStatus.LABORATORY,
-        notes="Pendiente de multi-test formal",
+        status=StrategyStatus.DEPRECATED,
+        notes="Multi-test 2026-03-14 | 25 activos 1h 1y | 0/24 PASS. "
+              "Sharpe negativo en todo el universo (mejor NVDA 0.69). "
+              "WinRate 16-43%, forex destruido. "
+              "Diagnóstico: gap overnight inexistente en crypto 24/7; señal = ruido. "
+              "Descartada del pipeline activo.",
     ),
 ]
 

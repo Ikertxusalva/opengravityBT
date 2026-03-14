@@ -36,9 +36,9 @@ _HEADERS = {"Content-Type": "application/json"}
 
 HL_CRYPTO = [
     "BTC", "ETH", "SOL", "BNB", "AVAX",
-    "LINK", "DOT", "ADA", "DOGE", "MATIC",
-    "ARB", "OP", "SUI", "APT", "INJ",
-    "WIF", "PEPE", "HYPE", "TIA", "SEI",
+    "LINK", "DOT", "ADA", "DOGE", "ARB",   # MATIC eliminado: delisted de yfinance (2026-03)
+    "OP", "SUI", "APT", "INJ", "WIF",
+    "PEPE", "HYPE", "TIA", "SEI", "TON",
 ]
 
 VALID_INTERVALS = {"1m", "5m", "15m", "1h", "4h", "1d"}
