@@ -51,7 +51,8 @@ class WeakEnsemble(Strategy):
     atr_period  = 14
     vol_window  = 20
     # -- Regime gate (v5) --
-    regime_adx  = 20    # ADX minimo para considerar tendencia valida (BULL/BEAR)
+    regime_adx       = 20   # ADX minimo para considerar tendencia valida (BULL/BEAR)
+    regime_min_bars  = 12   # régimen debe persistir N barras antes de actuar (anti-churn)
 
     def init(self):
         close  = pd.Series(self.data.Close,  index=range(len(self.data.Close)))
@@ -140,12 +141,25 @@ class WeakEnsemble(Strategy):
         adx_r   = ta.adx(high, low, close, length=14)
         adx_vals_r = adx_r.iloc[:, 0].fillna(0) if adx_r is not None else pd.Series(0, index=close.index)
 
-        regime_arr = np.zeros(n)
+        raw_regime = np.zeros(n)
         bull_mask = (sma20_r > sma50_r).values & (adx_vals_r > self.regime_adx).values
         bear_mask = (sma20_r < sma50_r).values & (adx_vals_r > self.regime_adx).values
-        regime_arr[bull_mask] = 1.0
-        regime_arr[bear_mask] = -1.0
-        self.regime = self.I(lambda: regime_arr, name="Regime")
+        raw_regime[bull_mask] = 1.0
+        raw_regime[bear_mask] = -1.0
+
+        # Estabilidad de régimen: solo confirmar si persiste >= regime_min_bars barras
+        # Esto evita el churn por flips rápidos de régimen en 1h
+        stable_regime = np.zeros(n)
+        min_b = int(self.regime_min_bars)
+        for i in range(min_b, n):
+            window = raw_regime[i - min_b: i + 1]
+            if np.all(window == 1.0):
+                stable_regime[i] = 1.0
+            elif np.all(window == -1.0):
+                stable_regime[i] = -1.0
+            else:
+                stable_regime[i] = stable_regime[i - 1]  # mantener régimen previo
+        self.regime = self.I(lambda: stable_regime, name="Regime")
 
     def next(self):
         # Minimo de barras para que todos los indicadores esten listos

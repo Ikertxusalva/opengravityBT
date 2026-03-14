@@ -37,26 +37,30 @@ from backtesting import Backtest, Strategy
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-def _download_eth_aligned(btc_index: pd.DatetimeIndex, interval: str = "4h") -> pd.Series:
-    """Descarga ETH-USD y lo alinea al índice de BTC."""
+def _download_eth_values(n_bars: int, interval: str = "4h") -> np.ndarray:
+    """
+    Descarga ETH-USD y retorna los últimos n_bars precios de cierre como ndarray.
+    Compatible con backtesting.py (que usa RangeIndex, no DatetimeIndex).
+    """
     try:
         import yfinance as yf
-        # Descargar suficiente historia para el período de BTC
-        start = btc_index[0] - pd.Timedelta(days=30)
-        end   = btc_index[-1] + pd.Timedelta(days=1)
-        eth = yf.download("ETH-USD", start=start, end=end,
-                          interval=interval, auto_adjust=True, progress=False)
+        # Descargar con período suficiente para cubrir los n_bars del backtest
+        period_map = {"1h": "3y", "4h": "4y", "1d": "10y"}
+        period = period_map.get(interval, "4y")
+        eth = yf.download("ETH-USD", period=period, interval=interval,
+                          auto_adjust=True, progress=False)
         if eth.empty:
-            return pd.Series(np.nan, index=btc_index)
-        eth_close = eth["Close"].squeeze()
-        eth_close.index = pd.to_datetime(eth_close.index, utc=True)
-        btc_idx_utc = btc_index.tz_localize("UTC") if btc_index.tzinfo is None else btc_index
-        eth_aligned = eth_close.reindex(btc_idx_utc, method="ffill")
-        eth_aligned.index = btc_index
-        return eth_aligned
+            return np.full(n_bars, np.nan)
+        eth_vals = eth["Close"].squeeze().values
+        if len(eth_vals) >= n_bars:
+            return eth_vals[-n_bars:]
+        # Si hay menos datos que barras: rellenar el inicio con NaN
+        padded = np.full(n_bars, np.nan)
+        padded[-len(eth_vals):] = eth_vals
+        return padded
     except Exception as e:
         print(f"[PairsBTCETH] Error descargando ETH: {e}")
-        return pd.Series(np.nan, index=btc_index)
+        return np.full(n_bars, np.nan)
 
 
 class PairsBTCETH(Strategy):
@@ -80,19 +84,20 @@ class PairsBTCETH(Strategy):
 
     def init(self):
         close_btc = pd.Series(self.data.Close)
-        idx = close_btc.index
+        n = len(close_btc)
 
-        # Descargar ETH alineado al índice BTC
-        eth_series = _download_eth_aligned(idx, interval=self.interval)
+        # Descargar ETH como ndarray alineado por longitud (backtesting.py usa RangeIndex)
+        eth_vals = _download_eth_values(n, interval=self.interval)
+        eth_series = pd.Series(eth_vals).ffill().bfill()  # pandas 2.x: ffill() en vez de fillna(method=)
 
         # Calcular spread log-precio
-        beta_f = float(self.beta) / 10.0
+        beta_f  = float(self.beta) / 10.0
         log_btc = np.log(close_btc.clip(lower=1e-8))
-        log_eth = np.log(eth_series.clip(lower=1e-8).fillna(method="ffill"))
+        log_eth = np.log(eth_series.clip(lower=1e-8))
         spread  = log_btc - beta_f * log_eth
 
         # Z-score rolling
-        win  = int(self.zscore_window)
+        win    = int(self.zscore_window)
         s_mean = spread.rolling(win, min_periods=win // 2).mean()
         s_std  = spread.rolling(win, min_periods=win // 2).std()
         zscore = (spread - s_mean) / (s_std + 1e-10)
