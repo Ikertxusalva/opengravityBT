@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL Database ──
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: opengravity
+      POSTGRES_USER: og_user
+      POSTGRES_PASSWORD: og_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  # ── Backend API ──
+  api:
+    build:
+      context: ./cloud
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg2://og_user:og_dev_password@db:5432/opengravity
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    restart: on-failure
+
+volumes:
+  pg_data:

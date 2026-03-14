@@ -1,0 +1,23 @@
+# OpenGravity App
+
+node_modules/
+.next/
+app/
+out/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
