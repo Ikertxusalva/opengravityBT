@@ -31,6 +31,7 @@ import moondev.config as cfg
 from moondev.core.model_factory import ModelFactory
 from moondev.core.nice_funcs import get_ohlcv, add_indicators, parse_llm_action
 from moondev.data.hyperliquid_data import get_mid_prices as _hl_mid_prices
+from moondev.agents.risk_guard_agent import is_halted, HALT_FLAG
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -157,11 +158,16 @@ def read_csv_signal(path: Path, source: str) -> dict:
 
 
 def read_json_signal(path: Path, source: str) -> dict:
-    """Lee última señal de un archivo JSON."""
+    """Lee última señal de un archivo JSON.
+    Si is_mock=True (sentiment_agent sin Twitter API real), retorna NOTHING."""
     if not path.exists():
         return {"action": "NOTHING", "confidence": 0, "source": source}
     try:
         d = json.load(open(path))
+        # Señal de sentimiento con datos mock — ignorar completamente
+        if d.get("is_mock"):
+            return {"action": "NOTHING", "confidence": 0, "source": source,
+                    "reason": "mock_data — Twitter API no configurada"}
         action = d.get("action", "NOTHING").upper()
         conf   = int(d.get("confidence", 0))
         return {"action": action, "confidence": conf, "source": source}
@@ -270,6 +276,13 @@ def execute_trade(symbol: str, action: str, size_pct: float,
 # ── Ciclo principal ────────────────────────────────────────────────────────────
 def run_cycle(symbol: str) -> dict:
     """Ejecuta un ciclo completo de análisis y ejecución."""
+    # Circuit breaker — abortar si risk_guard_agent activó HALT
+    if is_halted():
+        import json as _json
+        halt_info = _json.load(open(HALT_FLAG)) if HALT_FLAG.exists() else {}
+        console.print(f"[bold red]🛑 HALT ACTIVO — {halt_info.get('reason', '?')} | execution_agent suspendido[/bold red]")
+        return {"symbol": symbol, "halted": True, "halt_reason": halt_info.get("reason")}
+
     console.print(f"\n[dim]{datetime.now().strftime('%H:%M:%S')}[/dim] Analizando {symbol}...")
 
     # 1. Leer todas las señales

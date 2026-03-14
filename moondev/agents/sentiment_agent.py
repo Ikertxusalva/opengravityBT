@@ -4,10 +4,15 @@ sentiment_agent — análisis de sentimiento Twitter con BERT.
 Cada 15 min busca tweets por token y calcula score POS-NEG.
 Alerta si |score| > 0.4 o cambio > 5%.
 
+IMPORTANTE: fetch_tweets_mock() devuelve datos FICTICIOS.
+El score resultante es siempre ~0 y NO debe usarse como señal real.
+Cuando is_mock=True en sentiment_signals.json, execution_agent ignora la señal.
+
 Uso: python moondev/agents/sentiment_agent.py
 Deps extra: transformers torch  (pip install transformers torch)
+Para tweets reales: instalar twikit o Tweepy + credenciales Twitter API.
 """
-import sys, time, csv
+import sys, time, csv, json
 from pathlib import Path
 from datetime import datetime, timedelta
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -20,6 +25,10 @@ CHECK_INTERVAL = 15 * 60
 SCORE_THRESHOLD = 0.4
 CHANGE_THRESHOLD = 5.0
 SENTIMENT_FILE = cfg.DATA_DIR / "sentiment_history.csv"
+SENTIMENT_SIGNALS_FILE = cfg.DATA_DIR / "sentiment_signals.json"
+
+# Flag global: True cuando no hay acceso a Twitter API real
+_USING_MOCK_TWEETS = True
 
 
 def load_sentiment_model():
@@ -52,8 +61,9 @@ def score_tweets(texts: list[str], pipe) -> float:
 
 def fetch_tweets_mock(token: str) -> list[str]:
     """
-    Mock de búsqueda Twitter.
-    Reemplazar con twikit o Tweepy cuando tengas acceso a API.
+    ⚠️  DATOS FICTICIOS — NO usar como señal de trading.
+    Reemplazar con twikit o Tweepy cuando tengas acceso a Twitter API.
+    Mientras tanto, execution_agent ignora estas señales (is_mock=True).
     """
     return [
         f"{token} looks bullish today",
@@ -62,13 +72,26 @@ def fetch_tweets_mock(token: str) -> list[str]:
     ]
 
 
-def save_score(token: str, score: float) -> None:
+def save_score(token: str, score: float, is_mock: bool) -> None:
     is_new = not SENTIMENT_FILE.exists()
     with open(SENTIMENT_FILE, "a", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["timestamp", "token", "score"])
+        w = csv.DictWriter(f, fieldnames=["timestamp", "token", "score", "is_mock"])
         if is_new:
             w.writeheader()
-        w.writerow({"timestamp": datetime.now().isoformat(), "token": token, "score": score})
+        w.writerow({"timestamp": datetime.now().isoformat(), "token": token, "score": score, "is_mock": is_mock})
+
+
+def save_signals(scores: dict[str, float], is_mock: bool) -> None:
+    """Escribe sentiment_signals.json que lee execution_agent.
+    Cuando is_mock=True, execution_agent debe ignorar esta señal."""
+    payload = {
+        "timestamp": datetime.now().isoformat(),
+        "is_mock": is_mock,
+        "scores": scores,
+    }
+    SENTIMENT_SIGNALS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(SENTIMENT_SIGNALS_FILE, "w") as f:
+        json.dump(payload, f, indent=2)
 
 
 def load_previous_score(token: str) -> float:
@@ -85,16 +108,22 @@ def load_previous_score(token: str) -> float:
 
 def main():
     pipe = load_sentiment_model()
-    console.print(f"[bold]sentiment_agent[/bold] | BERT | {cfg.MONITORED_TOKENS}")
+    mock_tag = "[bold red][MOCK — señal ignorada por execution_agent][/bold red]" if _USING_MOCK_TWEETS else ""
+    console.print(f"[bold]sentiment_agent[/bold] | BERT | {cfg.MONITORED_TOKENS} {mock_tag}")
 
     while True:
         console.rule("Sentiment Check")
+        if _USING_MOCK_TWEETS:
+            console.print("[red]⚠ MODO MOCK — tweets ficticios, señal inactiva en ejecución[/red]")
+
+        cycle_scores: dict[str, float] = {}
         for token in cfg.MONITORED_TOKENS:
             tweets = fetch_tweets_mock(token)
             score = score_tweets(tweets, pipe)
             prev = load_previous_score(token)
             change = abs(score - prev) * 100
-            save_score(token, score)
+            save_score(token, score, is_mock=_USING_MOCK_TWEETS)
+            cycle_scores[token] = score
 
             label = "very positive" if score > 0.3 else "slightly positive" if score > 0 \
                 else "slightly negative" if score > -0.3 else "very negative"
@@ -104,6 +133,7 @@ def main():
             if abs(score) > SCORE_THRESHOLD or change > CHANGE_THRESHOLD:
                 console.print(f"  [bold yellow]ALERTA: sentimiento extremo o cambio brusco[/bold yellow]")
 
+        save_signals(cycle_scores, is_mock=_USING_MOCK_TWEETS)
         time.sleep(CHECK_INTERVAL)
 
 

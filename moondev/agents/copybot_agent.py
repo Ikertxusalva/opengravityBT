@@ -14,7 +14,9 @@ from moondev.core.model_factory import ModelFactory
 from moondev.core.exchange_manager import ExchangeManager
 from moondev.core.portfolio_tracker import PortfolioTracker
 from moondev.core.nice_funcs import get_ohlcv, add_indicators, parse_llm_action
+from moondev.agents.risk_guard_agent import is_halted, HALT_FLAG
 import moondev.config as cfg
+import json as _json
 from rich.console import Console
 
 console = Console()
@@ -57,6 +59,12 @@ Market data (last 5 candles 1h):
 
 
 def main():
+    # Circuit breaker — abortar si risk_guard_agent activó HALT
+    if is_halted():
+        halt_info = _json.load(open(HALT_FLAG)) if HALT_FLAG.exists() else {}
+        console.print(f"[bold red]🛑 HALT ACTIVO — {halt_info.get('reason', '?')} | copybot_agent suspendido[/bold red]")
+        return
+
     model = ModelFactory().get()
     em = ExchangeManager()
     tracker = PortfolioTracker()

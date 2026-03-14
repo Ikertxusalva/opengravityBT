@@ -94,7 +94,11 @@ beta         = 0.7    # hedge ratio OLS, rango: [0.5, 0.6, 0.7, 0.8, 0.9]
 entry_z      = 2.0    # rango: [1.5, 2.0, 2.5]
 exit_z       = 0.5    # rango: [0.0, 0.3, 0.5]
 stop_z       = 3.5    # rango: [3.0, 3.5, 4.0]
-zscore_window = 252   # barras para rolling z-score, rango: [126, 252, 504]
+zscore_window = 504   # barras para rolling z-score en timeframe 4h
+                      # ⚠️  BUG CORREGIDO: 252 barras 1h = solo ~10 días (insuficiente)
+                      #     504 barras × 4h = ~84 días (~3 meses) — mínimo estadístico válido
+                      #     Si se usa 1h: window debe ser 2016 (504 × 4)
+                      # rango optimizable: [252, 504, 1008] (en barras 4h)
 ```
 
 ## Performance documentada

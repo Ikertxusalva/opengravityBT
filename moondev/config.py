@@ -46,14 +46,14 @@ MAX_OPTIMIZATION_ITERATIONS = 10
 
 # === Backtest (multi_data_tester + criterios Quant Architect) ===
 BACKTEST_COMMISSION = 0.001       # por trade (0.1%)
-BACKTEST_SLIPPAGE_PCT = 0.0      # proxy: 0.05 = 0.05% por lado (sumar a commission si > 0)
+BACKTEST_SLIPPAGE_PCT = 0.05     # 0.05% por lado — slippage realista crypto (antes: 0.0 → Sharpe inflado)
 BACKTEST_MIN_BARS = 252          # minimo barras (ej. ~1y 1d o ~3.5 meses 1h) para considerar muestra valida
 BACKTEST_DEFAULT_PERIOD = "1y"
 BACKTEST_DEFAULT_INTERVAL = "1h"
 # Criterios PASS (viable por activo)
 PASS_SHARPE = 1.0
 PASS_MAX_DD_PCT = -20.0
-PASS_MIN_TRADES = 30
+PASS_MIN_TRADES = 50             # aumentado de 30 → 50 (error std Sharpe ~0.28 vs ~0.36 anterior)
 PASS_MIN_WINRATE_PCT = 45.0
 # Criterios PRECAUCION (selectivo)
 CAUTION_SHARPE = 0.5
