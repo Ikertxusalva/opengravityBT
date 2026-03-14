@@ -61,15 +61,13 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [clock, setClock] = React.useState('');
   const [cloudStatus, setCloudStatus] = React.useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
-  const [prices, setPrices] = React.useState<Record<string, number>>({});
-  const [fearGreed, setFearGreed] = React.useState<{ value: number; classification: string } | null>(null);
   const [swarmStatus, setSwarmStatus] = React.useState<'idle' | 'voting' | 'decided'>('idle');
   const [lastSwarmDecision, setLastSwarmDecision] = React.useState<{ decision: string; symbol: string; consensus_score: number } | null>(null);
-  const [fundingRates, setFundingRates] = React.useState<Record<string, { h8_pct: number; annual_pct: number }>>({});
-  const [topMovers, setTopMovers] = React.useState<{ gainers: { symbol: string; change_24h: number }[]; losers: { symbol: string; change_24h: number }[] } | null>(null);
-  const [hlPrices, setHlPrices] = React.useState<Record<string, number>>({});
-  const [liquidations, setLiquidations] = React.useState<{ coin: string; side: string; usd_size: number; time_ms: number }[]>([]);
-  const [whalePositions, setWhalePositions] = React.useState<{ longs: any[]; shorts: any[] } | null>(null);
+  const [activeView, setActiveView] = React.useState<'terminals' | 'market'>('terminals');
+  const [fundingData, setFundingData] = React.useState<Record<string, { h8_pct: number; annual_pct: number }>>({});
+  const [stressData, setStressData] = React.useState<Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>>([]);
+  const [liquidationData, setLiquidationData] = React.useState<Array<{ coin: string; side: string; usd_size: number }>>([]);
+  const [whaleData, setWhaleData] = React.useState<{ longs: any[]; shorts: any[] }>({ longs: [], shorts: [] });
   
   const startupDoneRef = React.useRef(false);
   const wsRef = React.useRef<WebSocket | null>(null);
@@ -151,10 +149,8 @@ export default function HomePage() {
         ws.onopen = () => {
           if (!alive) { ws.close(); return; }
           setCloudStatus('connected');
-          // Token is optional — server skips check if OPENGRAVITY_API_TOKEN not set on Railway
           ws.send(JSON.stringify({
             type: 'subscribe',
-            symbols: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
             ...(tokenRef.current ? { token: tokenRef.current } : {}),
           }));
         };
@@ -162,35 +158,20 @@ export default function HomePage() {
         ws.onmessage = (e) => {
           try {
             const data = JSON.parse(e.data);
-            if (data.type === 'price_update') {
-              setPrices((prev: Record<string, number>) => ({ ...prev, [data.symbol]: data.price }));
-            } else if (data.type === 'fear_greed') {
-              setFearGreed({ value: data.value, classification: data.classification });
-            } else if (data.type === 'funding_update') {
-              setFundingRates(data.rates || {});
-            } else if (data.type === 'top_movers') {
-              setTopMovers({ gainers: (data.gainers || []).slice(0, 3), losers: (data.losers || []).slice(0, 3) });
-            } else if (data.type === 'hl_prices') {
-              setHlPrices(prev => ({ ...prev, ...(data.prices || {}) }));
-              // Sync Binance prices from HL if not already present
-              if (data.prices?.BTC && !prices['BTCUSDT']) setPrices(prev => ({ ...prev, BTCUSDT: data.prices.BTC }));
-              if (data.prices?.ETH && !prices['ETHUSDT']) setPrices(prev => ({ ...prev, ETHUSDT: data.prices.ETH }));
-              if (data.prices?.SOL && !prices['SOLUSDT']) setPrices(prev => ({ ...prev, SOLUSDT: data.prices.SOL }));
-            } else if (data.type === 'liquidation_update') {
-              setLiquidations((data.liquidations || []).slice(0, 10));
-            } else if (data.type === 'whale_update') {
-              setWhalePositions({ longs: data.longs || [], shorts: data.shorts || [] });
-            } else if (data.type === 'swarm_decision') {
+            if (data.type === 'swarm_decision') {
               setLastSwarmDecision({ decision: data.decision, symbol: data.symbol, consensus_score: data.consensus_score });
               setSwarmStatus('decided');
               setTimeout(() => setSwarmStatus('idle'), 30000);
-              // Native notification
               if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                 new Notification(`Swarm: ${data.decision} ${data.symbol || ''}`, {
                   body: `Consenso: ${data.consensus_score != null ? Math.round(data.consensus_score * 100) + '%' : 'N/A'}`,
                 });
               }
             }
+            if (data.type === 'funding_update') setFundingData(data.rates || {});
+            if (data.type === 'stress_update') setStressData(data.rankings || []);
+            if (data.type === 'liquidation_update') setLiquidationData(data.liquidations || []);
+            if (data.type === 'whale_update') setWhaleData({ longs: data.longs || [], shorts: data.shorts || [] });
           } catch {}
         };
 
@@ -248,7 +229,8 @@ export default function HomePage() {
       <nav className="top-nav">
         <span className="logo">OPENGRAVITY</span>
         <div className="separator" />
-        <button className="nav-tab active">TERMINALS</button>
+        <button className={`nav-tab ${activeView === 'terminals' ? 'active' : ''}`} onClick={() => setActiveView('terminals')}>TERMINALS</button>
+        <button className={`nav-tab ${activeView === 'market' ? 'active' : ''}`} onClick={() => setActiveView('market')}>MARKET</button>
         <div className="nav-spacer" />
 
         <button className="btn-new-terminal" onClick={() => setShowPicker(true)}>+ Terminal</button>
@@ -257,91 +239,6 @@ export default function HomePage() {
           <div className="view-toggle">
             <button className={!isGridView ? 'active' : ''} onClick={() => setIsGridView(false)}>⊞</button>
             <button className={isGridView ? 'active' : ''} onClick={() => setIsGridView(true)}>⊟</button>
-          </div>
-        )}
-
-        {Object.keys(prices).length > 0 && (
-          <div className="price-ticker">
-            {prices['BTCUSDT'] && <span>BTC <b>${prices['BTCUSDT'].toLocaleString()}</b></span>}
-            {prices['ETHUSDT'] && <span>ETH <b>${prices['ETHUSDT'].toLocaleString()}</b></span>}
-            {prices['SOLUSDT'] && <span>SOL <b>${prices['SOLUSDT'].toLocaleString()}</b></span>}
-          </div>
-        )}
-
-        {fearGreed && (
-          <div
-            className={`fear-greed-badge ${fearGreed.value <= 25 ? 'extreme-fear' : fearGreed.value <= 45 ? 'fear' : fearGreed.value <= 55 ? 'neutral' : fearGreed.value <= 75 ? 'greed' : 'extreme-greed'}`}
-            title={`Fear & Greed: ${fearGreed.classification}`}
-          >
-            F&G <b>{fearGreed.value}</b>
-          </div>
-        )}
-
-        {Object.keys(fundingRates).length > 0 && (
-          <div className="funding-ticker" title="Funding rates 8h (HyperLiquid)">
-            {['BTC', 'ETH', 'SOL'].filter(c => fundingRates[c]).map(coin => {
-              const r = fundingRates[coin];
-              const isPos = r.h8_pct >= 0;
-              return (
-                <span key={coin} style={{ color: isPos ? '#00e676' : '#ff5252' }} title={`Anual: ${r.annual_pct}%`}>
-                  {coin} <b>{isPos ? '+' : ''}{r.h8_pct}%</b>
-                </span>
-              );
-            })}
-          </div>
-        )}
-
-        {topMovers && ((topMovers.gainers?.length || 0) > 0 || (topMovers.losers?.length || 0) > 0) && (
-          <div className="top-movers-ticker" title="Top movers 24h (CoinGecko)">
-            {(topMovers.gainers || []).slice(0, 2).map(g => (
-              <span key={g.symbol} style={{ color: '#00e676' }}>▲{g.symbol} <b>{g.change_24h > 0 ? '+' : ''}{g.change_24h}%</b></span>
-            ))}
-            {(topMovers.losers || []).slice(0, 2).map(l => (
-              <span key={l.symbol} style={{ color: '#ff5252' }}>▼{l.symbol} <b>{l.change_24h}%</b></span>
-            ))}
-          </div>
-        )}
-
-        {Object.keys(hlPrices).length > 0 && (
-          <div className="hl-prices-ticker" title="HyperLiquid perpetuals — tiempo real">
-            {['DOGE', 'AVAX', 'LINK', 'ARB', 'SUI', 'WIF', 'HYPE'].filter(c => hlPrices[c]).slice(0, 4).map(coin => (
-              <span key={coin}>{coin} <b>${hlPrices[coin] < 1 ? hlPrices[coin].toFixed(5) : hlPrices[coin].toLocaleString()}</b></span>
-            ))}
-          </div>
-        )}
-
-        {liquidations.length > 0 && (
-          <div className="liquidations-ticker" title="Liquidaciones recientes — HyperLiquid">
-            {liquidations.slice(0, 3).map((liq, i) => {
-              const sizeStr = liq.usd_size >= 1_000_000
-                ? `$${(liq.usd_size / 1_000_000).toFixed(1)}M`
-                : liq.usd_size >= 1_000
-                ? `$${(liq.usd_size / 1_000).toFixed(0)}K`
-                : `$${liq.usd_size.toFixed(0)}`;
-              return (
-                <span key={i} style={{ color: liq.side === 'LONG' ? '#ff5252' : '#00e676' }}
-                  title={`${liq.coin} ${liq.side} liquidado: ${sizeStr}`}>
-                  ⚡{liq.coin} <b>{sizeStr}</b>
-                </span>
-              );
-            })}
-          </div>
-        )}
-
-        {whalePositions && (whalePositions.longs.length > 0 || whalePositions.shorts.length > 0) && (
-          <div className="whale-ticker" title="Posiciones más apalancadas — Top traders HL">
-            {whalePositions.longs.slice(0, 2).map((p, i) => (
-              <span key={`wl${i}`} style={{ color: '#00e676' }}
-                title={`LONG ${p.coin} x${p.leverage} — $${(p.size_usd/1000).toFixed(0)}K — Liq: $${p.liq_px?.toFixed(0)} — Dist: ${p.dist_pct?.toFixed(1)}%`}>
-                🐳{p.coin} <b>x{p.leverage}L</b>
-              </span>
-            ))}
-            {whalePositions.shorts.slice(0, 1).map((p, i) => (
-              <span key={`ws${i}`} style={{ color: '#ff5252' }}
-                title={`SHORT ${p.coin} x${p.leverage} — $${(p.size_usd/1000).toFixed(0)}K — Liq: $${p.liq_px?.toFixed(0)} — Dist: ${p.dist_pct?.toFixed(1)}%`}>
-                🐳{p.coin} <b>x{p.leverage}S</b>
-              </span>
-            ))}
           </div>
         )}
 
@@ -358,12 +255,6 @@ export default function HomePage() {
           {swarmStatus === 'idle' ? '🐝 Swarm' : swarmStatus === 'voting' ? '🐝 Voting...' : `🐝 ${lastSwarmDecision?.decision || 'OK'}`}
         </button>
 
-        {lastSwarmDecision && swarmStatus === 'decided' && (
-          <div className={`swarm-badge decided-${(lastSwarmDecision.decision || 'hold').toLowerCase()}`}>
-            {lastSwarmDecision.decision} {lastSwarmDecision.symbol} {lastSwarmDecision.consensus_score != null ? `${Math.round(lastSwarmDecision.consensus_score * 100)}%` : ''}
-          </div>
-        )}
-
         <div className={`cloud-indicator ${cloudStatus}`} title={`Railway: ${cloudStatus.toUpperCase()}`}>
           <div className="dot" />
           <span className="cloud-label">{cloudStatus === 'connected' ? 'LIVE' : cloudStatus === 'connecting' ? '...' : 'OFF'}</span>
@@ -379,7 +270,9 @@ export default function HomePage() {
       </nav>
 
       <div className="terminal-area">
-        {terminals.length === 0 ? (
+        {activeView === 'market' ? (
+          <MarketPanel fundingData={fundingData} stressData={stressData} liquidationData={liquidationData} whaleData={whaleData} />
+        ) : terminals.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">⌨</div>
             <button className="empty-btn" onClick={() => setShowPicker(true)}>+ Nueva Terminal</button>
@@ -440,6 +333,127 @@ export default function HomePage() {
     </div>
   );
 }
+
+function MarketPanel(props: {
+  fundingData: Record<string, { h8_pct: number; annual_pct: number }>;
+  stressData: Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>;
+  liquidationData: Array<{ coin: string; side: string; usd_size: number }>;
+  whaleData: { longs: any[]; shorts: any[] };
+}) {
+  const { fundingData, stressData, liquidationData, whaleData } = props;
+
+  const fundingColor = (annual: number) => {
+    if (annual > 100) return 'var(--red)';
+    if (annual > 50) return 'var(--neon-orange)';
+    if (annual > 20) return 'var(--neon-green)';
+    if (annual < -50) return 'var(--neon-blue)';
+    if (annual < -20) return 'var(--neon-cyan)';
+    return 'var(--muted)';
+  };
+
+  const scoreColor = (score: number) =>
+    score >= 60 ? 'var(--red)' : score >= 30 ? 'var(--neon-orange)' : 'var(--muted)';
+
+  const sortedFunding = Object.entries(fundingData)
+    .sort(([, a], [, b]) => Math.abs(b.annual_pct) - Math.abs(a.annual_pct))
+    .slice(0, 20);
+
+  const allWhales = [...(whaleData.longs || []).slice(0, 5), ...(whaleData.shorts || []).slice(0, 5)];
+
+  return (
+    <div className="market-panel">
+
+      {/* Stress Index */}
+      <div className="market-section">
+        <div className="market-section-title">STRESS INDEX</div>
+        {stressData.length === 0 ? (
+          <div className="market-empty">Esperando datos del servidor...</div>
+        ) : (
+          <div className="market-scroll">
+            {stressData.slice(0, 12).map(item => (
+              <div key={item.coin} className="stress-row">
+                <span className="stress-coin">{item.coin}</span>
+                <div className="stress-bar-wrap">
+                  <div className="stress-bar" style={{ width: `${item.score}%`, background: scoreColor(item.score) }} />
+                </div>
+                <span className="stress-score" style={{ color: scoreColor(item.score) }}>{item.score}</span>
+                <span className="stress-funding" style={{ color: fundingColor(item.annual_funding_pct) }}>
+                  {item.annual_funding_pct > 0 ? '+' : ''}{item.annual_funding_pct.toFixed(0)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Funding Rates */}
+      <div className="market-section">
+        <div className="market-section-title">FUNDING RATES — HYPERLIQUID</div>
+        {sortedFunding.length === 0 ? (
+          <div className="market-empty">Esperando datos del servidor...</div>
+        ) : (
+          <div className="market-scroll">
+            {sortedFunding.map(([coin, data]) => (
+              <div key={coin} className="funding-row">
+                <span className="funding-coin">{coin}</span>
+                <span className="funding-8h" style={{ color: fundingColor(data.annual_pct) }}>
+                  {data.h8_pct > 0 ? '+' : ''}{data.h8_pct.toFixed(4)}%
+                </span>
+                <span className="funding-annual" style={{ color: fundingColor(data.annual_pct) }}>
+                  {data.annual_pct > 0 ? '+' : ''}{data.annual_pct.toFixed(0)}%/y
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Liquidations */}
+      <div className="market-section">
+        <div className="market-section-title">LIQUIDACIONES (30 MIN)</div>
+        {liquidationData.length === 0 ? (
+          <div className="market-empty">Sin liquidaciones recientes</div>
+        ) : (
+          <div className="market-scroll">
+            {liquidationData.slice(0, 20).map((liq, i) => (
+              <div key={i} className="liq-row">
+                <span className={`liq-side ${liq.side === 'LONG' ? 'long' : 'short'}`}>{liq.side}</span>
+                <span className="liq-coin">{liq.coin}</span>
+                <span className="liq-size">${(liq.usd_size / 1000).toFixed(1)}K</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Whale Positions */}
+      <div className="market-section">
+        <div className="market-section-title">BALLENAS — POSICIONES PELIGROSAS</div>
+        {allWhales.length === 0 ? (
+          <div className="market-empty">Sin datos de ballenas</div>
+        ) : (
+          <div className="market-scroll">
+            {allWhales.map((pos, i) => (
+              <div key={i} className="whale-row">
+                <span className={`liq-side ${pos.side === 'LONG' ? 'long' : 'short'}`}>{pos.side}</span>
+                <span className="liq-coin">{pos.coin}</span>
+                <span className="liq-size">${(pos.size_usd / 1000).toFixed(0)}K</span>
+                <span className="whale-lev">{pos.leverage}x</span>
+                {pos.dist_pct != null && (
+                  <span className="whale-dist" style={{ color: pos.dist_pct < 5 ? 'var(--red)' : 'var(--text-secondary)' }}>
+                    {pos.dist_pct.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+}
+
 
 function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showHeader?: boolean; instancesRef?: React.MutableRefObject<Map<string, any>> }) {
   const { terminal, onClose, showHeader = true, instancesRef } = props;

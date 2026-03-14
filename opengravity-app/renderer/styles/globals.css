@@ -869,6 +869,103 @@ html, body {
 .agent-option .agent-badge.haiku { color: #56d364; }
 .agent-option .agent-badge.auto { color: var(--muted); }
 
+/* ── Market Panel ── */
+.market-panel {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 6px;
+  padding: 6px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.market-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.market-section-title {
+  padding: 5px 10px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  background: var(--sidebar);
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.market-empty {
+  padding: 20px;
+  color: var(--subtle);
+  font-size: 11px;
+  text-align: center;
+}
+
+.market-scroll {
+  overflow-y: auto;
+  flex: 1;
+  padding: 3px 0;
+}
+
+/* Stress */
+.stress-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+}
+.stress-coin { width: 44px; color: var(--text); font-weight: 700; flex-shrink: 0; }
+.stress-bar-wrap { flex: 1; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.stress-bar { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+.stress-score { width: 28px; text-align: right; font-weight: 700; font-size: 11px; flex-shrink: 0; }
+.stress-funding { width: 50px; text-align: right; font-size: 10px; flex-shrink: 0; }
+
+/* Funding */
+.funding-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.funding-coin { width: 46px; color: var(--text); font-weight: 700; flex-shrink: 0; }
+.funding-8h { flex: 1; font-weight: 600; }
+.funding-annual { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+
+/* Liquidations */
+.liq-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.liq-side { font-weight: 700; width: 40px; flex-shrink: 0; }
+.liq-side.long { color: var(--neon-green); }
+.liq-side.short { color: var(--red); }
+.liq-coin { flex: 1; color: var(--text-secondary); }
+.liq-size { color: var(--neon-orange); font-weight: 600; flex-shrink: 0; }
+
+/* Whales */
+.whale-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 10px;
+}
+.whale-lev { color: var(--neon-orange); font-size: 10px; flex-shrink: 0; }
+.whale-dist { font-size: 10px; flex-shrink: 0; }
+
 /* ── Scrollbar global ── */
 ::-webkit-scrollbar {
   width: 6px;

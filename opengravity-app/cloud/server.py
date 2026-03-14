@@ -228,6 +228,7 @@ def verify_token(authorization: str = Header(None)):
 # ── Scheduler for data ingestion ──
 
 scheduler = AsyncIOScheduler()
+_stress_cache: dict[str, float] = {}  # coin -> last_triggered_ts
 
 
 async def fetch_prices():
@@ -347,17 +348,28 @@ async def fetch_funding_rates():
                 universe, ctxs = result[0].get("universe", []), result[1]
                 rates = {}
                 carry_ops = []
+                db_data: list[dict] = []
+                now_ms = int(time.time() * 1000)
                 for i, asset in enumerate(universe):
                     if i >= len(ctxs):
                         break
                     name = asset.get("name", "")
                     if not name:
                         continue
-                    funding = float(ctxs[i].get("funding", 0) or 0)
+                    ctx = ctxs[i]
+                    funding = float(ctx.get("funding", 0) or 0)
                     annual = round(funding * 24 * 365 * 100, 2)
                     rates[name] = {"h8_pct": round(funding * 100, 4), "annual_pct": annual}
                     if annual > 20 and name in HL_WATCH:
                         carry_ops.append({"coin": name, "annual_pct": annual})
+                    if name in HL_WATCH:
+                        db_data.append({
+                            "coin": name, "timestamp": now_ms,
+                            "rate_8h_pct": round(funding * 100, 6),
+                            "annual_pct": annual,
+                            "open_interest": float(ctx["openInterest"]) if ctx.get("openInterest") else None,
+                            "mark_px": float(ctx["markPx"]) if ctx.get("markPx") else None,
+                        })
                 carry_ops.sort(key=lambda x: x["annual_pct"], reverse=True)
                 await manager.broadcast({
                     "type": "funding_update",
@@ -365,6 +377,18 @@ async def fetch_funding_rates():
                     "carry_opportunities": carry_ops[:5],
                     "timestamp": datetime.utcnow().isoformat(),
                 })
+                # Persist to DB
+                if db_data:
+                    _db = SessionLocal()
+                    try:
+                        for d in db_data:
+                            _db.add(FundingRate(**d))
+                        _db.commit()
+                    except Exception as _db_err:
+                        _db.rollback()
+                        print(f"[funding_rates] DB error: {_db_err}")
+                    finally:
+                        _db.close()
         except Exception as e:
             print(f"[funding_rates] Error: {e}")
 
@@ -569,6 +593,194 @@ async def fetch_whale_positions():
         print(f"[whale_positions] Error: {e}")
 
 
+async def fetch_binance_funding():
+    """Fetch funding rates from Binance perpetuals for cross-exchange validation."""
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(
+                "https://fapi.binance.com/fapi/v1/premiumIndex",
+                timeout=10.0,
+            )
+            data = resp.json()
+            if not isinstance(data, list):
+                return
+            rates: dict[str, dict] = {}
+            for item in data:
+                symbol = item.get("symbol", "")
+                coin = symbol.replace("USDT", "").replace("BUSD", "")
+                if coin not in HL_WATCH:
+                    continue
+                try:
+                    fr = float(item.get("lastFundingRate", 0) or 0)
+                    rates[coin] = {
+                        "funding_8h_pct": round(fr * 100, 4),
+                        "annual_pct": round(fr * 24 * 365 * 100, 2),
+                        "mark_price": float(item.get("markPrice", 0) or 0),
+                    }
+                except (TypeError, ValueError):
+                    pass
+            if rates:
+                await manager.broadcast({
+                    "type": "binance_funding",
+                    "rates": rates,
+                    "timestamp": datetime.utcnow().isoformat(),
+                })
+        except Exception as e:
+            print(f"[binance_funding] Error: {e}")
+
+
+async def compute_stress_index():
+    """
+    Compute Market Stress Index per coin combining:
+    - Funding rate extremes from HL (stored in DB)
+    - Recent liquidation volume (last 30 min from DB)
+    Broadcasts stress_update and auto-fires SwarmDecision when score >= 60.
+    """
+    from sqlalchemy import func as sqlfunc
+    db = SessionLocal()
+    try:
+        now_ms = int(time.time() * 1000)
+        thirty_min_ago = now_ms - 30 * 60 * 1000
+
+        # Latest funding rate per coin
+        latest_rates: dict[str, object] = {}
+        for coin in HL_WATCH:
+            fr = (
+                db.query(FundingRate)
+                .filter(FundingRate.coin == coin)
+                .order_by(FundingRate.timestamp.desc())
+                .first()
+            )
+            if fr:
+                latest_rates[coin] = fr
+
+        # Recent liquidations aggregated by coin + side
+        liq_rows = (
+            db.query(
+                LiquidationEvent.coin,
+                LiquidationEvent.side,
+                sqlfunc.sum(LiquidationEvent.usd_size).label("total_usd"),
+            )
+            .filter(LiquidationEvent.time_ms > thirty_min_ago)
+            .group_by(LiquidationEvent.coin, LiquidationEvent.side)
+            .all()
+        )
+        liq_by_coin: dict[str, dict] = {}
+        for row in liq_rows:
+            if row.coin not in liq_by_coin:
+                liq_by_coin[row.coin] = {"LONG": 0.0, "SHORT": 0.0}
+            liq_by_coin[row.coin][row.side] = float(row.total_usd or 0)
+
+        stress_results = []
+        swarm_triggers = []
+
+        for coin in HL_WATCH:
+            fr = latest_rates.get(coin)
+            if not fr:
+                continue
+            annual = getattr(fr, "annual_pct", None) or 0.0
+            score = 0.0
+            signals: list[str] = []
+
+            # Funding component (0–40 pts)
+            abs_annual = abs(annual)
+            if abs_annual > 200:
+                score += 40; signals.append(f"EXTREME_FUNDING:{annual:.0f}%APY")
+            elif abs_annual > 100:
+                score += 30; signals.append(f"HIGH_FUNDING:{annual:.0f}%APY")
+            elif abs_annual > 50:
+                score += 20; signals.append(f"ELEVATED_FUNDING:{annual:.0f}%APY")
+            elif abs_annual > 20:
+                score += 10; signals.append(f"MODERATE_FUNDING:{annual:.0f}%APY")
+
+            direction = "SHORT_BIAS" if annual < 0 else "LONG_BIAS"
+
+            # Liquidation component (0–40 pts)
+            liqs = liq_by_coin.get(coin, {})
+            long_liqs = liqs.get("LONG", 0.0)
+            short_liqs = liqs.get("SHORT", 0.0)
+            total_liqs = long_liqs + short_liqs
+            if total_liqs > 5_000_000:
+                score += 40; signals.append(f"MASSIVE_LIQS:${total_liqs/1e6:.1f}M")
+            elif total_liqs > 1_000_000:
+                score += 25; signals.append(f"HIGH_LIQS:${total_liqs/1e6:.1f}M")
+            elif total_liqs > 100_000:
+                score += 10; signals.append(f"LIQS:${total_liqs/1e3:.0f}K")
+
+            # Confluence bonus (0–20 pts)
+            if annual < -20 and long_liqs > short_liqs and long_liqs > 100_000:
+                score += 20; signals.append("CAPITULATION"); direction = "CAPITULATION_SIGNAL"
+            elif annual > 20 and short_liqs > long_liqs and short_liqs > 100_000:
+                score += 20; signals.append("SHORT_SQUEEZE"); direction = "SHORT_SQUEEZE_SIGNAL"
+
+            score = round(min(score, 100.0), 1)
+            stress_results.append({
+                "coin": coin, "score": score,
+                "annual_funding_pct": round(annual, 2),
+                "direction": direction,
+                "long_liqs_usd": round(long_liqs, 0),
+                "short_liqs_usd": round(short_liqs, 0),
+                "signals": signals,
+            })
+
+            # Queue SwarmDecision for extreme scores, max once/hour per coin
+            if score >= 60 and time.time() - _stress_cache.get(coin, 0) >= 3600:
+                swarm_triggers.append({"coin": coin, "score": score, "signals": signals, "direction": direction})
+
+        stress_results.sort(key=lambda x: x["score"], reverse=True)
+
+        await manager.broadcast({
+            "type": "stress_update",
+            "rankings": stress_results[:15],
+            "timestamp": datetime.utcnow().isoformat(),
+        })
+
+        # Emit SwarmDecisions for extreme events
+        for trigger in swarm_triggers:
+            coin = trigger["coin"]
+            score = trigger["score"]
+            direction = trigger["direction"]
+            has_cap = "CAPITULATION" in trigger["signals"]
+            has_squeeze = "SHORT_SQUEEZE" in trigger["signals"]
+            decision = "BUY" if has_cap else ("SELL" if has_squeeze else "ESCALATE")
+            consensus = round(min(score / 100, 0.95), 3)
+            _stress_cache[coin] = time.time()
+            db.add(SwarmDecision(
+                workflow="funding_stress",
+                symbol=coin,
+                decision=decision,
+                consensus_score=consensus,
+                confidence_avg=score,
+                votes=json.dumps({
+                    "funding_stress_agent": {
+                        "vote": decision,
+                        "confidence": score,
+                        "reasoning": str(trigger["signals"]),
+                    }
+                }),
+            ))
+            await manager.broadcast({
+                "type": "swarm_decision",
+                "workflow": "funding_stress",
+                "symbol": coin,
+                "decision": decision,
+                "consensus_score": consensus,
+                "signals": trigger["signals"],
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+
+        if swarm_triggers:
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+
+    except Exception as e:
+        print(f"[stress_index] Error: {e}")
+    finally:
+        db.close()
+
+
 async def hl_websocket_client():
     """
     Cliente WebSocket nativo de HyperLiquid.
@@ -618,10 +830,12 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(fetch_hl_prices, "interval", minutes=2)       # fallback polling
     scheduler.add_job(fetch_liquidations, "interval", minutes=2)    # liquidaciones cada 2min
     scheduler.add_job(fetch_whale_positions, "interval", minutes=10) # ballenas cada 10min
+    scheduler.add_job(fetch_binance_funding, "interval", minutes=30) # Binance cross-check
+    scheduler.add_job(compute_stress_index, "interval", minutes=15)  # Stress Index
     scheduler.start()
 
     # Run once at startup
-    for fn in [fetch_fear_greed, fetch_top_movers, fetch_funding_rates, fetch_hl_prices, fetch_liquidations]:
+    for fn in [fetch_fear_greed, fetch_top_movers, fetch_funding_rates, fetch_hl_prices, fetch_liquidations, fetch_binance_funding]:
         try:
             await fn()
         except Exception as e:
@@ -967,6 +1181,13 @@ async def get_hl_markets():
                 for m in universe
             ],
         }
+
+
+@app.get("/api/hl/stress")
+async def get_stress_index():
+    """On-demand Market Stress Index: funding + liquidations combined per coin."""
+    await compute_stress_index()
+    return {"status": "computed", "timestamp": datetime.utcnow().isoformat()}
 
 
 @app.get("/api/hl/funding/history/{coin}")
