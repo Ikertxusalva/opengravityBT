@@ -148,6 +148,10 @@ class LiquidationEvent(Base):
     sz = Column(String(30))
     tid = Column(BigInteger, index=True)   # trade id from HL for deduplication
     time_ms = Column(BigInteger, nullable=False, index=True)
+    leverage = Column(Float, nullable=True)           # Real leverage from clearinghouseState
+    liq_px = Column(String(30), nullable=True)        # Liquidation price
+    entry_px = Column(String(30), nullable=True)      # Entry price of liquidated position
+    margin_used = Column(String(30), nullable=True)   # Margin used
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -431,15 +435,72 @@ HL_LIQ_COINS = ["BTC", "ETH"]  # Real-time liquidation tracking for these
 
 # Minimum notional for liquidation to be relevant (filters dust)
 # HyperLiquid perps only — all liquidations here are leveraged positions.
-# $5K+ notional filters out micro-positions and keeps meaningful liquidations.
 MIN_LIQ_NOTIONAL = 5_000
+MIN_LIQ_LEVERAGE = 10  # Only show x10+ leverage liquidations
+
+# Cache: user address → clearinghouseState (TTL 30s to avoid spamming the API)
+_user_state_cache: dict[str, tuple[float, dict]] = {}
+_USER_STATE_TTL = 30
+
+async def _get_user_leverage(user_address: str, coin: str) -> dict | None:
+    """Query HL clearinghouseState to get real leverage data for a liquidated user."""
+    now = time.time()
+    cached = _user_state_cache.get(user_address)
+    if cached and (now - cached[0]) < _USER_STATE_TTL:
+        state = cached[1]
+    else:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(HL_BASE, json={
+                    "type": "clearinghouseState", "user": user_address,
+                }, timeout=5.0)
+                state = resp.json()
+                _user_state_cache[user_address] = (now, state)
+                # Prune cache (keep max 200 entries)
+                if len(_user_state_cache) > 200:
+                    oldest = sorted(_user_state_cache, key=lambda k: _user_state_cache[k][0])
+                    for k in oldest[:50]:
+                        del _user_state_cache[k]
+        except Exception:
+            return None
+
+    # Find the position for this coin
+    positions = state.get("assetPositions", [])
+    for pos_wrapper in positions:
+        pos = pos_wrapper.get("position", pos_wrapper)
+        if pos.get("coin") == coin:
+            try:
+                leverage_data = pos.get("leverage", {})
+                lev_value = float(leverage_data.get("value", 0)) if isinstance(leverage_data, dict) else float(leverage_data or 0)
+                return {
+                    "leverage": round(lev_value, 1),
+                    "liquidation_px": pos.get("liquidationPx"),
+                    "entry_px": pos.get("entryPx"),
+                    "margin_used": pos.get("marginUsed"),
+                    "position_value": pos.get("positionValue"),
+                    "unrealized_pnl": pos.get("unrealizedPnl"),
+                    "return_on_equity": pos.get("returnOnEquity"),
+                }
+            except Exception:
+                return None
+
+    # Position already closed (fully liquidated) — estimate from margin summary
+    margin = state.get("marginSummary", {})
+    try:
+        account_value = float(margin.get("accountValue", 0))
+        total_ntl = float(margin.get("totalNtlPos", 0))
+        if account_value > 0 and total_ntl > 0:
+            return {"leverage": round(total_ntl / account_value, 1)}
+    except Exception:
+        pass
+    return None
 
 
 async def fetch_liquidations():
     """Fetch recent liquidation trades from HyperLiquid perpetuals.
 
     System trades (hash = 0x000...0) are liquidations/ADL on perps.
-    All positions on HL are leveraged (x1 to x50). We filter by notional >= $5K.
+    Queries clearinghouseState for real leverage data. Filters x10+.
     """
     all_liqs: list[dict] = []
     # Check BTC and ETH + top stressed coins
@@ -456,13 +517,10 @@ async def fetch_liquidations():
                 if not isinstance(trades, list):
                     continue
                 for t in trades:
-                    # Detect system/liquidation trades:
-                    # Hash all zeros = system trade (liquidation/ADL) on perpetuals
                     h = t.get("hash", "")
                     is_system = h == "0x0000000000000000000000000000000000000000000000000000000000000000"
                     if not is_system:
                         continue
-                    # Side: "A" = ask (sell) = LONG liquidated, "B" = bid (buy) = SHORT liquidated
                     side = "LONG" if t.get("side") == "A" else "SHORT"
                     try:
                         px = float(t.get("px", 0))
@@ -472,7 +530,32 @@ async def fetch_liquidations():
                         continue
                     if usd_size < MIN_LIQ_NOTIONAL:
                         continue
-                    all_liqs.append({
+
+                    # Get liquidated user and query real leverage
+                    users = t.get("users", [])
+                    liq_user = None
+                    if len(users) >= 2:
+                        liq_user = users[0] if t.get("side") == "A" else users[1]
+
+                    leverage = None
+                    liq_px = None
+                    entry_px = None
+                    margin_used = None
+                    if liq_user:
+                        try:
+                            lev_data = await _get_user_leverage(liq_user, coin)
+                            if lev_data:
+                                leverage = lev_data.get("leverage")
+                                liq_px = lev_data.get("liquidation_px")
+                                entry_px = lev_data.get("entry_px")
+                                margin_used = lev_data.get("margin_used")
+                        except Exception:
+                            pass
+
+                    if leverage is not None and leverage < MIN_LIQ_LEVERAGE:
+                        continue
+
+                    liq_entry = {
                         "coin": coin,
                         "side": side,
                         "usd_size": round(usd_size, 2),
@@ -480,7 +563,16 @@ async def fetch_liquidations():
                         "sz": t.get("sz", "0"),
                         "tid": t.get("tid", 0),
                         "time_ms": t.get("time", 0),
-                    })
+                    }
+                    if leverage is not None:
+                        liq_entry["leverage"] = leverage
+                    if liq_px is not None:
+                        liq_entry["liq_px"] = liq_px
+                    if entry_px is not None:
+                        liq_entry["entry_px"] = entry_px
+                    if margin_used is not None:
+                        liq_entry["margin_used"] = margin_used
+                    all_liqs.append(liq_entry)
             except Exception:
                 pass
 
@@ -513,6 +605,8 @@ async def fetch_liquidations():
                 db.add(LiquidationEvent(
                     coin=liq["coin"], side=liq["side"], usd_size=liq["usd_size"],
                     px=liq["px"], sz=liq["sz"], tid=tid, time_ms=liq["time_ms"],
+                    leverage=liq.get("leverage"), liq_px=liq.get("liq_px"),
+                    entry_px=liq.get("entry_px"), margin_used=liq.get("margin_used"),
                 ))
                 new_count += 1
         if new_count:
@@ -892,6 +986,7 @@ async def hl_websocket_client():
                                 if not is_system:
                                     continue
                                 coin = t.get("coin", "")
+                                # Side: "A" = sell = LONG liquidated, "B" = buy = SHORT liquidated
                                 side = "LONG" if t.get("side") == "A" else "SHORT"
                                 try:
                                     px = float(t.get("px", 0))
@@ -901,12 +996,50 @@ async def hl_websocket_client():
                                     continue
                                 if usd_size < MIN_LIQ_NOTIONAL:
                                     continue
-                                new_liqs.append({
+
+                                # Extract liquidated user address from trade
+                                # In a system trade: side=A (sell) → seller is liquidated (LONG)
+                                #                    side=B (buy)  → buyer is liquidated (SHORT)
+                                users = t.get("users", [])
+                                liq_user = None
+                                if len(users) >= 2:
+                                    liq_user = users[0] if t.get("side") == "A" else users[1]
+
+                                # Query real leverage from clearinghouseState
+                                leverage = None
+                                liq_px = None
+                                entry_px = None
+                                margin_used = None
+                                if liq_user:
+                                    try:
+                                        lev_data = await _get_user_leverage(liq_user, coin)
+                                        if lev_data:
+                                            leverage = lev_data.get("leverage")
+                                            liq_px = lev_data.get("liquidation_px")
+                                            entry_px = lev_data.get("entry_px")
+                                            margin_used = lev_data.get("margin_used")
+                                    except Exception:
+                                        pass
+
+                                # Filter: only x10+ leverage (if we got leverage data)
+                                if leverage is not None and leverage < MIN_LIQ_LEVERAGE:
+                                    continue
+
+                                liq_entry = {
                                     "coin": coin, "side": side,
                                     "usd_size": round(usd_size, 2),
                                     "px": t.get("px", "0"), "sz": t.get("sz", "0"),
                                     "tid": t.get("tid", 0), "time_ms": t.get("time", 0),
-                                })
+                                }
+                                if leverage is not None:
+                                    liq_entry["leverage"] = leverage
+                                if liq_px is not None:
+                                    liq_entry["liq_px"] = liq_px
+                                if entry_px is not None:
+                                    liq_entry["entry_px"] = entry_px
+                                if margin_used is not None:
+                                    liq_entry["margin_used"] = margin_used
+                                new_liqs.append(liq_entry)
                             if new_liqs:
                                 global _last_liquidations
                                 # Prepend new liquidations, keep max 30
@@ -924,6 +1057,8 @@ async def hl_websocket_client():
                                         db.add(LiquidationEvent(
                                             coin=liq["coin"], side=liq["side"], usd_size=liq["usd_size"],
                                             px=liq["px"], sz=liq["sz"], tid=liq["tid"], time_ms=liq["time_ms"],
+                                            leverage=liq.get("leverage"), liq_px=liq.get("liq_px"),
+                                            entry_px=liq.get("entry_px"), margin_used=liq.get("margin_used"),
                                         ))
                                     db.commit()
                                     db.close()
