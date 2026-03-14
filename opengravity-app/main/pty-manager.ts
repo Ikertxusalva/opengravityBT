@@ -15,7 +15,7 @@ import { Vault } from './security/vault';
 // ── Active PTY sessions ──
 const sessions: Map<string, IPty> = new Map();
 const agentMap: Map<string, string> = new Map(); // termId → agentId
-const voicePending: Set<string> = new Set(); // termIds waiting to send /voice
+// (voice is sent via fixed delay after init, see below)
 
 // ── Context persistence ──
 const CONTEXT_DIR = path.join(process.cwd(), '.claude', 'agent-contexts');
@@ -229,19 +229,6 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
         if (buf.length > MAX_BUFFER_LINES) buf.splice(0, buf.length - MAX_BUFFER_LINES);
         sessionBuffers.set(termId, buf);
 
-        // Auto-enable /voice: detect Claude's ready prompt and send /voice once
-        if (voicePending.has(termId)) {
-          const clean = stripAnsi(data);
-          // Claude shows ">" or "❯" when ready for input
-          if (/[>❯]\s*$/.test(clean)) {
-            voicePending.delete(termId);
-            setTimeout(() => {
-              if (sessions.has(termId)) {
-                sessions.get(termId)?.write('/voice\r');
-              }
-            }, 300);
-          }
-        }
       });
 
       // Handle PTY exit with auto-restart (same as RBI)
@@ -285,9 +272,6 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
           ? `\n\nCONTEXTO DE TU ÚLTIMA SESIÓN (continúa desde aquí):\n---\n${savedContext.slice(0, 1800)}\n---`
           : '';
 
-        // Mark terminal for auto /voice — will trigger when Claude shows its prompt
-        voicePending.add(termId);
-
         if (agentId === 'main' || agentId === 'claude-main') {
           // Send Enter to skip Claude's startup screen
           setTimeout(() => {
@@ -319,6 +303,13 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
             }, 300);
           }
         }
+
+        // Auto-enable voice: send /voice 5s after init message so Claude is at the prompt
+        setTimeout(() => {
+          if (sessions.has(termId)) {
+            sessions.get(termId)?.write('/voice\r');
+          }
+        }, 5500);
       }, 5000); // Wait 5s for Claude to initialize
 
       return { success: true };
@@ -354,7 +345,6 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       if (buf.length > 0) saveAgentContext(agId, buf);
       sessionBuffers.delete(termId);
     }
-    voicePending.delete(termId);
     const pty = sessions.get(termId);
     if (pty) {
       pty.kill();
@@ -372,7 +362,6 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
     sessions.clear();
     agentMap.clear();
     sessionBuffers.clear();
-    voicePending.clear();
   });
 
   // Inject a prompt into a running agent's PTY by agentId
