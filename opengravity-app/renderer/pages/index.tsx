@@ -26,6 +26,7 @@ const AGENTS = [
   { id: 'top-mover-agent', name: 'Top Mover Agent', icon: '🚀', model: 'haiku', description: 'Gainers/Losers 24h' },
   { id: 'code-reviewer', name: 'Code Reviewer', icon: '🔍', model: 'sonnet', description: 'Revisión de código' },
   { id: 'tiktok-agent', name: 'TikTok Agent', icon: '📱', model: 'haiku', description: 'Arbitraje social' },
+  { id: 'polymarket-agent', name: 'Polymarket Agent', icon: '🎲', model: 'opus', description: 'Mercados de predicción · CLOB · Edge detection' },
 ];
 
 const STARTUP_AGENTS = [
@@ -70,6 +71,7 @@ export default function HomePage() {
   const startupDoneRef = React.useRef(false);
   const wsRef = React.useRef<WebSocket | null>(null);
   const tokenRef = React.useRef<string | null>(null);
+  const xtermInstancesRef = React.useRef<Map<string, any>>(new Map());
 
   React.useEffect(() => {
     const electron = (window as any).electron;
@@ -105,6 +107,9 @@ export default function HomePage() {
     setActiveTab(id);
     setShowPicker(false);
     setSearchQuery('');
+    // El nuevo XTermPanel montará y llamará xterm.focus() solo.
+    // Re-enfocamos también en el siguiente tick para garantizarlo.
+    setTimeout(() => xtermInstancesRef.current.get(id)?.focus(), 50);
   }, []);
 
   const closeTerminal = React.useCallback((id: string) => {
@@ -273,12 +278,12 @@ export default function HomePage() {
           </div>
         )}
 
-        {topMovers && (topMovers.gainers.length > 0 || topMovers.losers.length > 0) && (
+        {topMovers && ((topMovers.gainers?.length || 0) > 0 || (topMovers.losers?.length || 0) > 0) && (
           <div className="top-movers-ticker" title="Top movers 24h (CoinGecko)">
-            {topMovers.gainers.slice(0, 2).map(g => (
+            {(topMovers.gainers || []).slice(0, 2).map(g => (
               <span key={g.symbol} style={{ color: '#00e676' }}>▲{g.symbol} <b>{g.change_24h > 0 ? '+' : ''}{g.change_24h}%</b></span>
             ))}
-            {topMovers.losers.slice(0, 2).map(l => (
+            {(topMovers.losers || []).slice(0, 2).map(l => (
               <span key={l.symbol} style={{ color: '#ff5252' }}>▼{l.symbol} <b>{l.change_24h}%</b></span>
             ))}
           </div>
@@ -298,7 +303,7 @@ export default function HomePage() {
         </button>
 
         {lastSwarmDecision && swarmStatus === 'decided' && (
-          <div className={`swarm-badge decided-${lastSwarmDecision.decision.toLowerCase()}`}>
+          <div className={`swarm-badge decided-${(lastSwarmDecision.decision || 'hold').toLowerCase()}`}>
             {lastSwarmDecision.decision} {lastSwarmDecision.symbol} {lastSwarmDecision.consensus_score != null ? `${Math.round(lastSwarmDecision.consensus_score * 100)}%` : ''}
           </div>
         )}
@@ -326,7 +331,7 @@ export default function HomePage() {
         ) : isGridView ? (
           <div className={gridClass}>
             {terminals.map(term => (
-              <XTermPanel key={term.id} terminal={term} onClose={() => closeTerminal(term.id)} />
+              <XTermPanel key={term.id} terminal={term} onClose={() => closeTerminal(term.id)} instancesRef={xtermInstancesRef} />
             ))}
           </div>
         ) : (
@@ -341,7 +346,7 @@ export default function HomePage() {
             </div>
             <div className="tab-content">
               {terminals.filter(t => t.id === activeTab).map(term => (
-                <XTermPanel key={term.id} terminal={term} onClose={() => closeTerminal(term.id)} showHeader={false} />
+                <XTermPanel key={term.id} terminal={term} onClose={() => closeTerminal(term.id)} showHeader={false} instancesRef={xtermInstancesRef} />
               ))}
             </div>
           </div>
@@ -349,7 +354,13 @@ export default function HomePage() {
       </div>
 
       {showPicker && (
-        <div className="modal-overlay" onClick={() => setShowPicker(false)}>
+        <div className="modal-overlay" onClick={() => {
+          setShowPicker(false);
+          setTimeout(() => {
+            const target = activeTab ?? terminals[terminals.length - 1]?.id;
+            if (target) xtermInstancesRef.current.get(target)?.focus();
+          }, 50);
+        }}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <input
               className="modal-search"
@@ -374,8 +385,8 @@ export default function HomePage() {
   );
 }
 
-function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showHeader?: boolean }) {
-  const { terminal, onClose, showHeader = true } = props;
+function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showHeader?: boolean; instancesRef?: React.MutableRefObject<Map<string, any>> }) {
+  const { terminal, onClose, showHeader = true, instancesRef } = props;
   const xtermRef = React.useRef<HTMLDivElement>(null);
   const termInstanceRef = React.useRef<any>(null);
   const fitAddonRef = React.useRef<any>(null);
@@ -392,6 +403,7 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
       rightClickSelectsWord: true,
     });
     termInstanceRef.current = xterm;
+    instancesRef?.current.set(terminal.id, xterm);
     if (FitAddon) {
       const fit = new FitAddon();
       fitAddonRef.current = fit;
@@ -399,6 +411,7 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
     }
     xterm.open(xtermRef.current);
     fitAddonRef.current?.fit();
+    xterm.focus();
 
     const electron = (window as any).electron;
 
@@ -412,7 +425,7 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
       if (e.ctrlKey && e.key === 'v' && e.type === 'keydown') {
         navigator.clipboard.readText().then(text => {
           electron?.pty?.write(terminal.id, text);
-        });
+        }).catch(() => {});
         return false;
       }
       return true;
@@ -456,6 +469,7 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
       removeDataListener?.();
       window.removeEventListener('resize', doFit);
       observer?.disconnect();
+      instancesRef?.current.delete(terminal.id);
       xterm.dispose();
     };
   }, [terminal.id, terminal.agentId]);

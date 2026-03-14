@@ -367,11 +367,12 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(fetch_funding_rates, "interval", minutes=15)
     scheduler.add_job(fetch_hl_prices, "interval", minutes=1)
     scheduler.start()
-    # Run once at startup for immediate data
-    await fetch_fear_greed()
-    await fetch_top_movers()
-    await fetch_funding_rates()
-    await fetch_hl_prices()
+    # Run once at startup — each wrapped individually so one failure doesn't block startup
+    for fn in [fetch_fear_greed, fetch_top_movers, fetch_funding_rates, fetch_hl_prices]:
+        try:
+            await fn()
+        except Exception as e:
+            print(f"⚠️ Startup fetch {fn.__name__} failed: {e}")
     yield
     # Shutdown
     scheduler.shutdown()
@@ -709,7 +710,7 @@ async def get_hl_funding_history(coin: str, days: int = 7):
     start_ms = end_ms - days * 86_400_000
     async with httpx.AsyncClient() as client:
         resp = await client.post(HL_BASE, json={
-            "type": "fundingHistory", "coin": coin.upper(), "startTime": start_ms,
+            "type": "fundingHistory", "coin": coin.upper(), "startTime": start_ms, "endTime": end_ms,
         }, timeout=10.0)
         data = resp.json()
         if not isinstance(data, list):
