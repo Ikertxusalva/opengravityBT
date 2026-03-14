@@ -75,7 +75,18 @@ class SymbolResult:
 
 
 def load_strategy_class(filepath: str, classname: str):
-    """Importa dinámicamente la clase de estrategia desde un archivo .py."""
+    """Importa dinámicamente la clase de estrategia desde un archivo .py.
+    Añade automáticamente src/ al path si el archivo viene del ecosistema RBI."""
+    # Inyectar src/ para estrategias RBI que importan 'from rbi.strategies...'
+    src_dir = str(Path(filepath).resolve().parent)
+    while src_dir and not src_dir.endswith("src"):
+        parent = str(Path(src_dir).parent)
+        if parent == src_dir:
+            break
+        src_dir = parent
+    if src_dir.endswith("src") and src_dir not in sys.path:
+        sys.path.insert(0, src_dir)
+
     spec = importlib.util.spec_from_file_location("_strategy_module", filepath)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

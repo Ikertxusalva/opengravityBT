@@ -110,10 +110,14 @@ STRATEGIES: List[StrategyEntry] = [
     ),
     StrategyEntry(
         name="WeakEnsemble",
-        module="moondev.strategies.backtest_architect.weak_ensemble",
+        module="moondev.strategies.weak_ensemble",
         class_name="WeakEnsemble",
-        status=StrategyStatus.LABORATORY,
-        notes="DD -40% a -70% en crypto; ensemble no calibrado",
+        status=StrategyStatus.DEPRECATED,
+        notes="Multi-test 2026-03-14 | v4: 300-420 trades, DD -40/-70%. "
+              "v5 (regime gate SMA/ADX): mismo resultado — ensemble EMA/SMA genera señales "
+              "tan frecuentes que ningún gate puede controlarlo en mercado lateral 2024-2025. "
+              "Causa raíz estructural: 10 señales de media móvil en 1h = overtrading inherente. "
+              "Descartada definitivamente.",
     ),
     # — Nuevas estrategias (multi-test 2026-03-01, 25 activos x 3 TFs) —
     StrategyEntry(
@@ -150,9 +154,14 @@ STRATEGIES: List[StrategyEntry] = [
         module="moondev.strategies.pairs_btceth",
         class_name="PairsBTCETH",
         status=StrategyStatus.LABORATORY,
-        notes="Statistical arb BTC/ETH via z-score spread log-precio. "
-              "zscore_window=504 barras 4h (~84 días). "
-              "Pendiente multi-test en 4h. Ref: Sharpe 0.93 (Amberdata empirical).",
+        viable_assets=["BTC"],
+        timeframe="4h",
+        notes="Multi-test 2026-03-14 | 4h 1y. Lógica válida, frecuencia insuficiente (1-9 trades/activo). "
+              "BTC: Sharpe 1.05 DD -12.1% (4 trades). EURUSD: Sharpe 1.62 (6 trades). "
+              "Problema: 504-bar z-score window + entry_z=2.0 genera muy pocas señales por año. "
+              "Próximo: test dedicado solo BTC 4h con zscore_window menor (252) o entry_z=1.5. "
+              "⚠ Multi-test contra 25 activos no es válido — el spread siempre es BTC/ETH "
+              "independientemente del símbolo de precio principal.",
     ),
     # — Otras (testeadas, sin veredicto formal multi-asset aún) —
     StrategyEntry(
