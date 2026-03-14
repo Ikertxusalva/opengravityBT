@@ -130,6 +130,19 @@ ipcMain.handle('vault-get', async (_event, key: string) => {
   return await Vault.get(key);
 });
 
+ipcMain.handle('vault-set', async (_event, key: string, value: string) => {
+  // Only allow setting known, safe keys — never arbitrary env vars
+  const ALLOWED_KEYS = [
+    'POLYMARKET_PK', 'POLYMARKET_FUNDER',
+    'POLYMARKET_API_KEY', 'POLYMARKET_API_SECRET', 'POLYMARKET_API_PASSPHRASE',
+    'OPENGRAVITY_API_TOKEN',
+  ];
+  if (!ALLOWED_KEYS.includes(key)) return { ok: false, error: 'Key not allowed' };
+  await Vault.set(key, value);
+  AuditLog.log({ action: 'VAULT_SET', details: `Key stored: ${key}`, level: 'INFO', result: 'ALLOWED' });
+  return { ok: true };
+});
+
 ipcMain.handle('wallet-request-approval', async (_event, request: any) => {
   if (mainWindow) {
     return await WalletGuard.requestApproval(mainWindow, request);

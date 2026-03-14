@@ -196,6 +196,17 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
     await acquireSpawnSlot();
 
     const env = buildClaudeEnv();
+
+    // Inject agent-specific secrets from Vault into PTY environment
+    if (agentId === 'polymarket-agent') {
+      const polyKeys = ['POLYMARKET_PK', 'POLYMARKET_FUNDER', 'POLYMARKET_API_KEY',
+                        'POLYMARKET_API_SECRET', 'POLYMARKET_API_PASSPHRASE'];
+      for (const key of polyKeys) {
+        const val = await Vault.get(key);
+        if (val) env[key] = val;
+      }
+    }
+
     const isWin = process.platform === 'win32';
     const shell = isWin ? 'cmd.exe' : 'claude';
     const args = isWin 
@@ -288,7 +299,11 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
           const agentFile = findAgentFile(agentId);
           if (agentFile) {
             const agentName = extractAgentName(agentFile);
-            const relPath = '.claude/agents/' + path.basename(agentFile);
+            // Use absolute path if file is outside project dir, relative otherwise
+            const projectDir = process.cwd();
+            const relPath = agentFile.startsWith(projectDir)
+              ? path.relative(projectDir, agentFile).replace(/\\/g, '/')
+              : agentFile.replace(/\\/g, '/');
             const initMsg = `Eres el agente '${agentName}'. Lee y aplica todas las instrucciones en ${relPath}.${contextSnippet}\r`;
             setTimeout(() => {
               if (sessions.has(termId)) {

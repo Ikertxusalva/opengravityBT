@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electron', {
   // Vault/Security
   vault: {
     get: (key: string) => ipcRenderer.invoke('vault-get', key),
+    set: (key: string, value: string) => ipcRenderer.invoke('vault-set', key, value),
   },
 
   // Swarm orchestration
