@@ -110,6 +110,16 @@ class SwarmDecision(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
+class AgentContext(Base):
+    """Persistent conversational context for agent sessions across restarts."""
+    __tablename__ = "agent_contexts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    agent_id = Column(String(50), nullable=False, unique=True, index=True)
+    context_summary = Column(Text)                                 # Last session output (ANSI-stripped)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
 # Create tables
 try:
     Base.metadata.create_all(bind=engine)
@@ -888,6 +898,46 @@ async def get_swarm_decisions(limit: int = 20):
             }
             for r in results
         ]
+    finally:
+        db.close()
+
+
+# ── Agent Context Endpoints ──
+
+@app.get("/api/agent/context/{agent_id}")
+async def get_agent_context(agent_id: str):
+    """Get saved conversational context for an agent (no auth — context is not sensitive)."""
+    db = SessionLocal()
+    try:
+        ctx = db.query(AgentContext).filter(AgentContext.agent_id == agent_id).first()
+        if not ctx:
+            return {"agent_id": agent_id, "context_summary": None, "updated_at": None}
+        return {
+            "agent_id": agent_id,
+            "context_summary": ctx.context_summary,
+            "updated_at": ctx.updated_at.isoformat() if ctx.updated_at else None,
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/agent/context/{agent_id}")
+async def save_agent_context(agent_id: str, data: dict):
+    """Save or update conversational context for an agent."""
+    db = SessionLocal()
+    try:
+        ctx = db.query(AgentContext).filter(AgentContext.agent_id == agent_id).first()
+        if ctx:
+            ctx.context_summary = data.get("context_summary", ctx.context_summary)
+            ctx.updated_at = datetime.utcnow()
+        else:
+            ctx = AgentContext(
+                agent_id=agent_id,
+                context_summary=data.get("context_summary"),
+            )
+            db.add(ctx)
+        db.commit()
+        return {"status": "ok", "agent_id": agent_id}
     finally:
         db.close()
 

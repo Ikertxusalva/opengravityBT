@@ -16,6 +16,65 @@ import { Vault } from './security/vault';
 const sessions: Map<string, IPty> = new Map();
 const agentMap: Map<string, string> = new Map(); // termId → agentId
 
+// ── Context persistence ──
+const CONTEXT_DIR = path.join(process.cwd(), '.claude', 'agent-contexts');
+const CLOUD_URL = 'https://chic-encouragement-production.up.railway.app';
+const sessionBuffers: Map<string, string[]> = new Map(); // termId → recent lines
+const MAX_BUFFER_LINES = 150;
+
+function stripAnsi(str: string): string {
+  return str
+    .replace(/\x1B\[[0-9;]*[mGKHFABCDsuJK]/g, '')
+    .replace(/\x1B\([B0]/g, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
+function ensureContextDir() {
+  if (!fs.existsSync(CONTEXT_DIR)) fs.mkdirSync(CONTEXT_DIR, { recursive: true });
+}
+
+function loadAgentContext(agentId: string): string | null {
+  const contextFile = path.join(CONTEXT_DIR, `${agentId}.md`);
+  try {
+    if (fs.existsSync(contextFile)) {
+      const content = fs.readFileSync(contextFile, 'utf-8').trim();
+      if (content) return content;
+    }
+  } catch {}
+  return null;
+}
+
+function saveAgentContext(agentId: string, buffer: string[]) {
+  if (buffer.length === 0) return;
+  ensureContextDir();
+  const contextFile = path.join(CONTEXT_DIR, `${agentId}.md`);
+  const now = new Date().toISOString();
+  const cleanLines = buffer
+    .map(stripAnsi)
+    .map(l => l.trim())
+    .filter(l => l.length > 2);
+  if (cleanLines.length === 0) return;
+  const content = `# Sesión guardada: ${now}\n\n${cleanLines.join('\n')}`;
+  try {
+    fs.writeFileSync(contextFile, content, 'utf-8');
+  } catch (e) {
+    console.warn(`[Context] Failed to write context for ${agentId}:`, e);
+  }
+  // Async backup to Railway (fire and forget)
+  fetch(`${CLOUD_URL}/api/agent/context/${agentId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ context_summary: content }),
+  }).catch(() => {});
+}
+
+export function saveAllContexts() {
+  for (const [termId, agId] of agentMap.entries()) {
+    const buf = sessionBuffers.get(termId) || [];
+    if (buf.length > 0) saveAgentContext(agId, buf);
+  }
+}
+
 // ── Semaphore: max 2 concurrent Claude spawns (same as RBI) ──
 let activeSpawns = 0;
 const MAX_CONCURRENT_SPAWNS = 2;
@@ -157,15 +216,25 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       sessions.set(termId, ptyProcess);
       agentMap.set(termId, agentId);
 
-      // Forward PTY output to renderer
+      // Forward PTY output to renderer + accumulate in buffer
       ptyProcess.onData((data: string) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('pty-data', termId, data);
         }
+        const lines = data.split('\n');
+        const buf = sessionBuffers.get(termId) || [];
+        buf.push(...lines);
+        if (buf.length > MAX_BUFFER_LINES) buf.splice(0, buf.length - MAX_BUFFER_LINES);
+        sessionBuffers.set(termId, buf);
       });
 
       // Handle PTY exit with auto-restart (same as RBI)
       ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
+        // Save context before cleanup
+        const buf = sessionBuffers.get(termId) || [];
+        if (buf.length > 0) saveAgentContext(agentId, buf);
+        sessionBuffers.delete(termId);
+
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('pty-data', termId,
             `\r\n\x1b[33m[Claude salió (code: ${exitCode}) · Reiniciando en 1s...]\x1b[0m\r\n`
@@ -195,11 +264,21 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       setTimeout(() => {
         releaseSpawnSlot();
 
+        const savedContext = loadAgentContext(agentId);
+        const contextSnippet = savedContext
+          ? `\n\nCONTEXTO DE TU ÚLTIMA SESIÓN (continúa desde aquí):\n---\n${savedContext.slice(0, 1800)}\n---`
+          : '';
+
         if (agentId === 'main' || agentId === 'claude-main') {
           // Send Enter to skip Claude's startup screen
           setTimeout(() => {
             if (sessions.has(termId)) {
               sessions.get(termId)?.write('\r');
+              if (contextSnippet) {
+                setTimeout(() => {
+                  sessions.get(termId)?.write(`Bienvenido de vuelta.${contextSnippet}\r`);
+                }, 500);
+              }
             }
           }, 300);
         } else {
@@ -207,10 +286,16 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
           if (agentFile) {
             const agentName = extractAgentName(agentFile);
             const relPath = '.claude/agents/' + path.basename(agentFile);
-            const initMsg = `Eres el agente '${agentName}'. Lee y aplica todas las instrucciones en ${relPath}.\r`;
+            const initMsg = `Eres el agente '${agentName}'. Lee y aplica todas las instrucciones en ${relPath}.${contextSnippet}\r`;
             setTimeout(() => {
               if (sessions.has(termId)) {
                 sessions.get(termId)?.write(initMsg);
+              }
+            }, 300);
+          } else if (contextSnippet) {
+            setTimeout(() => {
+              if (sessions.has(termId)) {
+                sessions.get(termId)?.write(`Bienvenido de vuelta.${contextSnippet}\r`);
               }
             }, 300);
           }
@@ -244,6 +329,12 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
 
   // Kill PTY
   ipcMain.on('pty-kill', (_event, termId: string) => {
+    const agId = agentMap.get(termId);
+    if (agId) {
+      const buf = sessionBuffers.get(termId) || [];
+      if (buf.length > 0) saveAgentContext(agId, buf);
+      sessionBuffers.delete(termId);
+    }
     const pty = sessions.get(termId);
     if (pty) {
       pty.kill();
@@ -252,13 +343,15 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
     }
   });
 
-  // Kill all on app quit
+  // Kill all on app quit (saves contexts first)
   ipcMain.on('pty-kill-all', () => {
+    saveAllContexts();
     for (const pty of sessions.values()) {
       try { pty.kill(); } catch {}
     }
     sessions.clear();
     agentMap.clear();
+    sessionBuffers.clear();
   });
 
   // Inject a prompt into a running agent's PTY by agentId
