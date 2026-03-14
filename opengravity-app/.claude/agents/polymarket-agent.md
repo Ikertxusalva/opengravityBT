@@ -611,16 +611,20 @@ cd /path/al/proyecto  # ir al directorio del proyecto
 # 1. Verificar dependencias
 pip install httpx 2>/dev/null | tail -1
 
-# 2. Ver estado actual del paper portfolio
+# 2. AUDIT: cerrar posiciones con edge invalido (unica fuente + horizonte largo)
+#    OBLIGATORIO antes de cualquier otra accion
+python scripts/polymarket/paper_trader.py audit
+
+# 3. Ver estado actual del paper portfolio
 python scripts/polymarket/paper_trader.py status
 
-# 3. Resolver cualquier mercado que haya cerrado
+# 4. Resolver cualquier mercado que haya cerrado
 python scripts/polymarket/paper_trader.py resolve
 
-# 4. Scan de nuevas oportunidades
+# 5. Scan de nuevas oportunidades
 python scripts/polymarket/paper_trader.py scan
 
-# 5. Reporte de performance (si hay trades cerrados)
+# 6. Reporte de performance (si hay trades cerrados)
 python scripts/polymarket/paper_trader.py report
 ```
 
