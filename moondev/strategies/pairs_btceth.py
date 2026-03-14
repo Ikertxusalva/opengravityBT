@@ -44,9 +44,9 @@ def _download_eth_values(n_bars: int, interval: str = "4h") -> np.ndarray:
     """
     try:
         import yfinance as yf
-        # Descargar con período suficiente para cubrir los n_bars del backtest
-        period_map = {"1h": "3y", "4h": "4y", "1d": "10y"}
-        period = period_map.get(interval, "4y")
+        # Yahoo Finance límite: 4h = máx 730 días, 1h = máx 730 días, 1d = ilimitado
+        period_map = {"1h": "2y", "4h": "2y", "1d": "5y"}
+        period = period_map.get(interval, "2y")
         eth = yf.download("ETH-USD", period=period, interval=interval,
                           auto_adjust=True, progress=False)
         if eth.empty:

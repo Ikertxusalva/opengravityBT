@@ -135,9 +135,15 @@ STRATEGIES: List[StrategyEntry] = [
         name="SuperTrendRegimeFilter",
         module="moondev.strategies.supertrend_regime_filter",
         class_name="SuperTrendRegimeFilter",
-        status=StrategyStatus.LABORATORY,
-        notes="v1 — SuperTrend + regime gate SMA20/50+ADX. "
-              "Pendiente multi-test. Esperado: 30-60% menos trades que SuperTrendAdaptive.",
+        status=StrategyStatus.SINGLE_ASSET,
+        viable_assets=["NVDA", "META", "GOOGL"],
+        timeframe="1h",
+        notes="Multi-test 2026-03-14 | HIGH-CONVICTION LOW-FREQUENCY. "
+              "1h 1y: NVDA Sharpe 1.24 DD -4.1% (6 trades), META 1.17 (6 trades), GOOGL 0.77. "
+              "4h 2y: QQQ Sharpe 1.11 (3 trades), GBPUSD 0.97 (3 trades). "
+              "Problema estructural: doble confirmación (SuperTrend flip + SMA/ADX) → 5-15 trades/año. "
+              "No pasa PASS_MIN_TRADES=50. Viable en NVDA/META como estrategia discrecional de alta convicción. "
+              "Para uso: señal fuerte cuando SuperTrend flip ocurre en régimen confirmado.",
     ),
     StrategyEntry(
         name="PairsBTCETH",
