@@ -1,0 +1,2587 @@
+{
+  "timestamp": "2026-03-14T14:21:19.582837+00:00",
+  "total_markets_scanned": 1000,
+  "markets_passing_filters": 523,
+  "filter_criteria": {
+    "min_volume_usd": 50000,
+    "min_liquidity_usd": 2000
+  },
+  "tiers": {
+    "tier1_vol_gt_1M": 276,
+    "tier2_vol_200k_1M": 100,
+    "tier3_vol_lt_200k": 123
+  },
+  "categories": {
+    "sports": 237,
+    "politics": 173,
+    "crypto": 111,
+    "tech": 2
+  },
+  "category_details": {
+    "crypto": {
+      "count": 111,
+      "avg_volume": 3761794,
+      "avg_liquidity": 240559,
+      "avg_volume_24h": 23212,
+      "pct_of_total": 21.2
+    },
+    "politics": {
+      "count": 173,
+      "avg_volume": 9922718,
+      "avg_liquidity": 561865,
+      "avg_volume_24h": 88150,
+      "pct_of_total": 33.1
+    },
+    "sports": {
+      "count": 237,
+      "avg_volume": 3611131,
+      "avg_liquidity": 314068,
+      "avg_volume_24h": 37033,
+      "pct_of_total": 45.3
+    },
+    "tech": {
+      "count": 2,
+      "avg_volume": 362590,
+      "avg_liquidity": 23537,
+      "avg_volume_24h": 521,
+      "pct_of_total": 0.4
+    }
+  },
+  "price_sum_analysis": {
+    "binary_markets_checked": 523,
+    "avg_yes_no_sum": 1.0,
+    "min_sum": 1.0,
+    "max_sum": 1.0,
+    "tight_spread_0_99_1_01": 523,
+    "moderate_spread_0_95_1_05": 0,
+    "wide_spread_outside_5pct": 0,
+    "top_deviations": [
+      {
+        "question": "Russia-Ukraine Ceasefire before GTA VI?",
+        "condition_id": "0x9c1a953fe92c8357f1b646ba25d983aa83e90c525992db14fb726fa895cb5763",
+        "yes_price": 0.545,
+        "no_price": 0.455,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 1371305.6260320004,
+        "liquidity": 36704.4168,
+        "category": "crypto",
+        "spread": 0.01
+      },
+      {
+        "question": "New Rihanna Album before GTA VI?",
+        "condition_id": "0x1fad72fae204143ff1c3035e99e7c0f65ea8d5cd9bd1070987bd1a3316f772be",
+        "yes_price": 0.585,
+        "no_price": 0.415,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 655468.3508250008,
+        "liquidity": 33822.1204,
+        "category": "crypto",
+        "spread": 0.01
+      },
+      {
+        "question": "New Playboi Carti Album before GTA VI?",
+        "condition_id": "0x50ddb9cd80d5c271664a2ebb7fcaed1d0a148d82c8e8d314d830f75a944c3dcc",
+        "yes_price": 0.635,
+        "no_price": 0.365,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 684110.7167020008,
+        "liquidity": 22861.1132,
+        "category": "crypto",
+        "spread": 0.05
+      },
+      {
+        "question": "Will Jesus Christ return before GTA VI?",
+        "condition_id": "0x32b09f6390252b37d674501527e709016d55581b2c1e544bd4b8167f5f732f4c",
+        "yes_price": 0.485,
+        "no_price": 0.515,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 10023968.406892186,
+        "liquidity": 744710.4093,
+        "category": "crypto",
+        "spread": 0.01
+      },
+      {
+        "question": "Trump out as President before GTA VI?",
+        "condition_id": "0x84f8b70331323c2fba97d7ceaa9a35fb645a0770d0dbff169d07f24f376766e9",
+        "yes_price": 0.525,
+        "no_price": 0.475,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 537798.8098490048,
+        "liquidity": 49818.9967,
+        "category": "politics",
+        "spread": 0.01
+      },
+      {
+        "question": "Will China invades Taiwan before GTA VI?",
+        "condition_id": "0x7b49b9bacb5f435bc10f3b100ff59e2fdd346f7f92a9001881bc9825a0af0f11",
+        "yes_price": 0.515,
+        "no_price": 0.485,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 1472392.046657001,
+        "liquidity": 149996.8061,
+        "category": "crypto",
+        "spread": 0.01
+      },
+      {
+        "question": "Will bitcoin hit $1m before GTA VI?",
+        "condition_id": "0xbb57ccf5853a85487bc3d83d04d669310d28c6c810758953b9d9b91d1aee89d2",
+        "yes_price": 0.4885,
+        "no_price": 0.5115,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 3563259.975950699,
+        "liquidity": 420652.71045,
+        "category": "crypto",
+        "spread": 0.001
+      },
+      {
+        "question": "GTA VI released before June 2026?",
+        "condition_id": "0xcccb7e7613a087c132b69cbf3a02bece3fdcb824c1da54ae79acc8d4a562d902",
+        "yes_price": 0.03,
+        "no_price": 0.97,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 11339881.359308012,
+        "liquidity": 44815.85533,
+        "category": "sports",
+        "spread": 0.002
+      },
+      {
+        "question": "Will OpenAI launch a new consumer hardware product by March 31, 2026?",
+        "condition_id": "0xe9674aadfabfa7171bcee4e38b66f1a7d7e0af538d3718301e7b3cf111e9b5dd",
+        "yes_price": 0.0135,
+        "no_price": 0.9865,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 113144.10446100013,
+        "liquidity": 6723.3433,
+        "category": "crypto",
+        "spread": 0.001
+      },
+      {
+        "question": "Will Sweden qualify for the 2026 FIFA World Cup?",
+        "condition_id": "0x61eb9153c67924f13fd102a324be284f335672ea1fdb07d48af27a8cd03536be",
+        "yes_price": 0.31,
+        "no_price": 0.69,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 105876.88445099982,
+        "liquidity": 4709.2486,
+        "category": "sports",
+        "spread": 0.04
+      },
+      {
+        "question": "Will Poland qualify for the 2026 FIFA World Cup?",
+        "condition_id": "0xbd9068da0f92022747bdad7a7d522c2f8bec81f0eb61c233eb94b301b3b4c62b",
+        "yes_price": 0.345,
+        "no_price": 0.655,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 459754.4684980004,
+        "liquidity": 2789.8827,
+        "category": "sports",
+        "spread": 0.01
+      },
+      {
+        "question": "Will Ukraine qualify for the 2026 FIFA World Cup?",
+        "condition_id": "0xfef0954af0d43ea46c1ac246ac009dbcd0f76d36fd93b78d3586b23b386028ef",
+        "yes_price": 0.305,
+        "no_price": 0.695,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 139376.4955310002,
+        "liquidity": 2135.4322,
+        "category": "sports",
+        "spread": 0.01
+      },
+      {
+        "question": "Will the Carolina Hurricanes win the 2026 NHL Stanley Cup?",
+        "condition_id": "0xf7b5491e70b477d451afe7d9c1fde4bf1a927e69ff289d294b96df164f6c10f0",
+        "yes_price": 0.105,
+        "no_price": 0.895,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 186901.8557780003,
+        "liquidity": 124196.1936,
+        "category": "sports",
+        "spread": 0.01
+      },
+      {
+        "question": "Will the Florida Panthers win the 2026 NHL Stanley Cup?",
+        "condition_id": "0xd01354f96db7fc2184cc34ac463a80cc65e7ff5de64c8a2f3e07e8433317d75f",
+        "yes_price": 0.0055,
+        "no_price": 0.9945,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 883210.9623399962,
+        "liquidity": 79271.90335,
+        "category": "sports",
+        "spread": 0.003
+      },
+      {
+        "question": "Will the Edmonton Oilers win the 2026 NHL Stanley Cup?",
+        "condition_id": "0x4a67e1270a2ed86be8fc524b6114640e41b0c56303ecaa9584deacd62402650a",
+        "yes_price": 0.095,
+        "no_price": 0.905,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 358029.81491400074,
+        "liquidity": 68504.2752,
+        "category": "sports",
+        "spread": 0.01
+      },
+      {
+        "question": "Will the Dallas Stars win the 2026 NHL Stanley Cup?",
+        "condition_id": "0x44887f53abbfe7531b1384420b185a5f10ee42a4e6c9441d5883abd4f3c1e5ef",
+        "yes_price": 0.0725,
+        "no_price": 0.9275,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 631250.6357109988,
+        "liquidity": 79417.75538,
+        "category": "sports",
+        "spread": 0.001
+      },
+      {
+        "question": "Will the Colorado Avalanche win the 2026 NHL Stanley Cup?",
+        "condition_id": "0xf8f63bb47b2a7c2e0c1be3cedf4075079b11c07476d76a9469065b0c4791961a",
+        "yes_price": 0.224,
+        "no_price": 0.776,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 11907396.54018409,
+        "liquidity": 109589.10245,
+        "category": "sports",
+        "spread": 0.002
+      },
+      {
+        "question": "Will the Vegas Golden Knights win the 2026 NHL Stanley Cup?",
+        "condition_id": "0x89389a6b1439856a8d366234c795d72865c927a1aa3cf9d4cc04a3a400defde1",
+        "yes_price": 0.0425,
+        "no_price": 0.9575,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 860391.5469829985,
+        "liquidity": 119227.80901,
+        "category": "sports",
+        "spread": 0.001
+      },
+      {
+        "question": "Will the Tampa Bay Lightning win the 2026 NHL Stanley Cup?",
+        "condition_id": "0xbdd688664b4f3cf7ec4ec011607934fe8ae720c08353fc14a6e9dfbf6bbcf11a",
+        "yes_price": 0.15,
+        "no_price": 0.85,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 233737.86791599245,
+        "liquidity": 86580.09486,
+        "category": "sports",
+        "spread": 0.012
+      },
+      {
+        "question": "Will the Los Angeles Kings win the 2026 NHL Stanley Cup?",
+        "condition_id": "0x3b6cdd4f72cef7f29ff7e054444095564dc582266b7230be3c2b5f194d89f37d",
+        "yes_price": 0.009,
+        "no_price": 0.991,
+        "sum": 1.0,
+        "edge_pct": 0.0,
+        "volume": 6271537.159475935,
+        "liquidity": 126709.62022,
+        "category": "sports",
+        "spread": 0.002
+      }
+    ]
+  },
+  "arb_opportunities_8pct": [],
+  "arb_count": 0,
+  "top_keywords": [
+    {
+      "keyword": "win",
+      "count": 424
+    },
+    {
+      "keyword": "presidential",
+      "count": 143
+    },
+    {
+      "keyword": "cup",
+      "count": 77
+    },
+    {
+      "keyword": "nba",
+      "count": 77
+    },
+    {
+      "keyword": "nomination",
+      "count": 77
+    },
+    {
+      "keyword": "election",
+      "count": 69
+    },
+    {
+      "keyword": "league",
+      "count": 57
+    },
+    {
+      "keyword": "masters",
+      "count": 54
+    },
+    {
+      "keyword": "tournament",
+      "count": 54
+    },
+    {
+      "keyword": "finals",
+      "count": 51
+    },
+    {
+      "keyword": "democratic",
+      "count": 50
+    },
+    {
+      "keyword": "fifa",
+      "count": 45
+    },
+    {
+      "keyword": "world",
+      "count": 45
+    },
+    {
+      "keyword": "republican",
+      "count": 40
+    },
+    {
+      "keyword": "nhl",
+      "count": 32
+    },
+    {
+      "keyword": "stanley",
+      "count": 32
+    },
+    {
+      "keyword": "conference",
+      "count": 25
+    },
+    {
+      "keyword": "english",
+      "count": 25
+    },
+    {
+      "keyword": "premier",
+      "count": 25
+    },
+    {
+      "keyword": "colombian",
+      "count": 23
+    },
+    {
+      "keyword": "mvp",
+      "count": 18
+    },
+    {
+      "keyword": "champions",
+      "count": 17
+    },
+    {
+      "keyword": "trump",
+      "count": 14
+    },
+    {
+      "keyword": "market",
+      "count": 14
+    },
+    {
+      "keyword": "finish",
+      "count": 14
+    },
+    {
+      "keyword": "western",
+      "count": 13
+    },
+    {
+      "keyword": "eastern",
+      "count": 12
+    },
+    {
+      "keyword": "liga",
+      "count": 12
+    },
+    {
+      "keyword": "new",
+      "count": 11
+    },
+    {
+      "keyword": "serie",
+      "count": 10
+    },
+    {
+      "keyword": "next",
+      "count": 10
+    },
+    {
+      "keyword": "season",
+      "count": 10
+    },
+    {
+      "keyword": "gta",
+      "count": 9
+    },
+    {
+      "keyword": "day",
+      "count": 9
+    },
+    {
+      "keyword": "james",
+      "count": 9
+    },
+    {
+      "keyword": "senate",
+      "count": 9
+    },
+    {
+      "keyword": "top",
+      "count": 9
+    },
+    {
+      "keyword": "brazilian",
+      "count": 9
+    },
+    {
+      "keyword": "out",
+      "count": 8
+    },
+    {
+      "keyword": "openai",
+      "count": 8
+    }
+  ],
+  "tournament_groups": [
+    {
+      "group": "event:What will happen before GTA VI?",
+      "num_markets": 8,
+      "markets": [
+        {
+          "question": "New Playboi Carti Album before GTA VI?",
+          "yes_price": 0.635,
+          "volume": 684110.7167020008
+        },
+        {
+          "question": "Will GPT-6 be released before GTA VI?",
+          "yes_price": 0.63,
+          "volume": 606870.5276200003
+        },
+        {
+          "question": "New Rihanna Album before GTA VI?",
+          "yes_price": 0.585,
+          "volume": 655468.3508250008
+        },
+        {
+          "question": "Russia-Ukraine Ceasefire before GTA VI?",
+          "yes_price": 0.545,
+          "volume": 1371305.6260320004
+        },
+        {
+          "question": "Trump out as President before GTA VI?",
+          "yes_price": 0.525,
+          "volume": 537798.8098490048
+        },
+        {
+          "question": "Will China invades Taiwan before GTA VI?",
+          "yes_price": 0.515,
+          "volume": 1472392.046657001
+        },
+        {
+          "question": "Will bitcoin hit $1m before GTA VI?",
+          "yes_price": 0.4885,
+          "volume": 3563259.975950699
+        },
+        {
+          "question": "Will Jesus Christ return before GTA VI?",
+          "yes_price": 0.485,
+          "volume": 10023968.406892186
+        }
+      ],
+      "total_probability": 4.4085,
+      "deviation_from_100_pct": 340.85,
+      "note": "OVERPRICED"
+    },
+    {
+      "group": "win:2028 us presidential election",
+      "num_markets": 37,
+      "markets": [
+        {
+          "question": "Will the Democrats win the 2028 US Presidential Election?",
+          "yes_price": 0.555,
+          "volume": 628396.8062939994
+        },
+        {
+          "question": "Will the Republicans win the 2028 US Presidential Election?",
+          "yes_price": 0.445,
+          "volume": 823641.6363529958
+        },
+        {
+          "question": "Will JD Vance win the 2028 US Presidential Election?",
+          "yes_price": 0.2045,
+          "volume": 8060928.965454494
+        },
+        {
+          "question": "Will Gavin Newsom win the 2028 US Presidential Election?",
+          "yes_price": 0.1735,
+          "volume": 5586761.431308169
+        },
+        {
+          "question": "Will Marco Rubio win the 2028 US Presidential Election?",
+          "yes_price": 0.1475,
+          "volume": 4568202.591103
+        },
+        {
+          "question": "Will Alexandria Ocasio-Cortez win the 2028 US Presidential Election?",
+          "yes_price": 0.047,
+          "volume": 9393373.903473986
+        },
+        {
+          "question": "Will Kamala Harris win the 2028 US Presidential Election?",
+          "yes_price": 0.0325,
+          "volume": 5712648.683733278
+        },
+        {
+          "question": "Will Josh Shapiro win the 2028 US Presidential Election?",
+          "yes_price": 0.025,
+          "volume": 4603230.431667954
+        },
+        {
+          "question": "Will Donald Trump win the 2028 US Presidential Election?",
+          "yes_price": 0.0235,
+          "volume": 5679045.515204205
+        },
+        {
+          "question": "Will Jon Ossoff win the 2028 US Presidential Election?",
+          "yes_price": 0.0235,
+          "volume": 2096365.4936560006
+        },
+        {
+          "question": "Will Pete Buttigieg win the 2028 US Presidential Election?",
+          "yes_price": 0.0175,
+          "volume": 2816167.387468957
+        },
+        {
+          "question": "Will Ron DeSantis win the 2028 US Presidential Election?",
+          "yes_price": 0.0165,
+          "volume": 4743013.317262024
+        },
+        {
+          "question": "Will Dwayne 'The Rock' Johnson win the 2028 US Presidential Election?",
+          "yes_price": 0.0165,
+          "volume": 4015441.1658700323
+        },
+        {
+          "question": "Will Tucker Carlson win the 2028 US Presidential Election?",
+          "yes_price": 0.0165,
+          "volume": 4873058.680917005
+        },
+        {
+          "question": "Will Andy Beshear win the 2028 US Presidential Election?",
+          "yes_price": 0.015,
+          "volume": 13446524.640514996
+        },
+        {
+          "question": "Will JB Pritzker win the 2028 US Presidential Election?",
+          "yes_price": 0.0135,
+          "volume": 4563885.929899001
+        },
+        {
+          "question": "Will Elon Musk win the 2028 US Presidential Election?",
+          "yes_price": 0.0125,
+          "volume": 19226545.831441376
+        },
+        {
+          "question": "Will Ivanka Trump win the 2028 US Presidential Election?",
+          "yes_price": 0.0125,
+          "volume": 3580835.3243709863
+        },
+        {
+          "question": "Will Thomas Massie win the 2028 US Presidential Election?",
+          "yes_price": 0.0125,
+          "volume": 2717185.8657079907
+        },
+        {
+          "question": "Will Jamie Dimon win the 2028 US Presidential Election?",
+          "yes_price": 0.0115,
+          "volume": 6383006.092112967
+        },
+        {
+          "question": "Will Nikki Haley win the 2028 US Presidential Election?",
+          "yes_price": 0.0105,
+          "volume": 18389298.27785501
+        },
+        {
+          "question": "Will Michelle Obama win the 2028 US Presidential Election?",
+          "yes_price": 0.0105,
+          "volume": 12701344.11532893
+        },
+        {
+          "question": "Will Gretchen Whitmer win the 2028 US Presidential Election?",
+          "yes_price": 0.0095,
+          "volume": 6598233.111125858
+        },
+        {
+          "question": "Will Stephen Smith win the 2028 US Presidential Election?",
+          "yes_price": 0.0095,
+          "volume": 22136281.23216008
+        },
+        {
+          "question": "Will Tulsi Gabbard win the 2028 US Presidential Election?",
+          "yes_price": 0.0095,
+          "volume": 25953191.082982525
+        },
+        {
+          "question": "Will Donald Trump Jr. win the 2028 US Presidential Election?",
+          "yes_price": 0.0095,
+          "volume": 7200794.398118941
+        },
+        {
+          "question": "Will Greg Abbott win the 2028 US Presidential Election?",
+          "yes_price": 0.0095,
+          "volume": 29915348.441375438
+        },
+        {
+          "question": "Will James Talarico win the 2028 US Presidential Election?",
+          "yes_price": 0.0095,
+          "volume": 2247266.710336997
+        },
+        {
+          "question": "Will Wes Moore win the 2028 US Presidential Election?",
+          "yes_price": 0.0085,
+          "volume": 4662328.428544027
+        },
+        {
+          "question": "Will Ro Khanna win the 2028 US Presidential Election?",
+          "yes_price": 0.0085,
+          "volume": 3993564.6142399916
+        },
+        {
+          "question": "Will Eric Trump win the 2028 US Presidential Election?",
+          "yes_price": 0.0085,
+          "volume": 3180101.4690570077
+        },
+        {
+          "question": "Will Glenn Youngkin win the 2028 US Presidential Election?",
+          "yes_price": 0.0075,
+          "volume": 15862869.507681916
+        },
+        {
+          "question": "Will Tim Walz win the 2028 US Presidential Election?",
+          "yes_price": 0.0075,
+          "volume": 35235097.77848514
+        },
+        {
+          "question": "Will Vivek Ramaswamy win the 2028 US Presidential Election?",
+          "yes_price": 0.0075,
+          "volume": 25475644.006810036
+        },
+        {
+          "question": "Will Kim Kardashian win the 2028 US Presidential Election?",
+          "yes_price": 0.0075,
+          "volume": 25242705.30156305
+        },
+        {
+          "question": "Will Zohran Mamdani win the 2028 US Presidential Election?",
+          "yes_price": 0.0075,
+          "volume": 14357467.769591775
+        },
+        {
+          "question": "Will LeBron James win the 2028 US Presidential Election?",
+          "yes_price": 0.0065,
+          "volume": 35685009.96973581
+        }
+      ],
+      "total_probability": 1.969,
+      "deviation_from_100_pct": 96.9,
+      "note": "OVERPRICED"
+    },
+    {
+      "group": "event:English Premier League – 2nd Place ",
+      "num_markets": 5,
+      "markets": [
+        {
+          "question": "Will Manchester United finish in 2nd place in the 2025-26 English Premier League",
+          "yes_price": 0.0495,
+          "volume": 52711.02616
+        },
+        {
+          "question": "Will Brentford finish in 2nd place in the 2025-26 English Premier League?",
+          "yes_price": 0.015,
+          "volume": 60417.118554
+        },
+        {
+          "question": "Will Chelsea finish in 2nd place in the 2025-26 English Premier League?",
+          "yes_price": 0.0085,
+          "volume": 163868.02672700013
+        },
+        {
+          "question": "Will Brighton finish in 2nd place in the 2025-26 English Premier League?",
+          "yes_price": 0.0085,
+          "volume": 175216.23256300009
+        },
+        {
+          "question": "Will Liverpool finish in 2nd place in the 2025-26 English Premier League?",
+          "yes_price": 0.006,
+          "volume": 122139.24502000003
+        }
+      ],
+      "total_probability": 0.0875,
+      "deviation_from_100_pct": 91.25,
+      "note": "UNDERPRICED"
+    },
+    {
+      "group": "event:EPL – Which Clubs Get Relegated?",
+      "num_markets": 8,
+      "markets": [
+        {
+          "question": "Will Wolves be relegated from the English Premier League after the 2025–26 seaso",
+          "yes_price": 0.975,
+          "volume": 75573.01819600014
+        },
+        {
+          "question": "Will Tottenham be relegated from the English Premier League after the 2025–26 se",
+          "yes_price": 0.39,
+          "volume": 115241.5704160001
+        },
+        {
+          "question": "Will West Ham be relegated from the English Premier League after the 2025–26 sea",
+          "yes_price": 0.38,
+          "volume": 76071.30431499999
+        },
+        {
+          "question": "Will Leeds be relegated from the English Premier League after the 2025–26 season",
+          "yes_price": 0.12,
+          "volume": 63473.33955799991
+        },
+        {
+          "question": "Will Sunderland be relegated from the English Premier League after the 2025–26 s",
+          "yes_price": 0.018,
+          "volume": 63220.26895600001
+        },
+        {
+          "question": "Will Aston Villa be relegated from the English Premier League after the 2025–26 ",
+          "yes_price": 0.0075,
+          "volume": 278485.843692
+        },
+        {
+          "question": "Will Liverpool be relegated from the English Premier League after the 2025–26 se",
+          "yes_price": 0.0065,
+          "volume": 67182.805564
+        },
+        {
+          "question": "Will Bournemouth be relegated from the English Premier League after the 2025–26 ",
+          "yes_price": 0.004,
+          "volume": 83935.32292599998
+        }
+      ],
+      "total_probability": 1.901,
+      "deviation_from_100_pct": 90.1,
+      "note": "OVERPRICED"
+    },
+    {
+      "group": "event: Colombia Presidential Election 1st round winner?",
+      "num_markets": 2,
+      "markets": [
+        {
+          "question": "Will Paloma Valencia win the 1st round of the 2026 Colombian presidential electi",
+          "yes_price": 0.127,
+          "volume": 184743.78292800006
+        },
+        {
+          "question": "Will Vicky Dávila win the 1st round of the 2026 Colombian presidential election?",
+          "yes_price": 0.0055,
+          "volume": 95692.28894900002
+        }
+      ],
+      "total_probability": 0.1325,
+      "deviation_from_100_pct": 86.75,
+      "note": "UNDERPRICED"
+    },
+    {
+      "group": "event:When will Bitcoin hit $150k?",
+      "num_markets": 3,
+      "markets": [
+        {
+          "question": "Will Bitcoin hit $150k by December 31, 2026?",
+          "yes_price": 0.11,
+          "volume": 258325.3874940001
+        },
+        {
+          "question": "Will Bitcoin hit $150k by June 30, 2026?",
+          "yes_price": 0.03,
+          "volume": 449648.11258399894
+        },
+        {
+          "question": "Will Bitcoin hit $150k by March 31, 2026?",
+          "yes_price": 0.006,
+          "volume": 465990.07022299874
+        }
+      ],
+      "total_probability": 0.146,
+      "deviation_from_100_pct": 85.4,
+      "note": "UNDERPRICED"
+    },
+    {
+      "group": "event:MegaETH market cap (FDV) one day after launch?",
+      "num_markets": 2,
+      "markets": [
+        {
+          "question": "MegaETH market cap (FDV) >$2B one day after launch?",
+          "yes_price": 0.175,
+          "volume": 5501594.682489024
+        },
+        {
+          "question": "MegaETH market cap (FDV) >$6B one day after launch?",
+          "yes_price": 0.013,
+          "volume": 2140758.052706027
+        }
+      ],
+      "total_probability": 0.188,
+      "deviation_from_100_pct": 81.2,
+      "note": "UNDERPRICED"
+    },
+    {
+      "group": "event:Who will acquire TikTok?",
+      "num_markets": 4,
+      "markets": [
+        {
+          "question": "Will Microsoft acquire TikTok?",
+          "yes_price": 0.1155,
+          "volume": 63623.61740799995
+        },
+        {
+          "question": "Will Elon Musk / X (Twitter) acquire TikTok?",
+          "yes_price": 0.0435,
+          "volume": 66398.504426
+        },
+        {
+          "question": "Will Meta acquire TikTok?",
+          "yes_price": 0.0395,
+          "volume": 100737.36925699998
+        },
+        {
+          "question": "Will Walmart acquire TikTok?",
+          "yes_price": 0.0285,
+          "volume": 53410.062490000026
+        }
+      ],
+      "total_probability": 0.227,
+      "deviation_from_100_pct": 77.3,
+      "note": "UNDERPRICED"
+    },
+    {
+      "group": "event:English Premier League - Top 4 Finish ",
+      "num_markets": 5,
+      "markets": [
+        {
+          "question": "Will Manchester United finish in the top 4 of the EPL 2025–26 standings?",
+          "yes_price": 0.665,
+          "volume": 512002.3983150003
+        },
+        {
+          "question": "Will Liverpool finish in the top 4 of the EPL 2025–26 standings?",
+          "yes_price": 0.5,
+          "volume": 71816.971874
+        },
+        {
+          "question": "Will Aston Villa finish in the top 4 of the EPL 2025–26 standings?",
+          "yes_price": 0.3725,
+          "volume": 259063.38277800006
+        },
+        {
+          "question": "Will Crystal Palace finish in the top 4 of the EPL 2025–26 standings?",
+          "yes_price": 0.0175,
+          "volume": 261773.78504000022
+        },
+        {
+          "question": "Will Bournemouth finish in the top 4 of the EPL 2025–26 standings?",
+          "yes_price": 0.007,
+          "volume": 166565.78129699995
+        }
+      ],
+      "total_probability": 1.562,
+      "deviation_from_100_pct": 56.2,
+      "note": "OVERPRICED"
+    },
+    {
+      "group": "event:UEFA Europa League: Winner ",
+      "num_markets": 6,
+      "markets": [
+        {
+          "question": "Will Aston Villa win the 2025-26 UEFA Europa League?",
+          "yes_price": 0.275,
+          "volume": 385468.91005999997
+        },
+        {
+          "question": "Will Lyon win the 2025-26 UEFA Europa League?",
+          "yes_price": 0.175,
+          "volume": 54410.20825399996
+        },
+        {
+          "question": "Will Midtjylland win the 2025-26 UEFA Europa League?",
+          "yes_price": 0.0415,
+          "volume": 70809.22492700006
+        },
+        {
+          "question": "Will Bologna win the 2025-26 UEFA Europa League?",
+          "yes_price": 0.0305,
+          "volume": 111546.702637
+        },
+        {
+          "question": "Will Ferencváros win the 2025-26 UEFA Europa League?",
+          "yes_price": 0.028,
+          "volume": 61039.00713100002
+        },
+        {
+          "question": "Will Stuttgart win the 2025-26 UEFA Europa League?",
+          "yes_price": 0.026,
+          "volume": 269724.19685800007
+        }
+      ],
+      "total_probability": 0.576,
+      "deviation_from_100_pct": 42.4,
+      "note": "UNDERPRICED"
+    },
+    {
+      "group": "event:Next James Bond actor?",
+      "num_markets": 4,
+      "markets": [
+        {
+          "question": "No one announced as next James Bond?",
+          "yes_price": 0.495,
+          "volume": 214922.3896269999
+        },
+        {
+          "question": "Callum Turner announced as next James Bond?",
+          "yes_price": 0.295,
+          "volume": 73126.53494899996
+        },
+        {
+          "question": "Aaron Taylor-Johnson announced as next James Bond?",
+          "yes_price": 0.039,
+          "volume": 52933.99973699996
+        },
+        {
+          "question": "James Norton announced as next James Bond?",
+          "yes_price": 0.0035,
+          "volume": 53711.20199000005
+        }
+      ],
+      "total_probability": 0.8325,
+      "deviation_from_100_pct": 16.75,
+      "note": "UNDERPRICED"
+    },
+    {
+      "group": "event:Democratic Presidential Nominee 2028",
+      "num_markets": 44,
+      "markets": [
+        {
+          "question": "Will Gavin Newsom win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.241,
+          "volume": 12697001.915450815
+        },
+        {
+          "question": "Will Alexandria Ocasio-Cortez win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.087,
+          "volume": 5606625.789440067
+        },
+        {
+          "question": "Will Kamala Harris win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0565,
+          "volume": 7966773.516203858
+        },
+        {
+          "question": "Will Jon Ossoff win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0495,
+          "volume": 5197045.88072196
+        },
+        {
+          "question": "Will Josh Shapiro win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.039,
+          "volume": 5257864.846726265
+        },
+        {
+          "question": "Will Pete Buttigieg win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0355,
+          "volume": 8208826.353816143
+        },
+        {
+          "question": "Will Mark Kelly win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.028,
+          "volume": 10001733.897573434
+        },
+        {
+          "question": "Will Andy Beshear win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.025,
+          "volume": 5478147.513070783
+        },
+        {
+          "question": "Will Jon Stewart win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0225,
+          "volume": 8671815.020772805
+        },
+        {
+          "question": "Will James Talarico win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0215,
+          "volume": 2571170.9602599954
+        },
+        {
+          "question": "Will J.B. Pritzker win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0185,
+          "volume": 8908211.80392083
+        },
+        {
+          "question": "Will Ruben Gallego win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0185,
+          "volume": 3239049.3396969954
+        },
+        {
+          "question": "Will Wes Moore win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.017,
+          "volume": 11724845.468930995
+        },
+        {
+          "question": "Will Ro Khanna win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.017,
+          "volume": 3616272.849994001
+        },
+        {
+          "question": "Will Gretchen Whitmer win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0145,
+          "volume": 6345473.087222102
+        },
+        {
+          "question": "Will Rahm Emanuel win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0135,
+          "volume": 10190357.498658013
+        },
+        {
+          "question": "Will Dwayne 'The Rock' Johnson win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0135,
+          "volume": 7910858.874769922
+        },
+        {
+          "question": "Will Michelle Obama win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0125,
+          "volume": 18561938.379846398
+        },
+        {
+          "question": "Will Stephen A. Smith win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0115,
+          "volume": 12328673.881519211
+        },
+        {
+          "question": "Will Cory Booker win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0115,
+          "volume": 17939822.780196242
+        },
+        {
+          "question": "Will Gina Raimondo win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0105,
+          "volume": 24405468.011201628
+        },
+        {
+          "question": "Will Zohran Mamdani win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0105,
+          "volume": 31387369.71530791
+        },
+        {
+          "question": "Will Phil Murphy win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0105,
+          "volume": 28617212.730213914
+        },
+        {
+          "question": "Will LeBron James win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0105,
+          "volume": 30419295.493475
+        },
+        {
+          "question": "Will Mark Cuban win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0095,
+          "volume": 16031676.517420096
+        },
+        {
+          "question": "Will John Fetterman win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0095,
+          "volume": 15051372.086765388
+        },
+        {
+          "question": "Will Barack Obama win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0095,
+          "volume": 21139203.440642063
+        },
+        {
+          "question": "Will MrBeast win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0095,
+          "volume": 31794032.77128793
+        },
+        {
+          "question": "Will Andrew Yang win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0095,
+          "volume": 35462902.21086991
+        },
+        {
+          "question": "Will Chris Murphy win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0095,
+          "volume": 9150272.01581709
+        },
+        {
+          "question": "Will Roy Cooper win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0085,
+          "volume": 23025765.77992811
+        },
+        {
+          "question": "Will Hillary Clinton win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0085,
+          "volume": 32713646.697011955
+        },
+        {
+          "question": "Will Liz Cheney win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0085,
+          "volume": 29017666.73522687
+        },
+        {
+          "question": "Will Hunter Biden win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0085,
+          "volume": 27258527.561447334
+        },
+        {
+          "question": "Will Beto O’Rourke win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0085,
+          "volume": 26021836.940665893
+        },
+        {
+          "question": "Will Kim Kardashian win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0085,
+          "volume": 25379370.127889104
+        },
+        {
+          "question": "Will Raphael Warnock win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0075,
+          "volume": 21383611.003543876
+        },
+        {
+          "question": "Will Jared Polis win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0075,
+          "volume": 16839239.239111003
+        },
+        {
+          "question": "Will George Clooney win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0075,
+          "volume": 34084045.224071786
+        },
+        {
+          "question": "Will Chelsea Clinton win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0075,
+          "volume": 42106145.85766004
+        },
+        {
+          "question": "Will Tim Walz win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 33649818.05774057
+        },
+        {
+          "question": "Will Bernie Sanders win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 35251782.94491892
+        },
+        {
+          "question": "Will Oprah Winfrey win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 39281136.31970959
+        },
+        {
+          "question": "Will Jasmine Crockett win the 2028 Democratic presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 19132826.172316954
+        }
+      ],
+      "total_probability": 0.9595,
+      "deviation_from_100_pct": 4.05,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:2026 FIFA World Cup: Which countries qualify?",
+      "num_markets": 3,
+      "markets": [
+        {
+          "question": "Will Poland qualify for the 2026 FIFA World Cup?",
+          "yes_price": 0.345,
+          "volume": 459754.4684980004
+        },
+        {
+          "question": "Will Sweden qualify for the 2026 FIFA World Cup?",
+          "yes_price": 0.31,
+          "volume": 105876.88445099982
+        },
+        {
+          "question": "Will Ukraine qualify for the 2026 FIFA World Cup?",
+          "yes_price": 0.305,
+          "volume": 139376.4955310002
+        }
+      ],
+      "total_probability": 0.96,
+      "deviation_from_100_pct": 4.0,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:OpenAI IPO Closing Market Cap",
+      "num_markets": 7,
+      "markets": [
+        {
+          "question": "Will OpenAI not IPO by December 31, 2026?",
+          "yes_price": 0.64,
+          "volume": 258046.36492799927
+        },
+        {
+          "question": "Will OpenAI’s market cap be between $750B and $1T at market close on IPO day?",
+          "yes_price": 0.073,
+          "volume": 120813.31124600003
+        },
+        {
+          "question": "Will OpenAI’s market cap be between $1.25T and $1.5T at market close on IPO day?",
+          "yes_price": 0.063,
+          "volume": 469160.497931
+        },
+        {
+          "question": "Will OpenAI’s market cap be less than $500B at market close on IPO day?",
+          "yes_price": 0.056,
+          "volume": 238441.84950700033
+        },
+        {
+          "question": "Will OpenAI’s market cap be between $500B and $750B at market close on IPO day?",
+          "yes_price": 0.0495,
+          "volume": 131099.33886900017
+        },
+        {
+          "question": "Will OpenAI’s market cap be between $1T and $1.25T at market close on IPO day?",
+          "yes_price": 0.047,
+          "volume": 161236.69065
+        },
+        {
+          "question": "Will OpenAI’s market cap be $1.5T or greater at market close on IPO day?",
+          "yes_price": 0.0375,
+          "volume": 82568.23257300025
+        }
+      ],
+      "total_probability": 0.966,
+      "deviation_from_100_pct": 3.4,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:NBA Eastern Conference Champion ",
+      "num_markets": 12,
+      "markets": [
+        {
+          "question": "Will the Boston Celtics win the NBA Eastern Conference Finals?",
+          "yes_price": 0.335,
+          "volume": 437610.9595410004
+        },
+        {
+          "question": "Will the Cleveland Cavaliers win the NBA Eastern Conference Finals?",
+          "yes_price": 0.2,
+          "volume": 116367.96441400018
+        },
+        {
+          "question": "Will the New York Knicks win the NBA Eastern Conference Finals?",
+          "yes_price": 0.165,
+          "volume": 342612.73185699945
+        },
+        {
+          "question": "Will the Detroit Pistons win the NBA Eastern Conference Finals?",
+          "yes_price": 0.165,
+          "volume": 362860.1979260004
+        },
+        {
+          "question": "Will the Charlotte Hornets win the NBA Eastern Conference Finals?",
+          "yes_price": 0.0385,
+          "volume": 178439.43279899948
+        },
+        {
+          "question": "Will the Miami Heat win the NBA Eastern Conference Finals?",
+          "yes_price": 0.0325,
+          "volume": 426829.737528002
+        },
+        {
+          "question": "Will the Toronto Raptors win the NBA Eastern Conference Finals?",
+          "yes_price": 0.032,
+          "volume": 8247059.615183005
+        },
+        {
+          "question": "Will the Orlando Magic win the NBA Eastern Conference Finals?",
+          "yes_price": 0.028,
+          "volume": 1004206.1917979908
+        },
+        {
+          "question": "Will the Philadelphia 76ers win the NBA Eastern Conference Finals?",
+          "yes_price": 0.0155,
+          "volume": 545464.0399740036
+        },
+        {
+          "question": "Will the Atlanta Hawks win the NBA Eastern Conference Finals?",
+          "yes_price": 0.013,
+          "volume": 107810.93230099989
+        },
+        {
+          "question": "Will the Chicago Bulls win the NBA Eastern Conference Finals?",
+          "yes_price": 0.0015,
+          "volume": 108769.53341399999
+        },
+        {
+          "question": "Will the Milwaukee Bucks win the NBA Eastern Conference Finals?",
+          "yes_price": 0.0005,
+          "volume": 74743.06181699994
+        }
+      ],
+      "total_probability": 1.0265,
+      "deviation_from_100_pct": 2.65,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:UEFA Champions League Winner ",
+      "num_markets": 17,
+      "markets": [
+        {
+          "question": "Will Arsenal win the 2025–26 Champions League?",
+          "yes_price": 0.255,
+          "volume": 2992914.828741012
+        },
+        {
+          "question": "Will Bayern Munich win the 2025–26 Champions League?",
+          "yes_price": 0.215,
+          "volume": 2619549.758094984
+        },
+        {
+          "question": "Will Barcelona win the 2025–26 Champions League?",
+          "yes_price": 0.135,
+          "volume": 2406392.4015780054
+        },
+        {
+          "question": "Will PSG win the 2025–26 Champions League?",
+          "yes_price": 0.115,
+          "volume": 3548354.3293379936
+        },
+        {
+          "question": "Will Real Madrid win the 2025–26 Champions League?",
+          "yes_price": 0.095,
+          "volume": 2788709.4371599723
+        },
+        {
+          "question": "Will Liverpool win the 2025–26 Champions League?",
+          "yes_price": 0.065,
+          "volume": 2684727.4387169937
+        },
+        {
+          "question": "Will Atletico Madrid win the 2025–26 Champions League?",
+          "yes_price": 0.051,
+          "volume": 5581068.236790954
+        },
+        {
+          "question": "Will Bodo Glimt win the 2025–26 Champions League?",
+          "yes_price": 0.027,
+          "volume": 14809480.72806405
+        },
+        {
+          "question": "Will Man City win the 2025–26 Champions League?",
+          "yes_price": 0.0205,
+          "volume": 2463314.926731003
+        },
+        {
+          "question": "Will Newcastle win the 2025–26 Champions League?",
+          "yes_price": 0.013,
+          "volume": 3701794.350474937
+        },
+        {
+          "question": "Will Galatasaray win the 2025–26 Champions League?",
+          "yes_price": 0.0095,
+          "volume": 11584611.487170856
+        },
+        {
+          "question": "Will Chelsea win the 2025–26 Champions League?",
+          "yes_price": 0.0075,
+          "volume": 4505743.434360011
+        },
+        {
+          "question": "Will Leverkusen win the 2025–26 Champions League?",
+          "yes_price": 0.0055,
+          "volume": 12921027.509932896
+        },
+        {
+          "question": "Will Sporting win the 2025–26 Champions League?",
+          "yes_price": 0.0035,
+          "volume": 9218734.50645505
+        },
+        {
+          "question": "Will Tottenham win the 2025–26 Champions League?",
+          "yes_price": 0.0025,
+          "volume": 10574359.356250007
+        },
+        {
+          "question": "Will Atalanta win the 2025–26 Champions League?",
+          "yes_price": 0.0015,
+          "volume": 12012727.524606869
+        },
+        {
+          "question": "Will Club Brugge win the 2025–26 Champions League?",
+          "yes_price": 0.0005,
+          "volume": 18755924.477014873
+        }
+      ],
+      "total_probability": 1.022,
+      "deviation_from_100_pct": 2.2,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:2026 NBA Champion",
+      "num_markets": 26,
+      "markets": [
+        {
+          "question": "Will the Oklahoma City Thunder win the 2026 NBA Finals?",
+          "yes_price": 0.345,
+          "volume": 4974427.805276065
+        },
+        {
+          "question": "Will the Boston Celtics win the 2026 NBA Finals?",
+          "yes_price": 0.1375,
+          "volume": 4923986.990169931
+        },
+        {
+          "question": "Will the San Antonio Spurs win the 2026 NBA Finals?",
+          "yes_price": 0.134,
+          "volume": 5191201.348207972
+        },
+        {
+          "question": "Will the Denver Nuggets win the 2026 NBA Finals?",
+          "yes_price": 0.085,
+          "volume": 2908644.3179899883
+        },
+        {
+          "question": "Will the Detroit Pistons win the 2026 NBA Finals?",
+          "yes_price": 0.053,
+          "volume": 4928516.989322975
+        },
+        {
+          "question": "Will the Cleveland Cavaliers win the 2026 NBA Finals?",
+          "yes_price": 0.0515,
+          "volume": 4018521.687303975
+        },
+        {
+          "question": "Will the New York Knicks win the 2026 NBA Finals?",
+          "yes_price": 0.0465,
+          "volume": 3272996.5697489553
+        },
+        {
+          "question": "Will the Houston Rockets win the 2026 NBA Finals?",
+          "yes_price": 0.0295,
+          "volume": 3107135.3765209736
+        },
+        {
+          "question": "Will the Minnesota Timberwolves win the 2026 NBA Finals?",
+          "yes_price": 0.0245,
+          "volume": 4354305.253942944
+        },
+        {
+          "question": "Will the Los Angeles Lakers win the 2026 NBA Finals?",
+          "yes_price": 0.0215,
+          "volume": 4804721.30375593
+        },
+        {
+          "question": "Will the Los Angeles Clippers win the 2026 NBA Finals?",
+          "yes_price": 0.0195,
+          "volume": 10243822.905065024
+        },
+        {
+          "question": "Will the Miami Heat win the 2026 NBA Finals?",
+          "yes_price": 0.0125,
+          "volume": 8932786.61268888
+        },
+        {
+          "question": "Will the Charlotte Hornets win the 2026 NBA Finals?",
+          "yes_price": 0.0095,
+          "volume": 25908285.1536602
+        },
+        {
+          "question": "Will the Golden State Warriors win the 2026 NBA Finals?",
+          "yes_price": 0.0075,
+          "volume": 4502820.427255011
+        },
+        {
+          "question": "Will the Toronto Raptors win the 2026 NBA Finals?",
+          "yes_price": 0.0075,
+          "volume": 8436978.641878037
+        },
+        {
+          "question": "Will the Orlando Magic win the 2026 NBA Finals?",
+          "yes_price": 0.0065,
+          "volume": 5412320.650765986
+        },
+        {
+          "question": "Will the Phoenix Suns win the 2026 NBA Finals?",
+          "yes_price": 0.0065,
+          "volume": 8827694.575801002
+        },
+        {
+          "question": "Will the Philadelphia 76ers win the 2026 NBA Finals?",
+          "yes_price": 0.0055,
+          "volume": 4278837.382529984
+        },
+        {
+          "question": "Will the Atlanta Hawks win the 2026 NBA Finals?",
+          "yes_price": 0.004,
+          "volume": 10563943.555331161
+        },
+        {
+          "question": "Will the Portland Trail Blazers win the 2026 NBA Finals?",
+          "yes_price": 0.0035,
+          "volume": 10408847.900623677
+        },
+        {
+          "question": "Will the Memphis Grizzlies win the 2026 NBA Finals?",
+          "yes_price": 0.0015,
+          "volume": 33975692.80218272
+        },
+        {
+          "question": "Will the New Orleans Pelicans win the 2026 NBA Finals?",
+          "yes_price": 0.0015,
+          "volume": 16022686.425882027
+        },
+        {
+          "question": "Will the Chicago Bulls win the 2026 NBA Finals?",
+          "yes_price": 0.0015,
+          "volume": 22296856.50329491
+        },
+        {
+          "question": "Will the Utah Jazz win the 2026 NBA Finals?",
+          "yes_price": 0.0015,
+          "volume": 18880391.04279096
+        },
+        {
+          "question": "Will the Dallas Mavericks win the 2026 NBA Finals?",
+          "yes_price": 0.0005,
+          "volume": 9519162.841643998
+        },
+        {
+          "question": "Will the Milwaukee Bucks win the 2026 NBA Finals?",
+          "yes_price": 0.0005,
+          "volume": 8489168.775261857
+        }
+      ],
+      "total_probability": 1.0175,
+      "deviation_from_100_pct": 1.75,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:NBA Western Conference Champion ",
+      "num_markets": 13,
+      "markets": [
+        {
+          "question": "Will the Oklahoma City Thunder win the NBA Western Conference Finals?",
+          "yes_price": 0.475,
+          "volume": 420867.3840840002
+        },
+        {
+          "question": "Will the San Antonio Spurs win the NBA Western Conference Finals?",
+          "yes_price": 0.216,
+          "volume": 515233.6061360001
+        },
+        {
+          "question": "Will the Denver Nuggets win the NBA Western Conference Finals?",
+          "yes_price": 0.135,
+          "volume": 61634.458060000026
+        },
+        {
+          "question": "Will the Los Angeles Lakers win the NBA Western Conference Finals?",
+          "yes_price": 0.0485,
+          "volume": 1142137.317634996
+        },
+        {
+          "question": "Will the Houston Rockets win the NBA Western Conference Finals?",
+          "yes_price": 0.0385,
+          "volume": 674102.800120998
+        },
+        {
+          "question": "Will the Minnesota Timberwolves win the NBA Western Conference Finals?",
+          "yes_price": 0.0385,
+          "volume": 353510.61743400054
+        },
+        {
+          "question": "Will the Los Angeles Clippers win the NBA Western Conference Finals?",
+          "yes_price": 0.0285,
+          "volume": 466316.2029150008
+        },
+        {
+          "question": "Will the Phoenix Suns win the NBA Western Conference Finals?",
+          "yes_price": 0.016,
+          "volume": 217100.59518999935
+        },
+        {
+          "question": "Will the Golden State Warriors win the NBA Western Conference Finals?",
+          "yes_price": 0.011,
+          "volume": 10194090.688267032
+        },
+        {
+          "question": "Will the Portland Trail Blazers win the NBA Western Conference Finals?",
+          "yes_price": 0.008,
+          "volume": 168328.70788600005
+        },
+        {
+          "question": "Will the Dallas Mavericks win the NBA Western Conference Finals?",
+          "yes_price": 0.0005,
+          "volume": 159341.99756800014
+        },
+        {
+          "question": "Will the Memphis Grizzlies win the NBA Western Conference Finals?",
+          "yes_price": 0.0005,
+          "volume": 68053.70708400004
+        },
+        {
+          "question": "Will the New Orleans Pelicans win the NBA Western Conference Finals?",
+          "yes_price": 0.0005,
+          "volume": 243532.72699599995
+        }
+      ],
+      "total_probability": 1.0165,
+      "deviation_from_100_pct": 1.65,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:Brazil Presidential Election",
+      "num_markets": 9,
+      "markets": [
+        {
+          "question": "Will Luiz Inácio Lula da Silva win the 2026 Brazilian presidential election?",
+          "yes_price": 0.455,
+          "volume": 3979149.8396140086
+        },
+        {
+          "question": "Will Flávio Bolsonaro win the 2026 Brazilian presidential election?",
+          "yes_price": 0.383,
+          "volume": 3247987.066223994
+        },
+        {
+          "question": "Will Carlos Roberto Massa Júnior win the 2026 Brazilian presidential election?",
+          "yes_price": 0.0475,
+          "volume": 2796805.647482023
+        },
+        {
+          "question": "Will Renan Santos win the 2026 Brazilian presidential election?",
+          "yes_price": 0.043,
+          "volume": 2715970.8355620066
+        },
+        {
+          "question": "Will Fernando Haddad win the 2026 Brazilian presidential election?",
+          "yes_price": 0.0245,
+          "volume": 2319277.1374970167
+        },
+        {
+          "question": "Will Jair Bolsonaro win the 2026 Brazilian presidential election?",
+          "yes_price": 0.014,
+          "volume": 2220982.564297996
+        },
+        {
+          "question": "Will Tarcisio de Freitas win the 2026 Brazilian presidential election?",
+          "yes_price": 0.0115,
+          "volume": 3400172.6962380363
+        },
+        {
+          "question": "Will Eduardo Bolsonaro win the 2026 Brazilian presidential election?",
+          "yes_price": 0.003,
+          "volume": 3039301.2559069823
+        },
+        {
+          "question": "Will Michelle Bolsonaro win the 2026 Brazilian presidential election?",
+          "yes_price": 0.0025,
+          "volume": 2303610.9081049967
+        }
+      ],
+      "total_probability": 0.984,
+      "deviation_from_100_pct": 1.6,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:Balance of Power: 2026 Midterms",
+      "num_markets": 5,
+      "markets": [
+        {
+          "question": "2026 Balance of Power: D Senate, D House",
+          "yes_price": 0.485,
+          "volume": 973423.2418100052
+        },
+        {
+          "question": "2026 Balance of Power: R Senate, D House",
+          "yes_price": 0.355,
+          "volume": 707659.0476619996
+        },
+        {
+          "question": "2026 Balance of Power: R Senate, R House",
+          "yes_price": 0.165,
+          "volume": 784231.2922589985
+        },
+        {
+          "question": "2026 Balance of Power: D Senate, R House",
+          "yes_price": 0.0065,
+          "volume": 488986.3515330005
+        },
+        {
+          "question": "2026 Balance of Power: Other",
+          "yes_price": 0.0035,
+          "volume": 593525.7708459992
+        }
+      ],
+      "total_probability": 1.015,
+      "deviation_from_100_pct": 1.5,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:Republican Presidential Nominee 2028",
+      "num_markets": 33,
+      "markets": [
+        {
+          "question": "Will J.D. Vance win the 2028 Republican presidential nomination?",
+          "yes_price": 0.3845,
+          "volume": 5632082.458011845
+        },
+        {
+          "question": "Will Marco Rubio win the 2028 Republican presidential nomination?",
+          "yes_price": 0.2735,
+          "volume": 5768993.765668098
+        },
+        {
+          "question": "Will Ron DeSantis win the 2028 Republican presidential nomination?",
+          "yes_price": 0.028,
+          "volume": 6307027.248792138
+        },
+        {
+          "question": "Will Donald Trump win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0175,
+          "volume": 5643274.237768944
+        },
+        {
+          "question": "Will Tucker Carlson win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0175,
+          "volume": 3508146.869119009
+        },
+        {
+          "question": "Will Thomas Massie win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0165,
+          "volume": 2148963.417534003
+        },
+        {
+          "question": "Will Vivek Ramaswamy win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0145,
+          "volume": 11114116.578484066
+        },
+        {
+          "question": "Will Glenn Youngkin win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0135,
+          "volume": 4606286.436984949
+        },
+        {
+          "question": "Will Nikki Haley win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0125,
+          "volume": 6057864.5590678
+        },
+        {
+          "question": "Will Donald Trump Jr. win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0115,
+          "volume": 4083799.8122739764
+        },
+        {
+          "question": "Will Ted Cruz win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0115,
+          "volume": 8189298.351541991
+        },
+        {
+          "question": "Will Elon Musk win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0115,
+          "volume": 21118150.218826592
+        },
+        {
+          "question": "Will Matt Gaetz win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0115,
+          "volume": 14187856.023164913
+        },
+        {
+          "question": "Will Marjorie Taylor Greene win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0115,
+          "volume": 2967008.3205239954
+        },
+        {
+          "question": "Will Brian Kemp win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0105,
+          "volume": 8593095.801195934
+        },
+        {
+          "question": "Will Katie Britt win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0105,
+          "volume": 20897837.822141774
+        },
+        {
+          "question": "Will Ivanka Trump win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0105,
+          "volume": 4300435.899991012
+        },
+        {
+          "question": "Will Rand Paul win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0105,
+          "volume": 15086616.816217063
+        },
+        {
+          "question": "Will Tulsi Gabbard win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0095,
+          "volume": 8115110.473094003
+        },
+        {
+          "question": "Will Greg Abbott win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0095,
+          "volume": 15495734.417313008
+        },
+        {
+          "question": "Will Josh Hawley win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0085,
+          "volume": 13847406.265203005
+        },
+        {
+          "question": "Will Tom Brady win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0085,
+          "volume": 25142665.71601438
+        },
+        {
+          "question": "Will Robert F. Kennedy Jr. win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0075,
+          "volume": 9616459.20518369
+        },
+        {
+          "question": "Will Steve Bannon win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0075,
+          "volume": 12276054.944889007
+        },
+        {
+          "question": "Will Kim Kardashian win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0075,
+          "volume": 19987295.08341788
+        },
+        {
+          "question": "Will Sarah Huckabee Sanders win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 24993001.038723897
+        },
+        {
+          "question": "Will Byron Donalds win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 18385017.539457943
+        },
+        {
+          "question": "Will Elise Stefanik win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 19225037.727020994
+        },
+        {
+          "question": "Will John Thune win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 26324339.246103916
+        },
+        {
+          "question": "Will Kristi Noem win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 25381243.830214925
+        },
+        {
+          "question": "Will Mike Pence win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 28223921.476220857
+        },
+        {
+          "question": "Will Erika Kirk win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 6766652.261062971
+        },
+        {
+          "question": "Will Eric Trump win the 2028 Republican presidential nomination?",
+          "yes_price": 0.0065,
+          "volume": 2664485.827763
+        }
+      ],
+      "total_probability": 0.988,
+      "deviation_from_100_pct": 1.2,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:Colombia Presidential Election",
+      "num_markets": 17,
+      "markets": [
+        {
+          "question": "Will Ivan Cepeda Castro win the 2026 Colombian presidential election?",
+          "yes_price": 0.425,
+          "volume": 373383.0615590012
+        },
+        {
+          "question": "Will Paloma Valencia win the 2026 Colombian presidential election?",
+          "yes_price": 0.362,
+          "volume": 341836.7850340001
+        },
+        {
+          "question": "Will Abelardo de la Espriella  win the 2026 Colombian presidential election?",
+          "yes_price": 0.185,
+          "volume": 386749.7968150001
+        },
+        {
+          "question": "Will Sergio Fajardo win the 2026 Colombian presidential election?",
+          "yes_price": 0.013,
+          "volume": 949240.5731920004
+        },
+        {
+          "question": "Will Roy Barreras win the 2026 Colombian presidential election?",
+          "yes_price": 0.0055,
+          "volume": 355580.13327000017
+        },
+        {
+          "question": "Will Carlos Felipe Córdoba win the 2026 Colombian presidential election?",
+          "yes_price": 0.0045,
+          "volume": 61409.15376899999
+        },
+        {
+          "question": "Will Claudia López win the 2026 Colombian presidential election?",
+          "yes_price": 0.003,
+          "volume": 313797.09175099974
+        },
+        {
+          "question": "Will Vicky Dávila win the 2026 Colombian presidential election?",
+          "yes_price": 0.0015,
+          "volume": 323825.0011620001
+        },
+        {
+          "question": "Will Luis Gilberto Murillo win the 2026 Colombian presidential election?",
+          "yes_price": 0.0015,
+          "volume": 604344.9026080006
+        },
+        {
+          "question": "Will David Luna Sánchez win the 2026 Colombian presidential election?",
+          "yes_price": 0.0015,
+          "volume": 357706.6486510003
+        },
+        {
+          "question": "Will Juan Daniel Oviedo win the 2026 Colombian presidential election?",
+          "yes_price": 0.0015,
+          "volume": 252155.43476699977
+        },
+        {
+          "question": "Will Juan Manuel Galán win the 2026 Colombian presidential election?",
+          "yes_price": 0.0015,
+          "volume": 454070.33991300093
+        },
+        {
+          "question": "Will Germán Vargas Lleras win the 2026 Colombian presidential election?",
+          "yes_price": 0.0015,
+          "volume": 461156.90273400064
+        },
+        {
+          "question": "Will Daniel Quintero win the 2026 Colombian presidential election?",
+          "yes_price": 0.0015,
+          "volume": 401388.54576000053
+        },
+        {
+          "question": "Will Enrique Peñalosa win the 2026 Colombian presidential election?",
+          "yes_price": 0.0015,
+          "volume": 301670.8361760003
+        },
+        {
+          "question": "Will Juan Carlos Pinzón win the 2026 Colombian presidential election?",
+          "yes_price": 0.0015,
+          "volume": 273532.1867569999
+        },
+        {
+          "question": "Will Gustavo Bolívar win the 2026 Colombian presidential election?",
+          "yes_price": 0.0005,
+          "volume": 1104604.3092530023
+        }
+      ],
+      "total_probability": 1.012,
+      "deviation_from_100_pct": 1.2,
+      "note": "NORMAL"
+    },
+    {
+      "group": "win:2025–2026 nba mvp",
+      "num_markets": 18,
+      "markets": [
+        {
+          "question": "Will Shai Gilgeous-Alexander win the 2025–2026 NBA MVP?",
+          "yes_price": 0.885,
+          "volume": 1908789.749870996
+        },
+        {
+          "question": "Will Nikola Jokic win the 2025–2026 NBA MVP?",
+          "yes_price": 0.062,
+          "volume": 2387403.652934077
+        },
+        {
+          "question": "Will Victor Wembanyama win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0315,
+          "volume": 1943554.0102520103
+        },
+        {
+          "question": "Will Luka Doncic win the 2025–2026 NBA MVP?",
+          "yes_price": 0.012,
+          "volume": 11436178.131381916
+        },
+        {
+          "question": "Will Cade Cunningham win the 2025–2026 NBA MVP?",
+          "yes_price": 0.012,
+          "volume": 2105079.0111110266
+        },
+        {
+          "question": "Will Jaylen Brown win the 2025–2026 NBA MVP?",
+          "yes_price": 0.002,
+          "volume": 1610647.150764992
+        },
+        {
+          "question": "Will Anthony Edwards win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0015,
+          "volume": 1509593.5509540008
+        },
+        {
+          "question": "Will Giannis Antetokounmpo win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0005,
+          "volume": 3497126.0502140005
+        },
+        {
+          "question": "Will Jalen Brunson win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0005,
+          "volume": 948774.6914589995
+        },
+        {
+          "question": "Will Donovan Mitchell win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0005,
+          "volume": 437624.0522040007
+        },
+        {
+          "question": "Will Kevin Durant win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0005,
+          "volume": 1217343.8064249996
+        },
+        {
+          "question": "Will Paolo Banchero win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0005,
+          "volume": 2061202.1394630072
+        },
+        {
+          "question": "Will Stephen Curry win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0005,
+          "volume": 575746.0610039999
+        },
+        {
+          "question": "Will Anthony Davis win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0005,
+          "volume": 914014.540797
+        },
+        {
+          "question": "Will Kawhi Leonard win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0005,
+          "volume": 1182882.5064790011
+        },
+        {
+          "question": "Will Devin Booker win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0005,
+          "volume": 8428252.636613
+        },
+        {
+          "question": "Will Cooper Flagg win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0005,
+          "volume": 1972998.6757800006
+        },
+        {
+          "question": "Will Tyrese Maxey win the 2025–2026 NBA MVP?",
+          "yes_price": 0.0005,
+          "volume": 1299926.5292710003
+        }
+      ],
+      "total_probability": 1.0115,
+      "deviation_from_100_pct": 1.15,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:French Ligue 1 Winner ",
+      "num_markets": 7,
+      "markets": [
+        {
+          "question": "Will PSG win the 2025–26 French Ligue 1?",
+          "yes_price": 0.87,
+          "volume": 128591.00170400013
+        },
+        {
+          "question": "Will Lens win the 2025–26 French Ligue 1?",
+          "yes_price": 0.1085,
+          "volume": 12852491.83080106
+        },
+        {
+          "question": "Will Lyon win the 2025–26 French Ligue 1?",
+          "yes_price": 0.0065,
+          "volume": 222562.17098500012
+        },
+        {
+          "question": "Will Marseille win the 2025–26 French Ligue 1?",
+          "yes_price": 0.0025,
+          "volume": 119324.97064399999
+        },
+        {
+          "question": "Will Monaco win the 2025–26 French Ligue 1?",
+          "yes_price": 0.001,
+          "volume": 218421.06140900002
+        },
+        {
+          "question": "Will Toulouse win the 2025–26 French Ligue 1?",
+          "yes_price": 0.0005,
+          "volume": 53148.576665999986
+        },
+        {
+          "question": "Will Angers win the 2025–26 French Ligue 1?",
+          "yes_price": 0.0005,
+          "volume": 135817.9210000001
+        }
+      ],
+      "total_probability": 0.9895,
+      "deviation_from_100_pct": 1.05,
+      "note": "NORMAL"
+    },
+    {
+      "group": "event:Next Prime Minister of Hungary",
+      "num_markets": 6,
+      "markets": [
+        {
+          "question": "Will the next Prime Minister of Hungary be Péter Magyar?",
+          "yes_price": 0.635,
+          "volume": 3397185.7422040044
+        },
+        {
+          "question": "Will the next Prime Minister of Hungary be Viktor Orbán?",
+          "yes_price": 0.355,
+          "volume": 2946741.0732130124
+        },
+        {
+          "question": "Will the next Prime Minister of Hungary be László Toroczkai?",
+          "yes_price": 0.0105,
+          "volume": 10579048.91622502
+        },
+        {
+          "question": "Will the next Prime Minister of Hungary be István Kapitány?",
+          "yes_price": 0.0045,
+          "volume": 8481095.875018975
+        },
+        {
+          "question": "Will the next Prime Minister of Hungary be János Lázár?",
+          "yes_price": 0.0025,
+          "volume": 2030680.316159001
+        },
+        {
+          "question": "Will the next Prime Minister of Hungary be Klára Dobrev?",
+          "yes_price": 0.0015,
+          "volume": 3535226.3098839885
+        }
+      ],
+      "total_probability": 1.009,
+      "deviation_from_100_pct": 0.9,
+      "note": "NORMAL"
+    }
+  ],
+  "tournament_count": 38,
+  "big_movers_24h": [
+    {
+      "question": "Will OpenAI’s market cap be between $750B and $1T at market close on IPO day?",
+      "price_change_24h": -0.073,
+      "current_price": 0.074,
+      "liquidity": 24363.67256,
+      "category": "crypto"
+    },
+    {
+      "question": "Callum Turner announced as next James Bond?",
+      "price_change_24h": 0.07,
+      "current_price": 0.29,
+      "liquidity": 5818.1465,
+      "category": "crypto"
+    },
+    {
+      "question": "Will Ukraine qualify for the 2026 FIFA World Cup?",
+      "price_change_24h": 0.055,
+      "current_price": 0.31,
+      "liquidity": 2135.4322,
+      "category": "sports"
+    },
+    {
+      "question": "Netanyahu out by end of 2026?",
+      "price_change_24h": -0.055,
+      "current_price": 0.51,
+      "liquidity": 62189.1613,
+      "category": "crypto"
+    },
+    {
+      "question": "Will Trump endorse John Cornyn for TX-Sen by Nov 2 2026 ET?",
+      "price_change_24h": 0.055,
+      "current_price": 0.747,
+      "liquidity": 3165.45233,
+      "category": "politics"
+    },
+    {
+      "question": "Will Trump visit China by March 31?",
+      "price_change_24h": -0.0535,
+      "current_price": 0.681,
+      "liquidity": 27135.99958,
+      "category": "crypto"
+    },
+    {
+      "question": "Will Kon Knueppel win the 2025–26 NBA Rookie of the Year award?",
+      "price_change_24h": 0.0505,
+      "current_price": 0.72,
+      "liquidity": 31854.98827,
+      "category": "sports"
+    },
+    {
+      "question": "Will Cooper Flagg win the 2025–26 NBA Rookie of the Year award?",
+      "price_change_24h": -0.045,
+      "current_price": 0.28,
+      "liquidity": 14775.2014,
+      "category": "sports"
+    },
+    {
+      "question": "Will Paloma Valencia win the 2026 Colombian presidential election?",
+      "price_change_24h": -0.0355,
+      "current_price": 0.361,
+      "liquidity": 23802.69523,
+      "category": "politics"
+    },
+    {
+      "question": "Will Luiz Inácio Lula da Silva qualify for Brazil's presidential runoff?",
+      "price_change_24h": -0.035,
+      "current_price": 0.76,
+      "liquidity": 10852.7759,
+      "category": "politics"
+    },
+    {
+      "question": "Will OpenAI not IPO by December 31, 2026?",
+      "price_change_24h": 0.035,
+      "current_price": 0.66,
+      "liquidity": 7136.366,
+      "category": "crypto"
+    },
+    {
+      "question": "Will OpenAI’s market cap be between $500B and $750B at market close on IPO day?",
+      "price_change_24h": 0.034,
+      "current_price": 0.055,
+      "liquidity": 13385.07985,
+      "category": "crypto"
+    },
+    {
+      "question": "Will the Cleveland Cavaliers win the NBA Eastern Conference Finals?",
+      "price_change_24h": 0.03,
+      "current_price": 0.19,
+      "liquidity": 85033.0832,
+      "category": "sports"
+    },
+    {
+      "question": "Will Leeds be relegated from the English Premier League after the 2025–26 season?",
+      "price_change_24h": -0.03,
+      "current_price": 0.13,
+      "liquidity": 11627.0255,
+      "category": "sports"
+    },
+    {
+      "question": "Will Sunderland be relegated from the English Premier League after the 2025–26 season?",
+      "price_change_24h": -0.027,
+      "current_price": 0.039,
+      "liquidity": 2039.53305,
+      "category": "sports"
+    },
+    {
+      "question": "Will Abelardo de la Espriella  win the 2026 Colombian presidential election?",
+      "price_change_24h": -0.025,
+      "current_price": 0.19,
+      "liquidity": 26481.0531,
+      "category": "politics"
+    },
+    {
+      "question": "Will Janet Mills be the Democratic nominee for Senate in Maine?",
+      "price_change_24h": 0.025,
+      "current_price": 0.27,
+      "liquidity": 22325.8744,
+      "category": "politics"
+    },
+    {
+      "question": "Will Marco Rubio win the 2028 Republican presidential nomination?",
+      "price_change_24h": 0.0235,
+      "current_price": 0.273,
+      "liquidity": 470720.02825,
+      "category": "politics"
+    },
+    {
+      "question": "Will Bournemouth be relegated from the English Premier League after the 2025–26 season?",
+      "price_change_24h": 0.0225,
+      "current_price": 0.006,
+      "liquidity": 12856.13312,
+      "category": "sports"
+    },
+    {
+      "question": "Will Juan Daniel Oviedo win the 2026 Colombian presidential election?",
+      "price_change_24h": 0.022,
+      "current_price": 0.001,
+      "liquidity": 91712.20335,
+      "category": "politics"
+    }
+  ],
+  "recommended_base_rates": {
+    "win": {
+      "count": 424,
+      "avg_yes_price": 0.054,
+      "min_price": 0.001,
+      "max_price": 0.994,
+      "suggested_base_rate": 0.05
+    },
+    "presidential": {
+      "count": 143,
+      "avg_yes_price": 0.048,
+      "min_price": 0.001,
+      "max_price": 0.78,
+      "suggested_base_rate": 0.05
+    },
+    "cup": {
+      "count": 77,
+      "avg_yes_price": 0.038,
+      "min_price": 0.001,
+      "max_price": 0.345,
+      "suggested_base_rate": 0.04
+    },
+    "nba": {
+      "count": 77,
+      "avg_yes_price": 0.066,
+      "min_price": 0.001,
+      "max_price": 0.885,
+      "suggested_base_rate": 0.07
+    },
+    "nomination": {
+      "count": 77,
+      "avg_yes_price": 0.025,
+      "min_price": 0.006,
+      "max_price": 0.385,
+      "suggested_base_rate": 0.03
+    },
+    "election": {
+      "count": 69,
+      "avg_yes_price": 0.097,
+      "min_price": 0.001,
+      "max_price": 0.994,
+      "suggested_base_rate": 0.1
+    },
+    "league": {
+      "count": 57,
+      "avg_yes_price": 0.098,
+      "min_price": 0.001,
+      "max_price": 0.975,
+      "suggested_base_rate": 0.1
+    },
+    "masters": {
+      "count": 54,
+      "avg_yes_price": 0.018,
+      "min_price": 0.002,
+      "max_price": 0.205,
+      "suggested_base_rate": 0.02
+    },
+    "tournament": {
+      "count": 54,
+      "avg_yes_price": 0.018,
+      "min_price": 0.002,
+      "max_price": 0.205,
+      "suggested_base_rate": 0.02
+    },
+    "finals": {
+      "count": 51,
+      "avg_yes_price": 0.06,
+      "min_price": 0.001,
+      "max_price": 0.475,
+      "suggested_base_rate": 0.06
+    },
+    "democratic": {
+      "count": 50,
+      "avg_yes_price": 0.07,
+      "min_price": 0.001,
+      "max_price": 0.845,
+      "suggested_base_rate": 0.07
+    },
+    "fifa": {
+      "count": 45,
+      "avg_yes_price": 0.043,
+      "min_price": 0.002,
+      "max_price": 0.345,
+      "suggested_base_rate": 0.04
+    },
+    "world": {
+      "count": 45,
+      "avg_yes_price": 0.043,
+      "min_price": 0.002,
+      "max_price": 0.345,
+      "suggested_base_rate": 0.04
+    },
+    "republican": {
+      "count": 40,
+      "avg_yes_price": 0.075,
+      "min_price": 0.001,
+      "max_price": 0.605,
+      "suggested_base_rate": 0.08
+    },
+    "nhl": {
+      "count": 32,
+      "avg_yes_price": 0.031,
+      "min_price": 0.001,
+      "max_price": 0.224,
+      "suggested_base_rate": 0.03
+    },
+    "stanley": {
+      "count": 32,
+      "avg_yes_price": 0.031,
+      "min_price": 0.001,
+      "max_price": 0.224,
+      "suggested_base_rate": 0.03
+    },
+    "conference": {
+      "count": 25,
+      "avg_yes_price": 0.082,
+      "min_price": 0.001,
+      "max_price": 0.475,
+      "suggested_base_rate": 0.08
+    },
+    "english": {
+      "count": 25,
+      "avg_yes_price": 0.12,
+      "min_price": 0.001,
+      "max_price": 0.975,
+      "suggested_base_rate": 0.12
+    },
+    "premier": {
+      "count": 25,
+      "avg_yes_price": 0.12,
+      "min_price": 0.001,
+      "max_price": 0.975,
+      "suggested_base_rate": 0.12
+    },
+    "colombian": {
+      "count": 23,
+      "avg_yes_price": 0.093,
+      "min_price": 0.001,
+      "max_price": 0.994,
+      "suggested_base_rate": 0.09
+    },
+    "mvp": {
+      "count": 18,
+      "avg_yes_price": 0.056,
+      "min_price": 0.001,
+      "max_price": 0.885,
+      "suggested_base_rate": 0.06
+    },
+    "champions": {
+      "count": 17,
+      "avg_yes_price": 0.06,
+      "min_price": 0.001,
+      "max_price": 0.255,
+      "suggested_base_rate": 0.06
+    },
+    "trump": {
+      "count": 14,
+      "avg_yes_price": 0.175,
+      "min_price": 0.006,
+      "max_price": 0.867,
+      "suggested_base_rate": 0.18
+    },
+    "market": {
+      "count": 14,
+      "avg_yes_price": 0.064,
+      "min_price": 0.013,
+      "max_price": 0.175,
+      "suggested_base_rate": 0.06
+    },
+    "finish": {
+      "count": 14,
+      "avg_yes_price": 0.26,
+      "min_price": 0.006,
+      "max_price": 0.991,
+      "suggested_base_rate": 0.26
+    },
+    "western": {
+      "count": 13,
+      "avg_yes_price": 0.078,
+      "min_price": 0.001,
+      "max_price": 0.475,
+      "suggested_base_rate": 0.08
+    },
+    "eastern": {
+      "count": 12,
+      "avg_yes_price": 0.086,
+      "min_price": 0.001,
+      "max_price": 0.335,
+      "suggested_base_rate": 0.09
+    },
+    "liga": {
+      "count": 12,
+      "avg_yes_price": 0.149,
+      "min_price": 0.001,
+      "max_price": 0.989,
+      "suggested_base_rate": 0.15
+    },
+    "new": {
+      "count": 11,
+      "avg_yes_price": 0.135,
+      "min_price": 0.001,
+      "max_price": 0.635,
+      "suggested_base_rate": 0.14
+    },
+    "serie": {
+      "count": 10,
+      "avg_yes_price": 0.199,
+      "min_price": 0.001,
+      "max_price": 0.991,
+      "suggested_base_rate": 0.2
+    }
+  },
+  "missing_signal_patterns": [
+    {
+      "name": "TIME_DECAY",
+      "description": "Mercados cerca de resolucion (<7 dias) con precios entre 0.15-0.85 tienen theta negativo implicito. Si el evento ya esta decidido, el precio deberia estar cerca de 0 o 1.",
+      "how_to_implement": "Filtrar mercados con end_date - now < 7d y 0.15 < price < 0.85. Alta probabilidad de movimiento rapido."
+    },
+    {
+      "name": "VOLUME_SPIKE",
+      "description": "Picos de volumen 24h > 3x promedio semanal suelen preceder movimientos de precio informados.",
+      "how_to_implement": "Comparar volume24hr con volume1wk/7. Si ratio > 3, senalar como posible informed trading."
+    },
+    {
+      "name": "CROSS_MARKET_ARB",
+      "description": "En torneos/grupos, la suma de probabilidades debe ser ~100%. Desviaciones significativas son oportunidades.",
+      "how_to_implement": "Usar los tournament_groups detectados. Si sum > 1.15 o < 0.85, buscar el outlier."
+    },
+    {
+      "name": "SPREAD_CAPTURE",
+      "description": "Mercados con spread > 5% permiten market making pasivo. Comprar en bid, vender en ask.",
+      "how_to_implement": "Filtrar mercados con spread > 0.05 y liquidity > $5k. Colocar ordenes en ambos lados."
+    },
+    {
+      "name": "OPENING_LINE_COMPARISON",
+      "description": "Comparar precio actual con precio historico de apertura. Grandes desviaciones sin noticias = overreaction.",
+      "how_to_implement": "Necesita almacenar precios de apertura. Calcular delta vs apertura y filtrar >20pts."
+    }
+  ],
+  "recommendations": [
+    "TOTAL: 523 mercados operables (vol>$50k, liq>$2k) de 1000 escaneados",
+    "GRUPO ARB 'event:What will happen before GTA VI?': 8 mercados suman 4.41 (OVERPRICED)",
+    "GRUPO ARB 'win:2028 us presidential election': 37 mercados suman 1.97 (OVERPRICED)",
+    "GRUPO ARB 'event:English Premier League – 2nd Place ': 5 mercados suman 0.09 (UNDERPRICED)",
+    "GRUPO ARB 'event:EPL – Which Clubs Get Relegated?': 8 mercados suman 1.90 (OVERPRICED)",
+    "GRUPO ARB 'event: Colombia Presidential Election 1st round winner?': 2 mercados suman 0.13 (UNDERPRICED)"
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "mode": "paper",
   "bank": 2000,
-  "deployed": 320.0,
+  "deployed": 960.0,
   "positions": [
     {
       "id": "P1773493948",
@@ -52,6 +52,106 @@
       "high_watermark": 0.353,
       "stop_loss_price": 0.2471,
       "take_profit_price": 0.5295
+    },
+    {
+      "id": "P1773498504",
+      "opened_at": "2026-03-14T14:28:24.620923+00:00",
+      "condition_id": "0x6bd56627aa21311850825edb27e53434a0e17a4f782be0086bc07f71eee00d0d",
+      "question": "Putin out as President of Russia by end of 2026?",
+      "end_date": "2026-12-31",
+      "days_left": 292,
+      "direction": "BUY_YES",
+      "entry_price": 0.123,
+      "size_usd": 160.0,
+      "shares": 1300.813,
+      "composite_edge": 0.385,
+      "edge_sources": [
+        "base_rate"
+      ],
+      "primary_source": "base_rate",
+      "yes_token_id": "350977769852917329387037893294763093471844346281449484439085576212613048126",
+      "no_token_id": "87073899845581463485186346288398658568334162612963837182986759797304993556208",
+      "status": "open",
+      "current_price": 0.115,
+      "unrealized_pnl": -10.407,
+      "high_watermark": 0.123,
+      "stop_loss_price": 0.0861,
+      "take_profit_price": 0.1845
+    },
+    {
+      "id": "P1773498504",
+      "opened_at": "2026-03-14T14:28:24.630736+00:00",
+      "condition_id": "0x2053d8515f1b8cbeea4ccdb56e60e89c2617e43a8660d95166b8e71d27865277",
+      "question": "Will Marco Rubio win the 2028 US Presidential Election?",
+      "end_date": "2028-11-07",
+      "days_left": 968,
+      "direction": "BUY_YES",
+      "entry_price": 0.15,
+      "size_usd": 160.0,
+      "shares": 1066.6667,
+      "composite_edge": 0.3535,
+      "edge_sources": [
+        "base_rate"
+      ],
+      "primary_source": "base_rate",
+      "yes_token_id": "11171618905857319805355893398009978356002287408842633593535559412449299952250",
+      "no_token_id": "65892530750232246342273648992064742042382898919201083513241874070914353628268",
+      "status": "open",
+      "current_price": 0.1465,
+      "unrealized_pnl": -3.733,
+      "high_watermark": 0.15,
+      "stop_loss_price": 0.105,
+      "take_profit_price": 0.225
+    },
+    {
+      "id": "P1773498504",
+      "opened_at": "2026-03-14T14:28:24.635018+00:00",
+      "condition_id": "0xfef0954af0d43ea46c1ac246ac009dbcd0f76d36fd93b78d3586b23b386028ef",
+      "question": "Will Ukraine qualify for the 2026 FIFA World Cup?",
+      "end_date": "2026-04-12",
+      "days_left": 28,
+      "direction": "BUY_YES",
+      "entry_price": 0.313,
+      "size_usd": 160.0,
+      "shares": 511.1821,
+      "composite_edge": 0.195,
+      "edge_sources": [
+        "base_rate"
+      ],
+      "primary_source": "base_rate",
+      "yes_token_id": "90954386001801116059251303598368900188182195794057114134644084985964418752977",
+      "no_token_id": "94516923452105222578438916262485145756699194265211313859088449971552829623384",
+      "status": "open",
+      "current_price": 0.305,
+      "unrealized_pnl": -4.089,
+      "high_watermark": 0.313,
+      "stop_loss_price": 0.2191,
+      "take_profit_price": 0.4695
+    },
+    {
+      "id": "P1773498504",
+      "opened_at": "2026-03-14T14:28:24.640351+00:00",
+      "condition_id": "0xf7b5491e70b477d451afe7d9c1fde4bf1a927e69ff289d294b96df164f6c10f0",
+      "question": "Will the Carolina Hurricanes win the 2026 NHL Stanley Cup?",
+      "end_date": "2026-06-30",
+      "days_left": 107,
+      "direction": "BUY_YES",
+      "entry_price": 0.113,
+      "size_usd": 160.0,
+      "shares": 1415.9292,
+      "composite_edge": 0.195,
+      "edge_sources": [
+        "base_rate"
+      ],
+      "primary_source": "base_rate",
+      "yes_token_id": "79397003434468715775480922117285203652110865791390656395657957066470661722480",
+      "no_token_id": "40473977441010332007887229299980126707900816205713676157646215720073415416624",
+      "status": "open",
+      "current_price": 0.105,
+      "unrealized_pnl": -11.327,
+      "high_watermark": 0.113,
+      "stop_loss_price": 0.0791,
+      "take_profit_price": 0.1695
     }
   ],
   "closed": [],

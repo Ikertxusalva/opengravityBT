@@ -51,13 +51,14 @@ STARTING_BANK   = 2_000   # USD de partida
 MAX_POSITION    = 300      # USD máximo por posición
 MAX_EXPOSURE    = 2_000    # USD máximo total desplegado
 MIN_EDGE        = 0.05     # Edge mínimo para entrar (5 puntos)
-MIN_LIQUIDITY   = 3_000    # Liquidez mínima en order book
-MIN_VOLUME      = 50_000   # Volumen total mínimo del mercado
+MIN_LIQUIDITY   = 2_000    # Liquidez mínima en order book
+MIN_VOLUME      = 30_000   # Volumen total mínimo del mercado
 MIN_DAYS_LEFT   = 3        # Días mínimos hasta resolución
-MAX_SPREAD      = 0.12     # Spread máximo tolerado
+MAX_SPREAD      = 0.15     # Spread máximo tolerado
 STOP_LOSS_PCT   = -0.30    # Cerrar si pérdida > 30% del capital invertido
 TAKE_PROFIT_PCT =  0.50    # Tomar ganancias si +50% del capital invertido
 SLIPPAGE_EST    =  0.003   # Slippage estimado al comprar (0.3%)
+SCAN_LIMIT      = 200      # Mercados a escanear por ciclo
 
 # APIs Polymarket (públicas, sin auth para lectura)
 GAMMA = "https://gamma-api.polymarket.com"
@@ -220,12 +221,12 @@ def log_event(event: dict):
 #  CAPA DE DATOS — Polymarket APIs
 # ==============================================================================
 
-def get_markets(limit=80) -> list:
+def get_markets(limit=200) -> list:
     try:
         r = httpx.get(f"{GAMMA}/markets", params={
             "active": True, "closed": False,
             "limit": limit, "_sort": "volume:desc",
-        }, timeout=20)
+        }, timeout=25)
         return r.json() if r.status_code == 200 else []
     except Exception as e:
         print(f"  [!] Error obteniendo mercados: {e}")
@@ -275,17 +276,44 @@ def get_market_detail(condition_id: str) -> Optional[dict]:
 
 def get_clob_token_ids(condition_id: str) -> tuple[Optional[str], Optional[str]]:
     """Obtiene yes_token_id y no_token_id del CLOB (formato correcto de 77 dígitos)."""
+    data = get_clob_market_data(condition_id)
+    if data:
+        return data["yes_token_id"], data["no_token_id"]
+    return None, None
+
+def get_clob_market_data(condition_id: str) -> Optional[dict]:
+    """
+    Una sola llamada al CLOB: token IDs + precios actuales.
+    Reemplaza get_clob_token_ids() + get_orderbook() para la mayoría de casos.
+    """
     try:
         r = httpx.get(f"{CLOB}/markets/{condition_id}", timeout=10)
         if r.status_code != 200:
-            return None, None
+            return None
         m = r.json()
         tokens = m.get("tokens", [])
-        yes_id = next((t["token_id"] for t in tokens if t.get("outcome", "").lower() == "yes"), None)
-        no_id  = next((t["token_id"] for t in tokens if t.get("outcome", "").lower() == "no"), None)
-        return yes_id, no_id
+        yes = next((t for t in tokens if t.get("outcome", "").lower() == "yes"), None)
+        no  = next((t for t in tokens if t.get("outcome", "").lower() == "no"), None)
+        if not yes or not no:
+            return None
+        yes_price = float(yes.get("price", 0) or 0)
+        no_price  = float(no.get("price", 0)  or 0)
+        if yes_price <= 0 or no_price <= 0:
+            return None
+        # Spread estimado desde la suma (idealmente suman 1.0; desviación = spread)
+        price_sum = yes_price + no_price
+        spread_est = abs(1.0 - price_sum) + 0.02  # mínimo 2% spread
+        return {
+            "yes_token_id": yes["token_id"],
+            "no_token_id": no["token_id"],
+            "yes_price": yes_price,
+            "no_price": no_price,
+            "price_sum": round(price_sum, 4),
+            "spread_est": round(spread_est, 4),
+            "accepting_orders": m.get("accepting_orders", False),
+        }
     except Exception:
-        return None, None
+        return None
 
 
 # ==============================================================================
@@ -293,23 +321,83 @@ def get_clob_token_ids(condition_id: str) -> tuple[Optional[str], Optional[str]]
 # ==============================================================================
 
 # Base rates empíricos por categoría de pregunta
+# Orden importa: más específico primero (se usa el match con mayor edge)
 BASE_RATES = {
-    "bitcoin above": 0.50, "btc above": 0.50, "btc will": 0.48,
-    "btc hit": 0.45, "bitcoin hit": 0.45, "bitcoin reach": 0.45,
-    "eth above": 0.45, "eth will": 0.45, "ethereum": 0.45,
-    "fed raise": 0.35, "fed cut": 0.50, "rate hike": 0.35,
-    "rate cut": 0.50, "interest rate": 0.45,
-    "recession": 0.25, "inflation above": 0.55,
-    "unemployment": 0.50, "gdp": 0.50,
-    "re-elected": 0.55, "reelected": 0.55, "incumbent": 0.58,
-    "president": 0.50, "senate": 0.50, "house": 0.50, "election": 0.50,
-    "impeach": 0.20, "resign": 0.15, "arrested": 0.20, "convicted": 0.22,
-    "ceasefire": 0.35, "peace deal": 0.30, "war": 0.45,
-    "merger": 0.45, "acquisition": 0.48, "ipo": 0.55,
-    "bankrupt": 0.18, "default": 0.20,
-    "world cup": 0.50, "championship": 0.50, "super bowl": 0.50,
-    "album": 0.40, "movie": 0.55, "season": 0.60,
-    "ai ": 0.55, "launch": 0.55, "release": 0.58,
+    # ── Crypto ────────────────────────────────────────────────────────────────
+    "bitcoin above 200": 0.20, "btc above 200": 0.20,
+    "bitcoin above 150": 0.30, "btc above 150": 0.30,
+    "bitcoin above 100": 0.50, "btc above 100": 0.50,
+    "bitcoin reach 100": 0.50, "btc reach 100": 0.50,
+    "bitcoin hit 100": 0.50,   "btc hit 100": 0.50,
+    "bitcoin above": 0.50,     "btc above": 0.50,
+    "btc will": 0.48,          "btc hit": 0.45,
+    "bitcoin hit": 0.45,       "bitcoin reach": 0.45,
+    "eth above 5": 0.40,       "eth above 10": 0.25,
+    "eth above": 0.45,         "eth will": 0.45,
+    "ethereum above": 0.45,    "ethereum": 0.43,
+    "solana above": 0.45,      "sol above": 0.45,
+    "crypto": 0.50,
+
+    # ── Macro / Fed ───────────────────────────────────────────────────────────
+    "fed rate cut": 0.55,   "fed cut": 0.55,    "rate cut in": 0.55,
+    "fed raise": 0.25,      "rate hike": 0.25,  "fed pause": 0.45,
+    "fomc": 0.50,           "interest rate": 0.45,
+    "recession": 0.25,      "inflation above": 0.50,
+    "unemployment": 0.50,   "gdp": 0.50,
+    "cpi above": 0.50,      "pce above": 0.50,
+
+    # ── Política EE.UU. ───────────────────────────────────────────────────────
+    "trump": 0.60,           "harris": 0.40,    "biden": 0.40,
+    "re-elected": 0.55,      "reelected": 0.55, "incumbent": 0.58,
+    "senate": 0.50,          "house": 0.50,     "midterm": 0.50,
+    "presidential election": 0.50,
+    "impeach": 0.15,         "resign": 0.12,    "pardon": 0.45,
+    "convicted": 0.35,       "arrested": 0.25,  "indicted": 0.35,
+    "tariff": 0.55,          "sanction": 0.50,  "executive order": 0.55,
+
+    # ── Política Mundial ──────────────────────────────────────────────────────
+    "election": 0.50,        "prime minister": 0.50,
+    "ceasefire": 0.40,       "peace deal": 0.30, "peace agreement": 0.30,
+    "war": 0.40,             "invasion": 0.35,   "nato": 0.50,
+    "netanyahu": 0.45,       "zelensky": 0.50,   "putin": 0.50,
+
+    # ── Tech / AI ─────────────────────────────────────────────────────────────
+    "gpt-5": 0.60,           "o3 ": 0.55,        "gemini": 0.50,
+    "openai": 0.55,          "anthropic": 0.55,  "google deepmind": 0.55,
+    "ai ": 0.55,             "artificial intelligence": 0.55,
+    "ipo ": 0.55,            "launch": 0.55,     "release": 0.58,
+    "acquisition": 0.50,     "merger": 0.48,
+
+    # ── Finanzas / Empresas ───────────────────────────────────────────────────
+    "bankrupt": 0.15,        "default": 0.18,   "collapse": 0.20,
+    "layoff": 0.50,          "earnings": 0.50,
+
+    # ── Deportes: Clasificación / Playoff (50/50 inherente) ──────────────────
+    "qualify for the 2026 fifa": 0.50,
+    "qualify for the world cup": 0.50,
+    "qualify for": 0.50,
+    "advance to": 0.50,      "make the playoffs": 0.50,
+    "make the finals": 0.50, "reach the finals": 0.50,
+
+    # ── Deportes: Torneo (1/N; usamos avg histórico ~10% para equipos no fav) ──
+    # NOTA: solo activa si el precio actual se aleja mucho del promedio del grupo
+    "win the 2026 fifa": 0.12,    "win the world cup": 0.12,
+    "win the nba": 0.08,          "win the nba finals": 0.08,
+    "win the stanley cup": 0.06,  "nhl stanley cup": 0.06,
+    "win the super bowl": 0.06,   "super bowl": 0.06,
+    "win the masters": 0.04,      "win the us open": 0.04,
+    "win the open": 0.04,
+    "win the premier league": 0.12, "premier league title": 0.12,
+    "win the champions league": 0.07,
+    "win la liga": 0.12,          "win the bundesliga": 0.12,
+    "relegated from": 0.30,       "finish in the top 4": 0.35,
+
+    # ── Entretenimiento ───────────────────────────────────────────────────────
+    "album": 0.45,           "movie": 0.55,      "season": 0.60,
+    "oscar": 0.50,           "grammy": 0.50,     "emmy": 0.50,
+
+    # ── Geopolítico / Desastres ───────────────────────────────────────────────
+    "earthquake": 0.20,      "hurricane": 0.30,  "pandemic": 0.15,
 }
 
 def check_base_rate(question: str, price_yes: float) -> Optional[dict]:
@@ -401,28 +489,194 @@ def check_wide_spread(ob: dict) -> Optional[dict]:
         }
     return None
 
-def check_yes_no_imbalance(ob_yes: dict) -> Optional[dict]:
+def check_yes_no_sum(clob_data: dict) -> Optional[dict]:
     """
-    Si YES + NO != 1.0 significativamente, hay arbitraje implícito.
-    El precio de NO debería ser ~(1 - price_yes).
+    Detecta cuando YES_price + NO_price se desvía de 1.0.
+    - sum < 0.90: ambos tokens subvalorados (edge comprando el más alejado del fair value)
+    - sum > 1.10: vigorish excesivo (evitar, o BUY_NO si YES está inflado)
     """
-    # Esta señal compara el mid de YES con lo que debería ser 1-NO
-    # Solo podemos detectarlo si tenemos datos del book de NO
-    # Lo implementaremos en fase 2 cuando hagamos calls dobles
+    price_sum = clob_data.get("price_sum", 1.0)
+    yes_price = clob_data.get("yes_price", 0.5)
+    no_price  = clob_data.get("no_price", 0.5)
+
+    # Sum bajo: hay liquidez insuficiente o mispricing a favor del comprador
+    if price_sum < 0.90:
+        gap = 1.0 - price_sum
+        edge = gap * 0.6  # capturamos ~60% del gap
+        if edge < MIN_EDGE:
+            return None
+        # Comprar el que tiene más descuento respecto a fair value (0.5 base)
+        yes_discount = 0.5 - yes_price if yes_price < 0.5 else 0
+        no_discount  = 0.5 - no_price  if no_price  < 0.5 else 0
+        direction = "BUY_YES" if yes_discount >= no_discount else "BUY_NO"
+        return {
+            "source": "sum_arb",
+            "edge": round(edge, 4),
+            "direction": direction,
+            "price_sum": price_sum,
+            "yes_price": yes_price,
+            "no_price": no_price,
+        }
+
+    # Sum alto: market maker cobrando mucho vig o yes está inflado
+    if price_sum > 1.10:
+        gap = price_sum - 1.0
+        edge = gap * 0.5
+        if edge < MIN_EDGE:
+            return None
+        # El que tiene precio más alto está más overpriced -> BUY_NO de ese
+        direction = "BUY_NO" if yes_price > no_price else "BUY_YES"
+        return {
+            "source": "sum_arb",
+            "edge": round(edge, 4),
+            "direction": direction,
+            "price_sum": price_sum,
+            "yes_price": yes_price,
+            "no_price": no_price,
+        }
     return None
 
-def analyze_market(m: dict) -> Optional[dict]:
+
+def check_volume_spike(m: dict, price_yes: float) -> Optional[dict]:
+    """
+    Detecta picos de volumen 24h inusuales (>3x el promedio diario).
+    Indica actividad informada reciente → precio podría moverse más.
+    Edge: si ya se movió, hay momentum; si no, hay información pendiente de pricear.
+    """
+    vol_24h = float(m.get("volume24hr") or m.get("volumeNum24hr") or 0)
+    vol_total = float(m.get("volumeClob") or m.get("volume") or 0)
+
+    if vol_24h <= 0 or vol_total <= 0:
+        return None
+
+    # Días de vida estimados desde volumen total (mínimo 7 para evitar mercados nuevos)
+    days_old = vol_total / max(vol_24h, 1)
+    if days_old < 7:
+        return None
+
+    avg_daily = vol_total / max(days_old, 1)
+    spike_ratio = vol_24h / max(avg_daily, 1)
+
+    if spike_ratio < 2.5:
+        return None
+
+    # Spike alto + precio en zona de incertidumbre = señal de movimiento
+    if price_yes < 0.20 or price_yes > 0.80:
+        return None  # mercado ya casi resuelto
+
+    edge = min(0.10, (spike_ratio - 2.5) * 0.015)
+    if edge < MIN_EDGE:
+        return None
+
+    # Dirección: si precio < 0.5, el spike sugiere BUY_YES (más compradores)
+    direction = "BUY_YES" if price_yes <= 0.50 else "BUY_NO"
+    return {
+        "source": "volume_spike",
+        "edge": round(edge, 4),
+        "direction": direction,
+        "spike_ratio": round(spike_ratio, 2),
+        "vol_24h": round(vol_24h),
+        "avg_daily": round(avg_daily),
+    }
+
+
+def check_tournament_relative_value(m: dict, markets_pool: list,
+                                     price_yes: float) -> Optional[dict]:
+    """
+    Detecta anomalías de precio relativo en grupos de mercados del mismo torneo.
+    Si la suma de todos los precios del grupo > 115%, los overpriced son
+    candidatos a BUY_NO. Si suma < 85%, los underpriced son BUY_YES.
+
+    Estrategia: comprar el equipo/candidato con precio más bajo relativo
+    a lo que debería ser su fair share.
+    """
+    question = m.get("question", "")
+    q_lower = question.lower()
+
+    # Detectar si es un mercado de torneo ("win the X", "qualify for X")
+    TOURNAMENT_PATTERNS = [
+        "win the", "win la", "win der", "win le",
+        "qualify for", "relegated from", "finish in the top",
+        "make the playoffs", "advance to",
+    ]
+    is_tournament = any(pat in q_lower for pat in TOURNAMENT_PATTERNS)
+    if not is_tournament:
+        return None
+
+    # Extraer "grupo" por las últimas 3-4 palabras significativas del torneo
+    # Ej: "Will X win the NBA Finals?" -> grupo = "win the nba finals"
+    group_keywords = []
+    for pat in TOURNAMENT_PATTERNS:
+        if pat in q_lower:
+            idx = q_lower.find(pat)
+            group_keywords = q_lower[idx:].split()[:5]
+            break
+
+    if not group_keywords:
+        return None
+
+    group_tag = " ".join(group_keywords[:4])
+
+    # Buscar mercados del mismo grupo en el pool
+    group_markets = []
+    for pm in markets_pool:
+        pq = pm.get("question", "").lower()
+        if group_tag in pq:
+            p = float(pm.get("outcomePrices", [0.5])[0] if isinstance(pm.get("outcomePrices"), list)
+                      else 0.5)
+            if isinstance(pm.get("outcomePrices"), str):
+                try:
+                    prices = json.loads(pm["outcomePrices"])
+                    p = float(prices[0])
+                except Exception:
+                    p = 0.5
+            group_markets.append({"question": pm["question"], "price": p})
+
+    if len(group_markets) < 4:
+        return None
+
+    group_prices = [gm["price"] for gm in group_markets]
+    price_sum = sum(group_prices)
+    n = len(group_markets)
+    fair_share = 1.0 / n  # distribución uniforme implícita
+
+    # Solo señal si la suma total es significativa (grupo bien representado)
+    if price_sum < 0.5:
+        return None
+
+    # Calcular el overpricing/underpricing relativo
+    adjusted_fair = price_sum / n  # fair share ajustado a la suma real
+    relative_deviation = price_yes - adjusted_fair
+
+    # Señal si el precio está muy alejado del fair share ajustado
+    threshold = max(0.08, adjusted_fair * 0.5)  # 50% de desviación o mínimo 8pts
+    if abs(relative_deviation) < threshold:
+        return None
+
+    edge = abs(relative_deviation) * 0.4
+    if edge < MIN_EDGE:
+        return None
+
+    direction = "BUY_NO" if relative_deviation > 0 else "BUY_YES"
+    return {
+        "source": "tournament_rv",
+        "edge": round(edge, 4),
+        "direction": direction,
+        "price_yes": round(price_yes, 4),
+        "group_avg": round(adjusted_fair, 4),
+        "price_sum": round(price_sum, 4),
+        "n_competitors": n,
+        "group_tag": group_tag[:50],
+    }
+
+
+def analyze_market(m: dict, markets_pool: Optional[list] = None) -> Optional[dict]:
     """Análisis completo de un mercado. Retorna señal si hay edge."""
     condition_id = m.get("conditionId", "")
     if not condition_id:
         return None
 
-    # Obtener token IDs del CLOB (formato completo de 77 dígitos)
-    yes_token, no_token = get_clob_token_ids(condition_id)
-    if not yes_token or not no_token:
-        return None
-
-    # Filtros rápidos antes del call al CLOB (más lentos)
+    # ── PASO 1: Filtros rápidos con datos de Gamma (sin calls al CLOB) ────────
     liq = float(m.get("liquidityClob") or m.get("liquidity") or 0)
     vol = float(m.get("volumeClob")    or m.get("volume")    or 0)
     if liq < MIN_LIQUIDITY or vol < MIN_VOLUME:
@@ -440,54 +694,103 @@ def analyze_market(m: dict) -> Optional[dict]:
     if days_left is not None and days_left < MIN_DAYS_LEFT:
         return None
 
-    # Usar precios ya disponibles en Gamma si existen (evita 1 call al CLOB)
+    # Filtro de spread usando datos de Gamma (sin llamada al CLOB)
+    spread_g = 0.0
     best_bid_g = float(m.get("bestBid") or 0)
     best_ask_g = float(m.get("bestAsk") or 0)
     if best_bid_g > 0 and best_ask_g > 0:
-        mid_g = (best_bid_g + best_ask_g) / 2
         spread_g = best_ask_g - best_bid_g
-        ob = {
-            "best_bid": best_bid_g, "best_ask": best_ask_g,
-            "mid": mid_g, "spread": spread_g,
-            "bid_liquidity": liq / 2, "ask_liquidity": liq / 2,
-        }
-    else:
-        ob = get_orderbook(yes_token)
-        if not ob:
+        if spread_g > MAX_SPREAD:
             return None
 
-    # Filtro de spread
-    if ob["spread"] > MAX_SPREAD:
+    # Pre-filtro de precio con outcomePrices de Gamma (muy rápido)
+    outcome_prices = m.get("outcomePrices")
+    price_yes_pre = None
+    if outcome_prices:
+        try:
+            op = json.loads(outcome_prices) if isinstance(outcome_prices, str) else outcome_prices
+            price_yes_pre = float(op[0])
+        except Exception:
+            pass
+    if price_yes_pre is not None:
+        if price_yes_pre > 0.93 or price_yes_pre < 0.07:
+            return None  # mercado casi resuelto, skip sin llamar al CLOB
+
+    # ── PASO 2: Obtener datos del CLOB (1 sola llamada: token IDs + precios) ──
+    clob_data = get_clob_market_data(condition_id)
+    if not clob_data:
         return None
 
-    price_yes = ob["mid"]
+    yes_token = clob_data["yes_token_id"]
+    no_token  = clob_data["no_token_id"]
+    price_yes = clob_data["yes_price"]
+    price_no  = clob_data["no_price"]
 
     # No operar en mercados casi resueltos
     if price_yes > 0.93 or price_yes < 0.07:
         return None
 
-    # -- Detección de edge --------------------------------------------------
+    # Construir ob básico desde datos CLOB + Gamma
+    if best_bid_g > 0 and best_ask_g > 0:
+        ob = {
+            "best_bid": best_bid_g, "best_ask": best_ask_g,
+            "mid": (best_bid_g + best_ask_g) / 2,
+            "spread": spread_g,
+            "bid_liquidity": liq / 2, "ask_liquidity": liq / 2,
+        }
+        # Usar precio CLOB si está disponible (más actualizado)
+        price_yes = clob_data["yes_price"] if clob_data["yes_price"] > 0 else ob["mid"]
+    else:
+        # Construir ob desde precios CLOB directos
+        ob = {
+            "best_bid": price_yes - 0.01,
+            "best_ask": price_yes + 0.01,
+            "mid": price_yes,
+            "spread": clob_data["spread_est"],
+            "bid_liquidity": liq / 2, "ask_liquidity": liq / 2,
+        }
+
+    if ob["spread"] > MAX_SPREAD:
+        return None
+
+    # ── PASO 3: Detección de edge ─────────────────────────────────────────────
     checks = []
 
-    # 1. Base rate (señal interna)
+    # 1. Sum arbitrage YES+NO (nueva señal, usa datos CLOB directos)
+    sa = check_yes_no_sum(clob_data)
+    if sa:
+        checks.append(sa)
+
+    # 2. Base rate
     br = check_base_rate(m["question"], price_yes)
     if br:
         checks.append(br)
 
-    # 2. Wide spread (señal interna)
+    # 3. Wide spread
     ws = check_wide_spread(ob)
     if ws:
         checks.append(ws)
 
-    # 3. Overreaction 24h (señal interna — solo si hay señal previa)
+    # 4. Volume spike (nueva señal)
+    vs = check_volume_spike(m, price_yes)
+    if vs:
+        checks.append(vs)
+
+    # 5. Tournament relative value (nueva señal, solo si hay pool)
+    if markets_pool:
+        tv = check_tournament_relative_value(m, markets_pool, price_yes)
+        if tv:
+            checks.append(tv)
+
+    # 6. Overreaction (solo si hay señal previa — es costoso)
     if checks:
-        ov = check_overreaction(m["conditionId"])
+        ov = check_overreaction(condition_id)
         if ov:
             checks.append(ov)
 
-    # -- Señales externas (solo si SIGNALS_AVAILABLE) ----------------------
-    if SIGNALS_AVAILABLE:
-        # 4. Kalshi arbitrage — comparar con mercado regulado
+    # ── Señales externas (solo si SIGNALS_AVAILABLE) ──────────────────────────
+    if SIGNALS_AVAILABLE and checks:
+        # 7. Kalshi arbitrage
         try:
             ka = check_kalshi_arb(m["question"], price_yes, min_edge=MIN_EDGE)
             if ka:
@@ -495,59 +798,49 @@ def analyze_market(m: dict) -> Optional[dict]:
         except Exception:
             pass
 
-        # 5. Manifold signal — canario de información temprana
-        # Solo si ya hay alguna señal (evitar calls innecesarios)
-        if checks:
-            try:
-                mf = check_manifold_signal(m["question"], price_yes,
-                                           min_edge=0.08)
-                if mf:
-                    checks.append(mf)
-            except Exception:
-                pass
+        # 8. Manifold signal
+        try:
+            mf = check_manifold_signal(m["question"], price_yes, min_edge=0.08)
+            if mf:
+                checks.append(mf)
+        except Exception:
+            pass
 
-        # 6. Order book imbalance — confirma dirección dominante
-        if checks:
-            dirs_preview = [c["direction"] for c in checks]
-            dir_preview = max(set(dirs_preview), key=dirs_preview.count)
-            try:
-                # Necesitamos OB completo con liquidez por nivel
-                ob_full = get_orderbook(yes_token)
-                if ob_full:
-                    obi = check_orderbook_imbalance(ob_full, dir_preview)
-                    if obi:
-                        checks.append(obi)
-            except Exception:
-                pass
+        # 9. Order book imbalance (call adicional al CLOB solo si hay señales)
+        dirs_preview = [c["direction"] for c in checks]
+        dir_preview = max(set(dirs_preview), key=dirs_preview.count)
+        try:
+            ob_full = get_orderbook(yes_token)
+            if ob_full:
+                obi = check_orderbook_imbalance(ob_full, dir_preview)
+                if obi:
+                    checks.append(obi)
+        except Exception:
+            pass
 
-        # 7. Whale CLOB — smart money en el mercado
-        if checks:
-            try:
-                dirs_now = [c["direction"] for c in checks]
-                dir_now = max(set(dirs_now), key=dirs_now.count)
-                wh = check_whale_activity(m["conditionId"],
-                                          direction_hint=dir_now,
-                                          lookback_hours=2)
-                if wh and not wh.get("contradicts"):
-                    checks.append(wh)
-                elif wh and wh.get("contradicts"):
-                    # Smart money va en contra -> cancelar la señal
-                    return None
-            except Exception:
-                pass
+        # 10. Whale CLOB
+        try:
+            dirs_now = [c["direction"] for c in checks]
+            dir_now = max(set(dirs_now), key=dirs_now.count)
+            wh = check_whale_activity(condition_id, direction_hint=dir_now,
+                                      lookback_hours=2)
+            if wh and not wh.get("contradicts"):
+                checks.append(wh)
+            elif wh and wh.get("contradicts"):
+                return None  # smart money en contra
+        except Exception:
+            pass
 
     if not checks:
         return None
 
-    # -- Consenso de dirección ----------------------------------------------
+    # ── Consenso de dirección ─────────────────────────────────────────────────
     dirs = [c["direction"] for c in checks]
     direction = max(set(dirs), key=dirs.count)
 
-    # Si las señales no coinciden en dirección, descartamos
     if dirs.count(direction) < len(dirs) * 0.6:
-        return None
+        return None  # señales contradictorias
 
-    # Edge compuesto (promedio de todas las señales en la dirección ganadora)
     all_edges = [c["edge"] for c in checks if c["direction"] == direction and c["edge"] > 0]
     if not all_edges:
         return None
@@ -556,20 +849,19 @@ def analyze_market(m: dict) -> Optional[dict]:
     if composite_edge < MIN_EDGE:
         return None
 
-    # -- Entry price realista (compramos al ask + slippage) ----------------
+    # ── Entry price realista ──────────────────────────────────────────────────
     if direction == "BUY_YES":
         entry_price = min(ob["best_ask"] + SLIPPAGE_EST, 0.97)
     else:
-        no_mid = 1.0 - ob["mid"]
-        entry_price = min(no_mid + SLIPPAGE_EST, 0.97)
+        entry_price = min(price_no + SLIPPAGE_EST, 0.97)
 
     return {
-        "condition_id": m["conditionId"],
+        "condition_id": condition_id,
         "question": m["question"][:100],
         "end_date": end_str[:10] if end_str else "?",
         "days_left": days_left,
         "price_yes": round(price_yes, 5),
-        "price_no": round(1 - price_yes, 5),
+        "price_no": round(price_no, 5),
         "entry_price": round(entry_price, 5),
         "direction": direction,
         "composite_edge": round(composite_edge, 5),
@@ -913,7 +1205,7 @@ def cmd_scan(auto_open=True):
     print(f"{'='*65}\n")
 
     print("  Descargando mercados top por volumen...")
-    markets = get_markets(limit=80)
+    markets = get_markets(limit=SCAN_LIMIT)
     if not markets:
         print("  [!] No se pudieron obtener mercados.")
         return
@@ -923,12 +1215,13 @@ def cmd_scan(auto_open=True):
     signals = []
     for i, m in enumerate(markets):
         q = m.get("question", "")[:55]
-        sys.stdout.write(f"  [{i+1:02d}/{len(markets)}] {q:<55}\r")
+        sys.stdout.write(f"  [{i+1:03d}/{len(markets)}] {q:<55}\r")
         sys.stdout.flush()
-        sig = analyze_market(m)
+        # Pasar el pool completo para el análisis cross-market (tournament_rv)
+        sig = analyze_market(m, markets_pool=markets)
         if sig:
             signals.append(sig)
-        time.sleep(0.08)
+        time.sleep(0.05)
 
     print(f"\n\n  {'-'*63}")
     print(f"  SEÑALES CON EDGE ≥ {MIN_EDGE:.0%}: {len(signals)}")
