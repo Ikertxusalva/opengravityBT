@@ -20,12 +20,17 @@ const agentMap: Map<string, string> = new Map(); // termId → agentId
 const CONTEXT_DIR = path.join(process.cwd(), '.claude', 'agent-contexts');
 const CLOUD_URL = 'https://chic-encouragement-production.up.railway.app';
 const sessionBuffers: Map<string, string[]> = new Map(); // termId → recent lines
-const MAX_BUFFER_LINES = 150;
+const MAX_BUFFER_LINES = 75;
 
 function stripAnsi(str: string): string {
   return str
-    .replace(/\x1B\[[0-9;]*[mGKHFABCDsuJK]/g, '')
-    .replace(/\x1B\([B0]/g, '')
+    // CSI sequences: ESC [ ... letter (includes ?2026h/l, cursor, color, etc.)
+    .replace(/\x1B\[[0-9;?]*[a-zA-Z]/g, '')
+    // OSC sequences: ESC ] ... BEL or ESC\ (e.g. ]0;title)
+    .replace(/\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)/g, '')
+    // Other 2-char escape sequences
+    .replace(/\x1B[^[\]][a-zA-Z]/g, '')
+    // Control characters (except \n and \r)
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 }
 
