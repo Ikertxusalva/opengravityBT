@@ -169,42 +169,6 @@ function buildClaudeEnv(): Record<string, string> {
   return env;
 }
 
-// ── Find agent .md file (same logic as RBI's _find_agent_file) ──
-function findAgentFile(agentId: string): string | null {
-  if (agentId === 'main' || agentId === 'claude-main') return null;
-
-  const projectDir = process.cwd();
-  const searchDirs = [
-    path.join(projectDir, '.claude', 'agents'),
-    path.join(os.homedir(), '.claude', 'agents'),
-  ];
-
-  for (const dir of searchDirs) {
-    for (const name of [`${agentId}.md`, `${agentId}-agent.md`, `${agentId}_agent.md`]) {
-      const filePath = path.join(dir, name);
-      if (fs.existsSync(filePath)) return filePath;
-    }
-  }
-  return null;
-}
-
-// ── Extract agent name from frontmatter ──
-function extractAgentName(filePath: string): string {
-  try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    if (content.startsWith('---')) {
-      const parts = content.split('---', 3);
-      if (parts.length >= 2) {
-        for (const line of parts[1].trim().split('\n')) {
-          if (line.startsWith('name:')) {
-            return line.split(':', 2)[1].trim().replace(/['"]/g, '');
-          }
-        }
-      }
-    }
-  } catch {}
-  return path.basename(filePath, '.md');
-}
 
 // ── Setup IPC handlers ──
 export function setupPtyManager(mainWindow: BrowserWindow) {
@@ -300,37 +264,10 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
         }
       });
 
-      // Agent init: release spawn slot after 5s, send minimal init
-      // Context is auto-loaded by Claude via CLAUDE.md → .claude/agent-contexts/
+      // Release spawn slot after Claude initializes
       setTimeout(() => {
         releaseSpawnSlot();
-
-        if (agentId === 'main' || agentId === 'claude-main') {
-          // Just press Enter to skip Claude's startup screen
-          setTimeout(() => {
-            if (sessions.has(termId)) {
-              sessions.get(termId)?.write('\r');
-            }
-          }, 300);
-        } else {
-          // For named agents: tell them their role (they read context from files)
-          const agentFile = findAgentFile(agentId);
-          if (agentFile) {
-            const agentName = extractAgentName(agentFile);
-            const projectDir = process.cwd();
-            const relPath = agentFile.startsWith(projectDir)
-              ? path.relative(projectDir, agentFile).replace(/\\/g, '/')
-              : agentFile.replace(/\\/g, '/');
-            const initMsg = `Eres el agente '${agentName}'. Lee tus instrucciones en ${relPath} y tu contexto de sesión anterior en .claude/agent-contexts/${agentId}.md\r`;
-            setTimeout(() => {
-              if (sessions.has(termId)) {
-                sessions.get(termId)?.write(initMsg);
-              }
-            }, 300);
-          }
-        }
-
-      }, 5000); // Wait 5s for Claude to initialize
+      }, 5000);
       // Voice is auto-enabled via voiceEnabled:true in ~/.claude/settings.json
 
       return { success: true };
