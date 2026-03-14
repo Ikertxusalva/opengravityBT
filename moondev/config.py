@@ -20,12 +20,13 @@ AI_FALLBACKS = [
 ]
 
 # === API Keys (desde .env) ===
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-HYPERLIQUID_KEY = os.getenv("HYPERLIQUID_PRIVATE_KEY", "")
-COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY", "")
+ANTHROPIC_API_KEY    = os.getenv("ANTHROPIC_API_KEY", "")
+OPENAI_API_KEY       = os.getenv("OPENAI_API_KEY", "")
+GROQ_API_KEY         = os.getenv("GROQ_API_KEY", "")
+DEEPSEEK_API_KEY     = os.getenv("DEEPSEEK_API_KEY", "")
+HYPERLIQUID_KEY      = os.getenv("HYPERLIQUID_PRIVATE_KEY", "")
+COINGECKO_API_KEY    = os.getenv("COINGECKO_API_KEY", "")
+TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN", "")  # Twitter API v2 — sentiment_agent
 
 # === Tokens a monitorear ===
 MONITORED_TOKENS = ["BTC", "ETH", "SOL"]

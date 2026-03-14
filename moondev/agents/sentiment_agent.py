@@ -21,14 +21,19 @@ import moondev.config as cfg
 from rich.console import Console
 
 console = Console()
-CHECK_INTERVAL = 15 * 60
-SCORE_THRESHOLD = 0.4
+CHECK_INTERVAL   = 15 * 60
+SCORE_THRESHOLD  = 0.4
 CHANGE_THRESHOLD = 5.0
-SENTIMENT_FILE = cfg.DATA_DIR / "sentiment_history.csv"
+SENTIMENT_FILE        = cfg.DATA_DIR / "sentiment_history.csv"
 SENTIMENT_SIGNALS_FILE = cfg.DATA_DIR / "sentiment_signals.json"
 
-# Flag global: True cuando no hay acceso a Twitter API real
-_USING_MOCK_TWEETS = True
+# Twitter Bearer Token (X/Twitter API v2)
+# Configurar en .env: TWITTER_BEARER_TOKEN=<token>
+TWITTER_BEARER_TOKEN = cfg.__dict__.get("TWITTER_BEARER_TOKEN", "") or \
+    __import__("os").environ.get("TWITTER_BEARER_TOKEN", "")
+
+# True cuando no hay acceso a Twitter API real
+_USING_MOCK_TWEETS = not bool(TWITTER_BEARER_TOKEN)
 
 
 def load_sentiment_model():
@@ -59,17 +64,51 @@ def score_tweets(texts: list[str], pipe) -> float:
     return (pos - neg) / n if n else 0.0
 
 
+def fetch_tweets_real(token: str, max_results: int = 30) -> list[str]:
+    """
+    Busca tweets recientes sobre el token usando Twitter API v2 (Tweepy).
+    Requiere: pip install tweepy  y  TWITTER_BEARER_TOKEN en .env
+
+    Retorna lista de textos de tweets.
+    """
+    try:
+        import tweepy
+        client = tweepy.Client(bearer_token=TWITTER_BEARER_TOKEN, wait_on_rate_limit=True)
+        query = f"#{token} OR ${token} lang:en -is:retweet"
+        resp = client.search_recent_tweets(
+            query=query,
+            max_results=min(max_results, 100),
+            tweet_fields=["text"],
+        )
+        if resp.data:
+            return [t.text for t in resp.data]
+        return []
+    except ImportError:
+        console.print("[yellow]tweepy no instalado: pip install tweepy[/yellow]")
+        return []
+    except Exception as e:
+        console.print(f"[red]Twitter API error ({token}): {e}[/red]")
+        return []
+
+
 def fetch_tweets_mock(token: str) -> list[str]:
     """
     ⚠️  DATOS FICTICIOS — NO usar como señal de trading.
-    Reemplazar con twikit o Tweepy cuando tengas acceso a Twitter API.
-    Mientras tanto, execution_agent ignora estas señales (is_mock=True).
+    Solo activo cuando TWITTER_BEARER_TOKEN no está configurado.
+    Señal marcada como is_mock=True → execution_agent la ignora.
     """
     return [
         f"{token} looks bullish today",
         f"I'm buying more {token}",
         f"{token} might dump soon",
     ]
+
+
+def fetch_tweets(token: str) -> list[str]:
+    """Punto de entrada unificado: usa API real si está disponible, mock si no."""
+    if _USING_MOCK_TWEETS:
+        return fetch_tweets_mock(token)
+    return fetch_tweets_real(token)
 
 
 def save_score(token: str, score: float, is_mock: bool) -> None:
@@ -118,7 +157,7 @@ def main():
 
         cycle_scores: dict[str, float] = {}
         for token in cfg.MONITORED_TOKENS:
-            tweets = fetch_tweets_mock(token)
+            tweets = fetch_tweets(token)
             score = score_tweets(tweets, pipe)
             prev = load_previous_score(token)
             change = abs(score - prev) * 100

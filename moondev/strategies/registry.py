@@ -130,6 +130,24 @@ STRATEGIES: List[StrategyEntry] = [
         status=StrategyStatus.LABORATORY,
         notes="0/24 PASS en 1h/4h/1d. State machine genera muy pocos trades (0-35 por activo en 1h, 0-13 en 4h, 0-1 en 1d). Forex 0 trades. Necesita datos reales de liquidaciones o relajar filtros.",
     ),
+    # — Con filtro de régimen (v5 / nueva versión) —
+    StrategyEntry(
+        name="SuperTrendRegimeFilter",
+        module="moondev.strategies.supertrend_regime_filter",
+        class_name="SuperTrendRegimeFilter",
+        status=StrategyStatus.LABORATORY,
+        notes="v1 — SuperTrend + regime gate SMA20/50+ADX. "
+              "Pendiente multi-test. Esperado: 30-60% menos trades que SuperTrendAdaptive.",
+    ),
+    StrategyEntry(
+        name="PairsBTCETH",
+        module="moondev.strategies.pairs_btceth",
+        class_name="PairsBTCETH",
+        status=StrategyStatus.LABORATORY,
+        notes="Statistical arb BTC/ETH via z-score spread log-precio. "
+              "zscore_window=504 barras 4h (~84 días). "
+              "Pendiente multi-test en 4h. Ref: Sharpe 0.93 (Amberdata empirical).",
+    ),
     # — Otras (testeadas, sin veredicto formal multi-asset aún) —
     StrategyEntry(
         name="ORBStrategy",

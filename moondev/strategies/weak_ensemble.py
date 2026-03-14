@@ -1,13 +1,19 @@
 """
 WeakEnsemble -- Agregacion de 10 senales debiles (inspirado en Renaissance Technologies).
 
-v4 -- Rediseno: senales de TENDENCIA (no contrarian), LONG+SHORT con filtro de regimen.
+v5 -- Gate de regimen explicito (SMA20/50 + ADX) para eliminar DD -40/-70%.
 
-Problema de v1-v3: Las senales contrarian (RSI<30 = buy, Stoch<20 = buy) generan
-demasiadas senales falsas contra la tendencia en crypto. El Medallion Fund combina
-senales debiles pero CONSISTENTES con la tendencia, no contrarian.
+Problema de v1-v4: DD -40% a -70% en crypto. Causa: el ensemble no tenia barrera
+ante mercados laterales/bajistas — seguia abriendo posiciones en ambas direcciones.
 
-Cambios v4:
+Cambios v5:
+  - Regime gate: solo LONG si SMA20 > SMA50 AND ADX > regime_adx (BULL)
+  - Regime gate: solo SHORT si SMA20 < SMA50 AND ADX > regime_adx (BEAR)
+  - SIDEWAYS (ADX bajo): PROHIBIDO abrir trades nuevos
+  - Cerrar posicion existente si regimen la contradice
+  - Todo lo demas igual que v4
+
+Cambios v4 (mantenidos):
   - Senales 1-8 son TREND-FOLLOWING (precio > media = +1, no RSI oversold)
   - Senales 9-10 son CONFIRMACION (volumen/volatilidad confirma direccion)
   - threshold=4 para entrar (4 de 10 = consenso moderado)
@@ -44,6 +50,8 @@ class WeakEnsemble(Strategy):
     tp_mult     = 25    # x10: 25 = 2.5 ATR para take profit
     atr_period  = 14
     vol_window  = 20
+    # -- Regime gate (v5) --
+    regime_adx  = 20    # ADX minimo para considerar tendencia valida (BULL/BEAR)
 
     def init(self):
         close  = pd.Series(self.data.Close,  index=range(len(self.data.Close)))
@@ -126,6 +134,19 @@ class WeakEnsemble(Strategy):
         atr_sl = ta.atr(high, low, close, length=self.atr_period)
         self.atr = self.I(lambda: atr_sl.values, name="ATR")
 
+        # -- Regime gate (v5): SMA20/50 + ADX --
+        sma20_r = ta.sma(close, length=20).fillna(0)
+        sma50_r = ta.sma(close, length=50).fillna(0)
+        adx_r   = ta.adx(high, low, close, length=14)
+        adx_vals_r = adx_r.iloc[:, 0].fillna(0) if adx_r is not None else pd.Series(0, index=close.index)
+
+        regime_arr = np.zeros(n)
+        bull_mask = (sma20_r > sma50_r).values & (adx_vals_r > self.regime_adx).values
+        bear_mask = (sma20_r < sma50_r).values & (adx_vals_r > self.regime_adx).values
+        regime_arr[bull_mask] = 1.0
+        regime_arr[bear_mask] = -1.0
+        self.regime = self.I(lambda: regime_arr, name="Regime")
+
     def next(self):
         # Minimo de barras para que todos los indicadores esten listos
         if len(self.data) < 55:
@@ -151,29 +172,37 @@ class WeakEnsemble(Strategy):
             signals = np.nan_to_num(signals, nan=0.0)
 
         combined = float(np.sum(signals))
+        regime   = float(self.regime[-1])  # +1=BULL, -1=BEAR, 0=SIDEWAYS
 
-        # -- Logica de trading --
-        if not self.position:
-            if combined >= self.threshold:
-                # Consenso alcista fuerte => LONG
+        # -- Logica de trading (v5 con regime gate) --
+        if self.position:
+            # Cerrar si el regimen contradice la posicion
+            if self.position.is_long and regime == -1.0:
+                self.position.close()
+                return
+            if self.position.is_short and regime == 1.0:
+                self.position.close()
+                return
+            # Cerrar si el consenso de senales se invierte
+            if self.position.is_long and combined <= 0:
+                self.position.close()
+            elif self.position.is_short and combined >= 0:
+                self.position.close()
+
+        else:
+            # LONG: solo en regimen BULL con consenso fuerte
+            if regime == 1.0 and combined >= self.threshold:
                 sl = price - atr * sl_m
                 tp = price + atr * tp_m
                 if sl < price < tp:
                     self.buy(size=0.95, sl=sl, tp=tp)
 
-            elif combined <= -self.threshold:
-                # Consenso bajista fuerte => SHORT
+            # SHORT: solo en regimen BEAR con consenso negativo fuerte
+            elif regime == -1.0 and combined <= -self.threshold:
                 sl = price + atr * sl_m
                 tp = price - atr * tp_m
                 if tp < price < sl:
                     self.sell(size=0.95, sl=sl, tp=tp)
-
-        else:
-            # Cerrar si el consenso se invierte
-            if self.position.is_long and combined <= 0:
-                self.position.close()
-            elif self.position.is_short and combined >= 0:
-                self.position.close()
 
 
 # -- Ejecucion standalone --
