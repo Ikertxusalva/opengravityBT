@@ -736,8 +736,16 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
       xterm.loadAddon(fit);
     }
     xterm.open(xtermRef.current);
-    fitAddonRef.current?.fit();
-    xterm.focus();
+    // Defer fit to next frame — container may not have dimensions yet
+    requestAnimationFrame(() => {
+      try {
+        const el = xtermRef.current;
+        if (el && el.clientWidth > 0 && el.clientHeight > 0) {
+          fitAddonRef.current?.fit();
+        }
+      } catch {}
+      xterm.focus();
+    });
 
     const electron = (window as any).electron;
 
@@ -772,6 +780,8 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         try {
+          const el = xtermRef.current;
+          if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
           fitAddonRef.current?.fit();
           const cols = termInstanceRef.current?.cols;
           const rows = termInstanceRef.current?.rows;

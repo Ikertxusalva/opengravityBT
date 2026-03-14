@@ -44,7 +44,22 @@ function saveAgentContext(agentId: string, buffer: string[]) {
     .map(l => l.trim())
     .filter(l => l.length > 2);
   if (cleanLines.length === 0) return;
-  const content = `# Sesión guardada: ${now}\n\n${cleanLines.join('\n')}`;
+
+  // Read existing context to preserve history (keep last 2 sessions)
+  let prevSessions = '';
+  try {
+    if (fs.existsSync(contextFile)) {
+      const existing = fs.readFileSync(contextFile, 'utf-8');
+      // Keep only the previous session block (between --- markers)
+      const sections = existing.split(/^---$/m).filter(s => s.trim());
+      if (sections.length > 0) {
+        // Keep at most 1 previous session for context continuity
+        prevSessions = '\n---\n## Sesión anterior\n' + sections[0].trim().slice(0, 2000) + '\n';
+      }
+    }
+  } catch {}
+
+  const content = `# Contexto del agente: ${agentId}\n## Última sesión: ${now}\n\n${cleanLines.slice(-100).join('\n')}${prevSessions}`;
   try {
     fs.writeFileSync(contextFile, content, 'utf-8');
   } catch (e) {
@@ -62,6 +77,27 @@ export function saveAllContexts() {
   for (const [termId, agId] of agentMap.entries()) {
     const buf = sessionBuffers.get(termId) || [];
     if (buf.length > 0) saveAgentContext(agId, buf);
+  }
+}
+
+// ── Periodic auto-save: protects terminal work if app crashes ──
+let autoSaveTimer: ReturnType<typeof setInterval> | null = null;
+const AUTO_SAVE_INTERVAL_MS = 30_000; // every 30 seconds
+
+function startAutoSave() {
+  if (autoSaveTimer) return;
+  autoSaveTimer = setInterval(() => {
+    for (const [termId, agId] of agentMap.entries()) {
+      const buf = sessionBuffers.get(termId) || [];
+      if (buf.length > 0) saveAgentContext(agId, buf);
+    }
+  }, AUTO_SAVE_INTERVAL_MS);
+}
+
+function stopAutoSave() {
+  if (autoSaveTimer) {
+    clearInterval(autoSaveTimer);
+    autoSaveTimer = null;
   }
 }
 
@@ -216,6 +252,7 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       console.log(`[PTY] Session created: ${termId} (PID: ${ptyProcess.pid})`);
       sessions.set(termId, ptyProcess);
       agentMap.set(termId, agentId);
+      startAutoSave(); // Ensure periodic context saving is running
 
       // Forward PTY output to renderer + accumulate in buffer
       // Also detect when Claude is ready (shows prompt) to auto-enable /voice
@@ -339,6 +376,7 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
 
   // Kill all on app quit (saves contexts first)
   ipcMain.on('pty-kill-all', () => {
+    stopAutoSave();
     saveAllContexts();
     for (const pty of sessions.values()) {
       try { pty.kill(); } catch {}
