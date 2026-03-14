@@ -331,6 +331,42 @@ html, body {
   font-weight: 700;
 }
 
+/* ── Funding Ticker ── */
+.funding-ticker {
+  display: flex;
+  gap: 10px;
+  padding: 0 10px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  border-left: 1px solid var(--border);
+  -webkit-app-region: no-drag;
+}
+.funding-ticker span {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.funding-ticker b { font-weight: 700; }
+
+/* ── Top Movers Ticker ── */
+.top-movers-ticker {
+  display: flex;
+  gap: 10px;
+  padding: 0 10px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  border-left: 1px solid var(--border);
+  -webkit-app-region: no-drag;
+}
+.top-movers-ticker span {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.top-movers-ticker b { font-weight: 700; }
+
 /* ── Window Controls ── */
 .window-controls {
   display: flex;

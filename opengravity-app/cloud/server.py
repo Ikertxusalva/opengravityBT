@@ -292,35 +292,57 @@ async def fetch_top_movers():
             print(f"[top_movers] Error: {e}")
 
 
+HL_BASE = "https://api.hyperliquid.xyz/info"
+HL_WATCH = ["BTC", "ETH", "SOL", "DOGE", "XRP", "AVAX", "LINK", "ARB", "OP", "INJ", "WIF", "PEPE", "HYPE", "BNB", "SUI", "APT", "TIA", "SEI", "TON", "ADA"]
+
+
 async def fetch_funding_rates():
     """Fetch funding rates from HyperLiquid (no API key) and broadcast."""
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.post(
-                "https://api.hyperliquid.xyz/info",
-                json={"type": "metaAndAssetCtxs"},
-                timeout=10.0,
-            )
+            resp = await client.post(HL_BASE, json={"type": "metaAndAssetCtxs"}, timeout=10.0)
             result = resp.json()
             if isinstance(result, list) and len(result) == 2:
-                meta, ctxs = result
-                assets = meta.get("universe", [])
+                universe, ctxs = result[0].get("universe", []), result[1]
                 rates = {}
-                for i, ctx in enumerate(ctxs):
-                    if i < len(assets):
-                        name = assets[i].get("name", "")
-                        funding = ctx.get("funding")
-                        if name and funding is not None:
-                            rates[name] = round(float(funding) * 100, 4)
-                # Keep only top symbols
-                top = ["BTC", "ETH", "SOL", "DOGE", "XRP"]
+                carry_ops = []
+                for i, asset in enumerate(universe):
+                    if i >= len(ctxs):
+                        break
+                    name = asset.get("name", "")
+                    if not name:
+                        continue
+                    funding = float(ctxs[i].get("funding", 0) or 0)
+                    annual = round(funding * 24 * 365 * 100, 2)
+                    rates[name] = {"h8_pct": round(funding * 100, 4), "annual_pct": annual}
+                    if annual > 20 and name in HL_WATCH:
+                        carry_ops.append({"coin": name, "annual_pct": annual})
+                carry_ops.sort(key=lambda x: x["annual_pct"], reverse=True)
                 await manager.broadcast({
                     "type": "funding_update",
-                    "rates": {k: v for k, v in rates.items() if k in top},
+                    "rates": {k: v for k, v in rates.items() if k in HL_WATCH},
+                    "carry_opportunities": carry_ops[:5],
                     "timestamp": datetime.utcnow().isoformat(),
                 })
         except Exception as e:
             print(f"[funding_rates] Error: {e}")
+
+
+async def fetch_hl_prices():
+    """Fetch mid prices from HyperLiquid and broadcast (supplements Binance prices)."""
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(HL_BASE, json={"type": "allMids"}, timeout=8.0)
+            data = resp.json()
+            if isinstance(data, dict):
+                prices = {k: float(v) for k, v in data.items() if k in HL_WATCH and v}
+                await manager.broadcast({
+                    "type": "hl_prices",
+                    "prices": prices,
+                    "timestamp": datetime.utcnow().isoformat(),
+                })
+        except Exception as e:
+            print(f"[hl_prices] Error: {e}")
 
 
 # ── FastAPI App ──
@@ -333,11 +355,13 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(fetch_fear_greed, "interval", minutes=30)
     scheduler.add_job(fetch_top_movers, "interval", minutes=15)
     scheduler.add_job(fetch_funding_rates, "interval", minutes=15)
+    scheduler.add_job(fetch_hl_prices, "interval", minutes=1)
     scheduler.start()
     # Run once at startup for immediate data
     await fetch_fear_greed()
     await fetch_top_movers()
     await fetch_funding_rates()
+    await fetch_hl_prices()
     yield
     # Shutdown
     scheduler.shutdown()
@@ -487,11 +511,7 @@ async def get_top_movers(limit: int = 5):
 async def get_funding_rate(symbol: str):
     """Funding rate for a symbol from HyperLiquid (no auth required)."""
     async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            "https://api.hyperliquid.xyz/info",
-            json={"type": "metaAndAssetCtxs"},
-            timeout=10.0,
-        )
+        resp = await client.post(HL_BASE, json={"type": "metaAndAssetCtxs"}, timeout=10.0)
         result = resp.json()
         if isinstance(result, list) and len(result) == 2:
             meta, ctxs = result
@@ -504,10 +524,195 @@ async def get_funding_rate(symbol: str):
                     return {
                         "symbol": sym,
                         "funding_rate_pct": round(float(funding) * 100, 4) if funding else None,
-                        "annualized_pct": round(float(funding) * 100 * 3 * 365, 2) if funding else None,
+                        "annualized_pct": round(float(funding) * 100 * 24 * 365, 2) if funding else None,
                         "open_interest": float(oi) if oi else None,
                     }
         raise HTTPException(status_code=404, detail=f"Symbol {symbol} not found on HyperLiquid")
+
+
+# ── HyperLiquid Endpoints ──
+
+@app.get("/api/hl/prices")
+async def get_hl_prices_endpoint():
+    """All mid prices from HyperLiquid perpetuals."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(HL_BASE, json={"type": "allMids"}, timeout=8.0)
+        data = resp.json()
+        if isinstance(data, dict):
+            return {"prices": {k: float(v) for k, v in data.items() if v}, "count": len(data)}
+        raise HTTPException(status_code=502, detail="Invalid response from HyperLiquid")
+
+
+@app.get("/api/hl/funding")
+async def get_hl_funding_all():
+    """Full funding snapshot for all HyperLiquid perpetuals with sentiment classification."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(HL_BASE, json={"type": "metaAndAssetCtxs"}, timeout=10.0)
+        result = resp.json()
+        if not isinstance(result, list) or len(result) < 2:
+            raise HTTPException(status_code=502, detail="Invalid response from HyperLiquid")
+        universe, ctxs = result[0].get("universe", []), result[1]
+        rates = []
+        for i, asset in enumerate(universe):
+            if i >= len(ctxs):
+                break
+            name = asset.get("name", "")
+            ctx = ctxs[i]
+            funding = float(ctx.get("funding", 0) or 0)
+            annual = funding * 24 * 365 * 100
+            if annual > 100:
+                sentiment = "EXTREME_LONG"
+            elif annual > 50:
+                sentiment = "VERY_LONG"
+            elif annual > 20:
+                sentiment = "LONG_BIAS"
+            elif annual > 5:
+                sentiment = "NEUTRAL_LONG"
+            elif annual > -5:
+                sentiment = "NEUTRAL"
+            elif annual > -20:
+                sentiment = "NEUTRAL_SHORT"
+            elif annual > -50:
+                sentiment = "SHORT_BIAS"
+            elif annual > -100:
+                sentiment = "VERY_SHORT"
+            else:
+                sentiment = "EXTREME_SHORT"
+            rates.append({
+                "coin": name,
+                "funding_8h_pct": round(funding * 100, 4),
+                "annual_pct": round(annual, 2),
+                "open_interest": ctx.get("openInterest"),
+                "mark_px": ctx.get("markPx"),
+                "day_volume": ctx.get("dayNtlVlm"),
+                "sentiment": sentiment,
+            })
+        carry = sorted([r for r in rates if r["annual_pct"] > 20], key=lambda x: x["annual_pct"], reverse=True)
+        return {
+            "total_assets": len(rates),
+            "rates": rates,
+            "carry_opportunities": carry[:10],
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+
+@app.get("/api/hl/candles/{coin}")
+async def get_hl_candles(coin: str, interval: str = "1h", count: int = 100):
+    """OHLCV candlestick data from HyperLiquid."""
+    valid_intervals = {"1m", "5m", "15m", "1h", "4h", "1d"}
+    if interval not in valid_intervals:
+        raise HTTPException(status_code=400, detail=f"Invalid interval. Use one of: {', '.join(valid_intervals)}")
+    interval_ms = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
+    bar_ms = interval_ms[interval]
+    end_ms = int(time.time() * 1000)
+    start_ms = end_ms - bar_ms * min(count, 1000)
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(HL_BASE, json={
+            "type": "candleSnapshot",
+            "req": {"coin": coin.upper(), "interval": interval, "startTime": start_ms, "endTime": end_ms},
+        }, timeout=15.0)
+        candles = resp.json()
+        if not isinstance(candles, list):
+            raise HTTPException(status_code=502, detail=f"No candle data for {coin}")
+        return {
+            "coin": coin.upper(),
+            "interval": interval,
+            "count": len(candles),
+            "candles": [
+                {"t": c.get("t"), "o": float(c.get("o", 0)), "h": float(c.get("h", 0)),
+                 "l": float(c.get("l", 0)), "c": float(c.get("c", 0)), "v": float(c.get("v", 0))}
+                for c in candles
+            ],
+        }
+
+
+@app.get("/api/hl/liquidations")
+async def get_hl_liquidations(coins: str = "BTC,ETH,SOL,DOGE,AVAX"):
+    """Recent liquidations from HyperLiquid (via recentTrades liquidation filter)."""
+    coin_list = [c.strip().upper() for c in coins.split(",")][:10]
+    async with httpx.AsyncClient() as client:
+        all_liqs = []
+        for coin in coin_list:
+            try:
+                resp = await client.post(HL_BASE, json={"type": "recentTrades", "coin": coin}, timeout=8.0)
+                trades = resp.json()
+                if isinstance(trades, list):
+                    for t in trades:
+                        if "liquidation" not in t:
+                            continue
+                        side = "LONG" if t.get("side") == "A" else "SHORT"
+                        try:
+                            usd_size = float(t.get("px", 0)) * float(t.get("sz", 0))
+                        except (TypeError, ValueError):
+                            usd_size = 0.0
+                        all_liqs.append({
+                            "coin": coin,
+                            "side": side,
+                            "usd_size": round(usd_size, 2),
+                            "px": t.get("px"),
+                            "sz": t.get("sz"),
+                            "time_ms": t.get("time", 0),
+                        })
+            except Exception:
+                pass
+        all_liqs.sort(key=lambda x: x["time_ms"], reverse=True)
+        return {"count": len(all_liqs), "liquidations": all_liqs[:50]}
+
+
+@app.get("/api/hl/orderbook/{coin}")
+async def get_hl_orderbook(coin: str, depth: int = 10):
+    """L2 orderbook from HyperLiquid."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(HL_BASE, json={"type": "l2Book", "coin": coin.upper()}, timeout=8.0)
+        data = resp.json()
+        levels = data.get("levels", [[], []])
+        bids = levels[0][:depth] if levels else []
+        asks = levels[1][:depth] if len(levels) > 1 else []
+        return {
+            "coin": coin.upper(),
+            "bids": [{"px": float(b["px"]), "sz": float(b["sz"])} for b in bids],
+            "asks": [{"px": float(a["px"]), "sz": float(a["sz"])} for a in asks],
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+
+@app.get("/api/hl/markets")
+async def get_hl_markets():
+    """Market metadata from HyperLiquid (all perpetuals)."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(HL_BASE, json={"type": "meta"}, timeout=8.0)
+        data = resp.json()
+        universe = data.get("universe", [])
+        return {
+            "count": len(universe),
+            "markets": [
+                {"name": m.get("name"), "sz_decimals": m.get("szDecimals"), "max_leverage": m.get("maxLeverage")}
+                for m in universe
+            ],
+        }
+
+
+@app.get("/api/hl/funding/history/{coin}")
+async def get_hl_funding_history(coin: str, days: int = 7):
+    """Funding rate history for a coin from HyperLiquid."""
+    end_ms = int(time.time() * 1000)
+    start_ms = end_ms - days * 86_400_000
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(HL_BASE, json={
+            "type": "fundingHistory", "coin": coin.upper(), "startTime": start_ms,
+        }, timeout=10.0)
+        data = resp.json()
+        if not isinstance(data, list):
+            raise HTTPException(status_code=502, detail=f"No funding history for {coin}")
+        records = [
+            {
+                "time_ms": r.get("time"),
+                "funding_rate": float(r.get("fundingRate", 0)),
+                "annual_pct": round(float(r.get("fundingRate", 0)) * 24 * 365 * 100, 2),
+            }
+            for r in data
+        ]
+        return {"coin": coin.upper(), "days": days, "count": len(records), "history": records}
 
 
 @app.get("/api/strategies/list", dependencies=[Depends(verify_token)])

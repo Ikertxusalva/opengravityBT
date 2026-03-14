@@ -64,6 +64,8 @@ export default function HomePage() {
   const [fearGreed, setFearGreed] = React.useState<{ value: number; classification: string } | null>(null);
   const [swarmStatus, setSwarmStatus] = React.useState<'idle' | 'voting' | 'decided'>('idle');
   const [lastSwarmDecision, setLastSwarmDecision] = React.useState<{ decision: string; symbol: string; consensus_score: number } | null>(null);
+  const [fundingRates, setFundingRates] = React.useState<Record<string, { h8_pct: number; annual_pct: number }>>({});
+  const [topMovers, setTopMovers] = React.useState<{ gainers: { symbol: string; change_24h: number }[]; losers: { symbol: string; change_24h: number }[] } | null>(null);
   
   const startupDoneRef = React.useRef(false);
   const wsRef = React.useRef<WebSocket | null>(null);
@@ -156,6 +158,10 @@ export default function HomePage() {
               setPrices((prev: Record<string, number>) => ({ ...prev, [data.symbol]: data.price }));
             } else if (data.type === 'fear_greed') {
               setFearGreed({ value: data.value, classification: data.classification });
+            } else if (data.type === 'funding_update') {
+              setFundingRates(data.rates || {});
+            } else if (data.type === 'top_movers') {
+              setTopMovers({ gainers: (data.gainers || []).slice(0, 3), losers: (data.losers || []).slice(0, 3) });
             } else if (data.type === 'swarm_decision') {
               setLastSwarmDecision({ decision: data.decision, symbol: data.symbol, consensus_score: data.consensus_score });
               setSwarmStatus('decided');
@@ -250,6 +256,31 @@ export default function HomePage() {
             title={`Fear & Greed: ${fearGreed.classification}`}
           >
             F&G <b>{fearGreed.value}</b>
+          </div>
+        )}
+
+        {Object.keys(fundingRates).length > 0 && (
+          <div className="funding-ticker" title="Funding rates 8h (HyperLiquid)">
+            {['BTC', 'ETH', 'SOL'].filter(c => fundingRates[c]).map(coin => {
+              const r = fundingRates[coin];
+              const isPos = r.h8_pct >= 0;
+              return (
+                <span key={coin} style={{ color: isPos ? '#00e676' : '#ff5252' }} title={`Anual: ${r.annual_pct}%`}>
+                  {coin} <b>{isPos ? '+' : ''}{r.h8_pct}%</b>
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {topMovers && (topMovers.gainers.length > 0 || topMovers.losers.length > 0) && (
+          <div className="top-movers-ticker" title="Top movers 24h (CoinGecko)">
+            {topMovers.gainers.slice(0, 2).map(g => (
+              <span key={g.symbol} style={{ color: '#00e676' }}>▲{g.symbol} <b>{g.change_24h > 0 ? '+' : ''}{g.change_24h}%</b></span>
+            ))}
+            {topMovers.losers.slice(0, 2).map(l => (
+              <span key={l.symbol} style={{ color: '#ff5252' }}>▼{l.symbol} <b>{l.change_24h}%</b></span>
+            ))}
           </div>
         )}
 
@@ -352,12 +383,13 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
   React.useEffect(() => {
     if (!Terminal || !xtermRef.current) return;
     const xterm = new Terminal({
-      theme: { background: '#050505', foreground: '#ffffff' },
+      theme: { background: '#050505', foreground: '#ffffff', selectionBackground: '#3a3a5c' },
       fontFamily: 'JetBrains Mono, monospace',
       fontSize: 13,
       scrollback: 10000,
       smoothScrollDuration: 100,
       allowProposedApi: true,
+      rightClickSelectsWord: true,
     });
     termInstanceRef.current = xterm;
     if (FitAddon) {
@@ -369,6 +401,23 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
     fitAddonRef.current?.fit();
 
     const electron = (window as any).electron;
+
+    // Ctrl+C copies when text is selected, otherwise sends SIGINT
+    // Ctrl+V pastes from clipboard
+    xterm.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'c' && e.type === 'keydown' && xterm.hasSelection()) {
+        navigator.clipboard.writeText(xterm.getSelection());
+        return false; // prevent sending to PTY
+      }
+      if (e.ctrlKey && e.key === 'v' && e.type === 'keydown') {
+        navigator.clipboard.readText().then(text => {
+          electron?.pty?.write(terminal.id, text);
+        });
+        return false;
+      }
+      return true;
+    });
+
     xterm.onData((d: string) => electron?.pty?.write(terminal.id, d));
 
     // Use cleanup-capable listener to prevent memory leaks
