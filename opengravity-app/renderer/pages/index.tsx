@@ -361,6 +361,7 @@ function PolymarketPanel() {
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
   const [cycleRunning, setCycleRunning] = React.useState(false);
   const [nextCycle, setNextCycle] = React.useState<string | null>(null);
+  const [botEnabled, setBotEnabled] = React.useState(true);
 
   const load = React.useCallback(async () => {
     const electron = (window as any).electron;
@@ -378,9 +379,18 @@ function PolymarketPanel() {
     await electron.polymarket.runCycle();
   }, [cycleRunning]);
 
+  const toggleBot = React.useCallback(async () => {
+    const electron = (window as any).electron;
+    if (!electron?.polymarket?.toggle) return;
+    const result = await electron.polymarket.toggle();
+    setBotEnabled(result.enabled);
+  }, []);
+
   React.useEffect(() => {
     load();
     const electron = (window as any).electron;
+    // Get initial bot enabled state
+    electron?.polymarket?.getStatus?.().then((s: any) => setBotEnabled(s.enabled));
     // Real-time data push from fs.watch + bot cycles
     const unsubData = electron?.polymarket?.onUpdate?.((newData: any) => {
       setData(newData);
@@ -476,29 +486,44 @@ function PolymarketPanel() {
         {/* Bot status + refresh */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '140px', justifyContent: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: cycleRunning ? '#ffab00' : '#00e676', animation: cycleRunning ? 'pulse 1s infinite' : 'none' }} />
-            <span style={{ fontSize: '10px', color: cycleRunning ? '#ffab00' : 'var(--muted)', fontWeight: 600 }}>
-              {cycleRunning ? 'EJECUTANDO...' : 'AUTO 15min'}
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: !botEnabled ? '#ff4455' : cycleRunning ? '#ffab00' : '#00e676', animation: cycleRunning ? 'pulse 1s infinite' : 'none' }} />
+            <span style={{ fontSize: '10px', color: !botEnabled ? '#ff4455' : cycleRunning ? '#ffab00' : 'var(--muted)', fontWeight: 600 }}>
+              {!botEnabled ? 'DETENIDO' : cycleRunning ? 'EJECUTANDO...' : 'AUTO 15min'}
             </span>
           </div>
-          {nextCycle && !cycleRunning && (
+          {botEnabled && nextCycle && !cycleRunning && (
             <div style={{ fontSize: '9px', color: 'var(--muted)' }}>Prox: {nextCycle}</div>
           )}
-          <button
-            disabled={cycleRunning}
-            onClick={manualRefresh}
-            title="Ejecutar ciclo ahora: scan + update + resolve"
-            style={{
-              padding: '5px 10px', fontSize: '10px', fontWeight: 600,
-              background: cycleRunning ? '#1a1a2e' : 'var(--neon-cyan)',
-              color: cycleRunning ? 'var(--muted)' : '#000',
-              border: '1px solid var(--border)', borderRadius: '4px',
-              cursor: cycleRunning ? 'wait' : 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            {cycleRunning ? '...' : 'REFRESH'}
-          </button>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button
+              disabled={cycleRunning}
+              onClick={manualRefresh}
+              title="Ejecutar ciclo ahora: scan + update + resolve"
+              style={{
+                flex: 1, padding: '5px 8px', fontSize: '10px', fontWeight: 600,
+                background: cycleRunning ? '#1a1a2e' : 'var(--neon-cyan)',
+                color: cycleRunning ? 'var(--muted)' : '#000',
+                border: '1px solid var(--border)', borderRadius: '4px',
+                cursor: cycleRunning ? 'wait' : 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              {cycleRunning ? '...' : 'REFRESH'}
+            </button>
+            <button
+              onClick={toggleBot}
+              title={botEnabled ? 'Detener auto-ciclo' : 'Iniciar auto-ciclo'}
+              style={{
+                padding: '5px 10px', fontSize: '10px', fontWeight: 700,
+                background: botEnabled ? '#ff445520' : '#00e67620',
+                color: botEnabled ? '#ff4455' : '#00e676',
+                border: `1px solid ${botEnabled ? '#ff445540' : '#00e67640'}`, borderRadius: '4px',
+                cursor: 'pointer', transition: 'all 0.2s',
+              }}
+            >
+              {botEnabled ? 'OFF' : 'ON'}
+            </button>
+          </div>
         </div>
       </div>
 

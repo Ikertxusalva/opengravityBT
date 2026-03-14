@@ -227,14 +227,36 @@ ipcMain.handle('polymarket-run', async () => runPolyCycle());
 
 // Auto-cycle loop
 let polyCycleTimer: ReturnType<typeof setInterval> | null = null;
+let polyBotEnabled = true;
 
 function startPolyCycleLoop() {
   if (polyCycleTimer) return;
   // First cycle 30s after app start
-  setTimeout(() => runPolyCycle().catch(() => {}), 30_000);
+  setTimeout(() => { if (polyBotEnabled) runPolyCycle().catch(() => {}); }, 30_000);
   // Then every 15 min
-  polyCycleTimer = setInterval(() => runPolyCycle().catch(() => {}), POLY_CYCLE_INTERVAL_MS);
+  polyCycleTimer = setInterval(() => { if (polyBotEnabled) runPolyCycle().catch(() => {}); }, POLY_CYCLE_INTERVAL_MS);
 }
+
+function stopPolyCycleLoop() {
+  if (polyCycleTimer) {
+    clearInterval(polyCycleTimer);
+    polyCycleTimer = null;
+  }
+}
+
+// Toggle bot on/off
+ipcMain.handle('polymarket-toggle', async () => {
+  polyBotEnabled = !polyBotEnabled;
+  if (polyBotEnabled) {
+    startPolyCycleLoop();
+  } else {
+    stopPolyCycleLoop();
+  }
+  return { enabled: polyBotEnabled };
+});
+
+// Get current bot status
+ipcMain.handle('polymarket-status', async () => ({ enabled: polyBotEnabled }));
 
 // Watch data files for real-time push to renderer
 let polyWatcher: fs.FSWatcher | null = null;
