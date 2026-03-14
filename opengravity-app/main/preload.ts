@@ -42,4 +42,9 @@ contextBridge.exposeInMainWorld('electron', {
     inject: (agentId: string, prompt: string) =>
       ipcRenderer.invoke('pty-inject', agentId, prompt),
   },
+
+  // Polymarket paper trading dashboard
+  polymarket: {
+    getData: () => ipcRenderer.invoke('polymarket-data'),
+  },
 });

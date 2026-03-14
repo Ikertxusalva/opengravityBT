@@ -153,3 +153,32 @@ ipcMain.handle('wallet-request-approval', async (_event, request: any) => {
 ipcMain.on('window-close', () => {
   if (mainWindow) mainWindow.close();
 });
+
+ipcMain.handle('polymarket-data', async () => {
+  const dataDir = path.join(process.cwd(), 'scripts', 'polymarket', 'data');
+
+  let portfolio: any = {};
+  try {
+    portfolio = JSON.parse(fs.readFileSync(path.join(dataDir, 'paper_positions.json'), 'utf-8'));
+  } catch {}
+
+  let log: any[] = [];
+  try {
+    const raw = fs.readFileSync(path.join(dataDir, 'paper_log.jsonl'), 'utf-8');
+    log = raw.trim().split('\n').filter(Boolean).map(line => {
+      try { return JSON.parse(line); } catch { return null; }
+    }).filter(Boolean);
+  } catch {}
+
+  let priors: any = {};
+  try {
+    priors = JSON.parse(fs.readFileSync(path.join(dataDir, 'bayesian_priors.json'), 'utf-8'));
+  } catch {}
+
+  let scanReport: any = {};
+  try {
+    scanReport = JSON.parse(fs.readFileSync(path.join(dataDir, 'market_analysis_report.json'), 'utf-8'));
+  } catch {}
+
+  return { portfolio, log, priors, scanReport };
+});

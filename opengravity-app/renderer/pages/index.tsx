@@ -63,7 +63,7 @@ export default function HomePage() {
   const [cloudStatus, setCloudStatus] = React.useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [swarmStatus, setSwarmStatus] = React.useState<'idle' | 'voting' | 'decided'>('idle');
   const [lastSwarmDecision, setLastSwarmDecision] = React.useState<{ decision: string; symbol: string; consensus_score: number } | null>(null);
-  const [activeView, setActiveView] = React.useState<'terminals' | 'market'>('terminals');
+  const [activeView, setActiveView] = React.useState<'terminals' | 'market' | 'polymarket'>('terminals');
   const [fundingData, setFundingData] = React.useState<Record<string, { h8_pct: number; annual_pct: number }>>({});
   const [stressData, setStressData] = React.useState<Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>>([]);
   const [liquidationData, setLiquidationData] = React.useState<Array<{ coin: string; side: string; usd_size: number }>>([]);
@@ -231,6 +231,7 @@ export default function HomePage() {
         <div className="separator" />
         <button className={`nav-tab ${activeView === 'terminals' ? 'active' : ''}`} onClick={() => setActiveView('terminals')}>TERMINALS</button>
         <button className={`nav-tab ${activeView === 'market' ? 'active' : ''}`} onClick={() => setActiveView('market')}>MARKET</button>
+        <button className={`nav-tab ${activeView === 'polymarket' ? 'active' : ''}`} onClick={() => setActiveView('polymarket')}>POLYMARKET</button>
         <div className="nav-spacer" />
 
         <button className="btn-new-terminal" onClick={() => setShowPicker(true)}>+ Terminal</button>
@@ -270,7 +271,9 @@ export default function HomePage() {
       </nav>
 
       <div className="terminal-area">
-        {activeView === 'market' ? (
+        {activeView === 'polymarket' ? (
+          <PolymarketPanel />
+        ) : activeView === 'market' ? (
           <MarketPanel fundingData={fundingData} stressData={stressData} liquidationData={liquidationData} whaleData={whaleData} />
         ) : terminals.length === 0 ? (
           <div className="empty-state">
@@ -333,6 +336,259 @@ export default function HomePage() {
     </div>
   );
 }
+
+// ── Polymarket Dashboard ───────────────────────────────────────────────────────
+
+function PolymarketPanel() {
+  const [data, setData] = React.useState<any>(null);
+  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
+
+  const load = React.useCallback(async () => {
+    const electron = (window as any).electron;
+    if (!electron?.polymarket?.getData) return;
+    try {
+      const result = await electron.polymarket.getData();
+      setData(result);
+      setLastUpdated(new Date());
+    } catch {}
+  }, []);
+
+  React.useEffect(() => {
+    load();
+    const interval = setInterval(load, 60000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  if (!data) {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)' }}>Cargando datos Polymarket...</div>;
+  }
+
+  const { portfolio, log, priors, scanReport } = data;
+  const positions: any[] = portfolio?.positions || [];
+  const closed: any[] = portfolio?.closed || [];
+  const stats = portfolio?.stats || {};
+  const bank: number = portfolio?.bank ?? 0;
+  const deployed: number = portfolio?.deployed ?? 0;
+  const totalUnrealized: number = positions.reduce((s: number, p: any) => s + (p.unrealized_pnl ?? 0), 0);
+  const totalPnl: number = (stats.total_pnl ?? 0) + totalUnrealized;
+  const winRate: number = stats.trades > 0 ? Math.round((stats.wins / stats.trades) * 100) : 0;
+
+  // P&L chart data — build a cumulative line from log entries
+  const pnlPoints: number[] = [];
+  let cumPnl = 0;
+  for (const entry of log) {
+    if (entry.type === 'CLOSE_PAPER' && entry.position?.realized_pnl != null) {
+      cumPnl += entry.position.realized_pnl;
+      pnlPoints.push(cumPnl);
+    }
+  }
+  // Append current unrealized as last point
+  pnlPoints.push(cumPnl + totalUnrealized);
+
+  // SVG P&L line chart
+  const chartW = 400;
+  const chartH = 80;
+  const padX = 4;
+  const padY = 8;
+  const innerW = chartW - padX * 2;
+  const innerH = chartH - padY * 2;
+  const minP = Math.min(0, ...pnlPoints);
+  const maxP = Math.max(0, ...pnlPoints);
+  const range = maxP - minP || 1;
+  const toX = (i: number) => padX + (i / Math.max(pnlPoints.length - 1, 1)) * innerW;
+  const toY = (v: number) => padY + innerH - ((v - minP) / range) * innerH;
+  const linePath = pnlPoints.map((v, i) => `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+  const zeroY = toY(0).toFixed(1);
+  const lineColor = totalPnl >= 0 ? '#00ff88' : '#ff4455';
+
+  // Scan signals from report
+  const signals: any[] = scanReport?.signals || [];
+  // Bayesian priors
+  const priorEntries = Object.entries(priors || {});
+
+  const fmt = (v: number, decimals = 2) => v >= 0 ? `+${v.toFixed(decimals)}` : v.toFixed(decimals);
+  const fmtPct = (entry: number, base: number) => base !== 0 ? fmt((entry / base) * 100, 1) + '%' : '0%';
+  const dirColor = (dir: string) => dir === 'BUY_YES' ? 'var(--neon-green)' : 'var(--neon-orange)';
+  const pnlColor = (v: number) => v >= 0 ? 'var(--neon-green)' : 'var(--red)';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', height: '100%', overflowY: 'auto', boxSizing: 'border-box' }}>
+
+      {/* ── Header Stats ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
+        {[
+          { label: 'BANK', value: `$${bank.toFixed(0)}`, color: 'var(--text-primary)' },
+          { label: 'DEPLOYED', value: `$${deployed.toFixed(0)}`, color: 'var(--neon-cyan)' },
+          { label: 'P&L TOTAL', value: `$${totalPnl.toFixed(2)}`, color: pnlColor(totalPnl) },
+          { label: 'WIN RATE', value: `${winRate}% (${stats.trades ?? 0} trades)`, color: winRate >= 50 ? 'var(--neon-green)' : 'var(--muted)' },
+          { label: 'ACTUALIZADO', value: lastUpdated ? lastUpdated.toLocaleTimeString('es-ES') : '—', color: 'var(--muted)' },
+        ].map(s => (
+          <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '10px 12px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '4px', letterSpacing: '0.05em' }}>{s.label}</div>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Two-column layout: positions + chart/signals ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '12px', flex: 1, minHeight: 0 }}>
+
+        {/* Left column: Open Positions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: 0 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden', flex: '0 0 auto' }}>
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', fontSize: '11px', letterSpacing: '0.08em', color: 'var(--muted)' }}>
+              POSICIONES ABIERTAS ({positions.length})
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <thead>
+                  <tr style={{ color: 'var(--muted)', fontSize: '10px' }}>
+                    {['MERCADO', 'DIR', 'ENTRADA', 'ACTUAL', 'P&L $', 'P&L %', 'DIAS', 'SL', 'TP'].map(h => (
+                      <th key={h} style={{ padding: '6px 8px', textAlign: h === 'MERCADO' ? 'left' : 'right', fontWeight: 400, borderBottom: '1px solid var(--border)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {positions.length === 0 ? (
+                    <tr><td colSpan={9} style={{ padding: '16px', textAlign: 'center', color: 'var(--muted)' }}>Sin posiciones abiertas</td></tr>
+                  ) : positions.map((p: any, i: number) => {
+                    const pnlPct = p.entry_price > 0 ? ((p.current_price - p.entry_price) / p.entry_price) * 100 : 0;
+                    return (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle, #1a1a2e)' }}>
+                        <td style={{ padding: '6px 8px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.question}>{p.question}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: dirColor(p.direction), fontWeight: 600 }}>{p.direction === 'BUY_YES' ? 'YES' : 'NO'}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right' }}>{(p.entry_price * 100).toFixed(1)}¢</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right' }}>{(p.current_price * 100).toFixed(1)}¢</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: pnlColor(p.unrealized_pnl ?? 0) }}>{fmt(p.unrealized_pnl ?? 0)}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: pnlColor(pnlPct) }}>{pnlPct.toFixed(1)}%</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: p.days_left < 14 ? 'var(--neon-orange)' : 'var(--muted)' }}>{p.days_left}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--muted)' }}>{(p.stop_loss_price * 100).toFixed(1)}¢</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--muted)' }}>{(p.take_profit_price * 100).toFixed(1)}¢</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Closed Trades */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden', flex: '0 0 auto' }}>
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', fontSize: '11px', letterSpacing: '0.08em', color: 'var(--muted)' }}>
+              HISTORIAL CERRADO ({closed.length})
+            </div>
+            {closed.length === 0 ? (
+              <div style={{ padding: '12px', color: 'var(--muted)', fontSize: '12px', textAlign: 'center' }}>Sin trades cerrados aún</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ color: 'var(--muted)', fontSize: '10px' }}>
+                      {['MERCADO', 'DIR', 'ENTRADA', 'SALIDA', 'P&L $', 'MOTIVO'].map(h => (
+                        <th key={h} style={{ padding: '6px 8px', textAlign: h === 'MERCADO' ? 'left' : 'right', fontWeight: 400, borderBottom: '1px solid var(--border)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {closed.slice(-10).reverse().map((p: any, i: number) => (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle, #1a1a2e)' }}>
+                        <td style={{ padding: '6px 8px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.question}>{p.question}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: dirColor(p.direction) }}>{p.direction === 'BUY_YES' ? 'YES' : 'NO'}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right' }}>{(p.entry_price * 100).toFixed(1)}¢</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right' }}>{((p.exit_price ?? 0) * 100).toFixed(1)}¢</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: pnlColor(p.realized_pnl ?? 0) }}>{fmt(p.realized_pnl ?? 0)}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--muted)', fontSize: '10px' }}>{p.close_reason ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right column: P&L Chart + Signals + Priors */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: 0 }}>
+
+          {/* P&L Chart */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '12px' }}>
+            <div style={{ fontSize: '11px', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: '8px' }}>P&L ACUMULADO</div>
+            <svg width="100%" viewBox={`0 0 ${chartW} ${chartH}`} style={{ overflow: 'visible' }}>
+              {/* Zero line */}
+              <line x1={padX} y1={zeroY} x2={chartW - padX} y2={zeroY} stroke="var(--border)" strokeWidth="1" strokeDasharray="3,3" />
+              {/* P&L line */}
+              {pnlPoints.length > 1 && (
+                <path d={linePath} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" />
+              )}
+              {/* Last point dot */}
+              {pnlPoints.length > 0 && (
+                <circle cx={toX(pnlPoints.length - 1)} cy={toY(pnlPoints[pnlPoints.length - 1])} r="3" fill={lineColor} />
+              )}
+              {/* Axes labels */}
+              <text x={padX} y={chartH - 1} fill="var(--muted)" fontSize="9">${minP.toFixed(0)}</text>
+              <text x={padX} y={padY + 6} fill="var(--muted)" fontSize="9">${maxP.toFixed(0)}</text>
+            </svg>
+            <div style={{ fontSize: '11px', color: pnlColor(totalPnl), fontWeight: 600, marginTop: '4px' }}>
+              {fmt(totalPnl)} USD total ({pnlPoints.length} puntos)
+            </div>
+          </div>
+
+          {/* Last Scan Signals */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', fontSize: '11px', letterSpacing: '0.08em', color: 'var(--muted)' }}>
+              ULTIMO SCAN ({signals.length} señales)
+            </div>
+            <div style={{ overflowY: 'auto', maxHeight: '180px' }}>
+              {signals.length === 0 ? (
+                <div style={{ padding: '12px', color: 'var(--muted)', fontSize: '12px', textAlign: 'center' }}>Sin señales. Ejecuta el bot para escanear.</div>
+              ) : signals.slice(0, 10).map((s: any, i: number) => (
+                <div key={i} style={{ padding: '6px 12px', borderBottom: '1px solid var(--border-subtle, #1a1a2e)', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px' }}>
+                  <span style={{ color: dirColor(s.direction), fontWeight: 600, flexShrink: 0 }}>{s.direction === 'BUY_YES' ? 'YES' : 'NO'}</span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.question}>{s.question}</span>
+                  <span style={{ color: 'var(--neon-cyan)', flexShrink: 0 }}>edge {(s.composite_edge * 100).toFixed(0)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bayesian Priors */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', fontSize: '11px', letterSpacing: '0.08em', color: 'var(--muted)' }}>
+              PRIORS BAYESIANOS ({priorEntries.length})
+            </div>
+            <div style={{ overflowY: 'auto', maxHeight: '150px' }}>
+              {priorEntries.length === 0 ? (
+                <div style={{ padding: '12px', color: 'var(--muted)', fontSize: '12px', textAlign: 'center' }}>Sin priors registrados aún</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                  <thead>
+                    <tr style={{ color: 'var(--muted)', fontSize: '10px' }}>
+                      {['FUENTE', 'alpha', 'beta', 'TRADES'].map(h => (
+                        <th key={h} style={{ padding: '5px 8px', textAlign: h === 'FUENTE' ? 'left' : 'right', fontWeight: 400, borderBottom: '1px solid var(--border)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {priorEntries.map(([src, prior]: [string, any]) => (
+                      <tr key={src} style={{ borderBottom: '1px solid var(--border-subtle, #1a1a2e)' }}>
+                        <td style={{ padding: '5px 8px' }}>{src}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--neon-green)' }}>{(prior.alpha ?? 0).toFixed(1)}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--red)' }}>{(prior.beta ?? 0).toFixed(1)}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'right', color: 'var(--muted)' }}>{prior.trades ?? 0}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function MarketPanel(props: {
   fundingData: Record<string, { h8_pct: number; annual_pct: number }>;
