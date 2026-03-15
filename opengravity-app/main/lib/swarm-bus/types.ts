@@ -20,7 +20,8 @@ export type AgentName =
   | 'liquidation-agent'
   | 'polymarket-agent'
   | 'top-mover-agent'
-  | 'news-agent';
+  | 'news-agent'
+  | 'signal-scanner';
 
 // ── Event types ──
 export type EventType =

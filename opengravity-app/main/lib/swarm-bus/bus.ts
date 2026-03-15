@@ -11,7 +11,9 @@ import * as crypto from 'crypto';
 import { SwarmEvent, Channel, AgentName, EventType, Priority, TTL } from './types';
 
 // ── Bus file path ──
-const BUS_DIR = path.join(process.cwd(), '.claude', 'swarm-bus');
+// Electron's cwd is opengravity-app/, but the bus lives in the project root
+const PROJECT_ROOT = path.resolve(process.cwd(), '..');
+const BUS_DIR = path.join(PROJECT_ROOT, '.claude', 'swarm-bus');
 const BUS_FILE = path.join(BUS_DIR, 'events.jsonl');
 const STATUS_FILE = path.join(BUS_DIR, 'status.json');
 

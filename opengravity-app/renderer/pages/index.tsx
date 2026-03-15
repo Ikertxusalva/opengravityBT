@@ -16,8 +16,11 @@ const AGENTS = [
 ];
 
 const STARTUP_AGENTS = [
-  { agentId: 'claude-main', delay: 400 },
-  { agentId: 'trading-agent', delay: 900 },
+  // Swarm core: 4 agentes esenciales para el flujo señal → consenso → ejecución
+  { agentId: 'funding-agent', delay: 400 },
+  { agentId: 'chart-agent', delay: 900 },
+  { agentId: 'risk-agent', delay: 1400 },
+  { agentId: 'trading-agent', delay: 1900 },
 ];
 
 interface TerminalState {
@@ -49,6 +52,8 @@ export default function HomePage() {
   const [cloudStatus, setCloudStatus] = React.useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [swarmStatus, setSwarmStatus] = React.useState<'idle' | 'voting' | 'decided'>('idle');
   const [lastSwarmDecision, setLastSwarmDecision] = React.useState<{ decision: string; symbol: string; consensus_score: number } | null>(null);
+  const [pendingOrder, setPendingOrder] = React.useState<any>(null);
+  const [orderResult, setOrderResult] = React.useState<any>(null);
   const [activeView, setActiveView] = React.useState<'terminals' | 'market' | 'polymarket' | 'strategies'>('terminals');
   const [fundingData, setFundingData] = React.useState<Record<string, { h8_pct: number; annual_pct: number }>>({});
   const [stressData, setStressData] = React.useState<Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>>([]);
@@ -103,6 +108,21 @@ export default function HomePage() {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission();
     }
+  }, []);
+
+  // ── Swarm order confirmation listener ──
+  React.useEffect(() => {
+    const electron = (window as any).electron;
+    if (!electron?.swarm?.onOrderPending) return;
+    const unsub1 = electron.swarm.onOrderPending((order: any) => {
+      setPendingOrder(order);
+      setOrderResult(null);
+    });
+    const unsub2 = electron.swarm.onOrderExecuted?.((result: any) => {
+      setOrderResult(result);
+      setTimeout(() => { setOrderResult(null); setPendingOrder(null); }, 8000);
+    });
+    return () => { unsub1?.(); unsub2?.(); };
   }, []);
 
   React.useEffect(() => {
@@ -397,6 +417,80 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Swarm Order Confirmation Modal ── */}
+      {pendingOrder && (
+        <div className="modal-overlay" style={{zIndex: 9999}}>
+          <div style={{
+            background: '#1a1a2e', border: '1px solid #333', borderRadius: '12px',
+            padding: '24px', maxWidth: '420px', width: '90%', boxShadow: '0 0 40px rgba(0,255,136,0.15)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: '#fff'}}>
+              SWARM ORDER — Confirmacion
+            </div>
+            <div style={{
+              background: pendingOrder.direction === 'LONG' ? 'rgba(0,255,136,0.1)' : 'rgba(255,68,85,0.1)',
+              border: `1px solid ${pendingOrder.direction === 'LONG' ? '#00ff88' : '#ff4455'}`,
+              borderRadius: '8px', padding: '16px', marginBottom: '16px',
+            }}>
+              <div style={{fontSize: '24px', fontWeight: 700, color: pendingOrder.direction === 'LONG' ? '#00ff88' : '#ff4455'}}>
+                {pendingOrder.direction} {pendingOrder.symbol}
+              </div>
+              <div style={{color: '#aaa', marginTop: '4px'}}>
+                Size: <strong style={{color: '#fff'}}>{pendingOrder.size}</strong> | Score: <strong style={{color: '#fff'}}>{pendingOrder.score?.toFixed(2)}</strong>
+              </div>
+              <div style={{color: '#888', fontSize: '11px', marginTop: '8px'}}>{pendingOrder.reason}</div>
+            </div>
+            <div style={{fontSize: '11px', color: '#888', marginBottom: '12px'}}>
+              <div>Funding: {pendingOrder.funding?.direction} @ {(pendingOrder.funding?.confidence * 100).toFixed(0)}%</div>
+              <div>Chart: {pendingOrder.chart?.direction} @ {(pendingOrder.chart?.confidence * 100).toFixed(0)}%</div>
+              <div>Risk: {pendingOrder.risk?.direction} @ {(pendingOrder.risk?.confidence * 100).toFixed(0)}%</div>
+              <div style={{marginTop: '4px', color: '#ff8800'}}>Network: TESTNET</div>
+            </div>
+            {orderResult ? (
+              <div style={{
+                padding: '12px', borderRadius: '8px', textAlign: 'center',
+                background: orderResult.result?.success ? 'rgba(0,255,136,0.15)' : 'rgba(255,68,85,0.15)',
+                color: orderResult.result?.success ? '#00ff88' : '#ff4455',
+              }}>
+                {orderResult.result?.success
+                  ? `Ejecutado — Order ID: ${orderResult.result?.order_id || 'N/A'}`
+                  : `Error: ${orderResult.result?.error || 'Unknown'}`}
+              </div>
+            ) : (
+              <div style={{display: 'flex', gap: '12px'}}>
+                <button
+                  onClick={async () => {
+                    const electron = (window as any).electron;
+                    const result = await electron?.swarm?.confirmOrder(pendingOrder.id);
+                    setOrderResult({ result });
+                    setTimeout(() => { setPendingOrder(null); setOrderResult(null); }, 5000);
+                  }}
+                  style={{
+                    flex: 1, padding: '12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                    background: '#00ff88', color: '#000', fontWeight: 700, fontSize: '14px',
+                  }}
+                >
+                  CONFIRMAR
+                </button>
+                <button
+                  onClick={async () => {
+                    const electron = (window as any).electron;
+                    await electron?.swarm?.rejectOrder(pendingOrder.id);
+                    setPendingOrder(null);
+                  }}
+                  style={{
+                    flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #555', cursor: 'pointer',
+                    background: 'transparent', color: '#aaa', fontWeight: 700, fontSize: '14px',
+                  }}
+                >
+                  RECHAZAR
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

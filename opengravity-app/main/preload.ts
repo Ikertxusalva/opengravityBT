@@ -41,6 +41,22 @@ contextBridge.exposeInMainWorld('electron', {
     getStatus: () => ipcRenderer.invoke('swarm-get-status'),
     inject: (agentId: string, prompt: string) =>
       ipcRenderer.invoke('pty-inject', agentId, prompt),
+    confirmOrder: (orderId: string) =>
+      ipcRenderer.invoke('swarm-confirm-order', orderId),
+    rejectOrder: (orderId: string) =>
+      ipcRenderer.invoke('swarm-reject-order', orderId),
+    getPendingOrders: () =>
+      ipcRenderer.invoke('swarm-pending-orders'),
+    onOrderPending: (callback: (order: any) => void) => {
+      const handler = (_event: any, order: any) => callback(order);
+      ipcRenderer.on('swarm-order-pending', handler);
+      return () => { ipcRenderer.removeListener('swarm-order-pending', handler); };
+    },
+    onOrderExecuted: (callback: (result: any) => void) => {
+      const handler = (_event: any, result: any) => callback(result);
+      ipcRenderer.on('swarm-order-executed', handler);
+      return () => { ipcRenderer.removeListener('swarm-order-executed', handler); };
+    },
   },
 
   // Strategy results leaderboard

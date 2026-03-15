@@ -14,6 +14,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
+import { execFile } from 'child_process';
 import { AuditLog } from './security/audit';
 import { Vault } from './security/vault';
 import { MemoryManager } from './memory-manager';
@@ -27,6 +28,10 @@ import {
 // ── Active PTY sessions ──
 const sessions: Map<string, IPty> = new Map();
 const agentMap: Map<string, string> = new Map(); // termId → agentId
+
+// ── Pending orders awaiting user confirmation ──
+const pendingOrders: Map<string, any> = new Map();
+let _mainWindow: BrowserWindow | null = null;
 
 // ── Circuit Breaker (simple Map) ──
 const circuitBreaker: Map<string, CircuitState> = new Map();
@@ -462,21 +467,42 @@ Tienes 30 segundos. Solo ejecuta el echo, nada más.`;
     },
   });
 
-  // If EXECUTE: send order to trading-agent
+  // If EXECUTE: request manual confirmation from user before executing
   if (decision.action === 'EXECUTE' && decision.direction && decision.size) {
-    const orderPrompt = `[SWARM ORDER] Ejecutar operación:
-Símbolo: ${symbol}
-Dirección: ${decision.direction}
-Tamaño: ${decision.size} (score: ${decision.score?.toFixed(2)})
-Fuentes: ${decision.sources.join(', ')}
-Razón: ${decision.reason}
+    const pendingOrder = {
+      id: `order-${Date.now()}`,
+      symbol,
+      direction: decision.direction,
+      size: decision.size,
+      score: decision.score,
+      reason: decision.reason,
+      sources: decision.sources,
+      funding: { direction: fundingResult.direction, confidence: fundingResult.confidence, reason: fundingResult.reason },
+      chart: { direction: chartResult.direction, confidence: chartResult.confidence, reason: chartResult.reason },
+      risk: { direction: riskResult.direction, confidence: riskResult.confidence, reason: riskResult.reason },
+      timestamp: new Date().toISOString(),
+    };
 
-Ejecuta la orden y reporta el resultado al bus.`;
+    // Store pending order for confirmation
+    pendingOrders.set(pendingOrder.id, pendingOrder);
+    console.log(`[Swarm] Order pending confirmation: ${pendingOrder.id} — ${symbol} ${decision.direction} ${decision.size}`);
 
-    // Fire and forget to trading-agent
-    invokeAgent('trading-agent', orderPrompt, { timeout: 15_000 }).then(result => {
-      console.log(`[Swarm] Trading agent response: ${result.timedOut ? 'TIMEOUT' : 'OK'}`);
-    });
+    // Auto-confirm on testnet, manual on mainnet
+    const isTestnet = !process.env.HL_MAINNET_MODE;
+    if (isTestnet && process.env.HL_TESTNET_PRIVATE_KEY) {
+      console.log(`[Swarm] Auto-confirming testnet order: ${pendingOrder.id}`);
+      pendingOrders.delete(pendingOrder.id);
+      const result = await executeHLOrder(pendingOrder);
+      console.log(`[Swarm] Auto-execution result:`, JSON.stringify(result));
+      if (_mainWindow && !_mainWindow.isDestroyed()) {
+        _mainWindow.webContents.send('swarm-order-executed', { orderId: pendingOrder.id, result });
+      }
+    } else {
+      // Notify frontend for manual confirmation (mainnet)
+      if (_mainWindow && !_mainWindow.isDestroyed()) {
+        _mainWindow.webContents.send('swarm-order-pending', pendingOrder);
+      }
+    }
   }
 
   // Sync decision to Railway
@@ -509,14 +535,20 @@ Ejecuta la orden y reporta el resultado al bus.`;
 let busListenerTimer: ReturnType<typeof setInterval> | null = null;
 const processedEvents = new Set<string>(); // Track processed event IDs
 
+function eventKey(event: SwarmEvent): string {
+  // Use id if available, otherwise hash from+timestamp+payload for dedup
+  return event.id || `${event.from}:${event.timestamp}:${JSON.stringify(event.payload).slice(0, 80)}`;
+}
+
 function startBusListener() {
   if (busListenerTimer) return;
   busListenerTimer = setInterval(() => {
     const signals = SwarmBus.readByType('signal', 'realtime');
     for (const event of signals) {
-      if (processedEvents.has(event.id)) continue;
-      processedEvents.add(event.id);
-      // Prune old IDs (keep last 100)
+      const key = eventKey(event);
+      if (processedEvents.has(key)) continue;
+      processedEvents.add(key);
+      // Prune old keys (keep last 100)
       if (processedEvents.size > 100) {
         const arr = Array.from(processedEvents);
         for (let i = 0; i < arr.length - 100; i++) processedEvents.delete(arr[i]);
@@ -549,6 +581,104 @@ function stopBusCompaction() {
   if (compactTimer) {
     clearInterval(compactTimer);
     compactTimer = null;
+  }
+}
+
+// ── Signal Scanner — Deterministic signal generation from Railway data ──
+let scannerTimer: ReturnType<typeof setInterval> | null = null;
+const SCAN_INTERVAL = 5 * 60_000; // Every 5 minutes
+const SCAN_COOLDOWN = 15 * 60_000; // 15 min cooldown per symbol after signal
+const lastSignalTime: Map<string, number> = new Map();
+
+// Thresholds for signal generation
+const FUNDING_EXTREME_APY = 35; // ±35% annual = strong signal
+const STRESS_HIGH = 40; // stress score > 40 = elevated risk
+const FUNDING_CONFIDENCE_BASE = 0.65;
+
+async function runSignalScan() {
+  try {
+    const [fundingResp, snapshotResp] = await Promise.all([
+      fetch(`${CLOUD}/api/hl/funding`).catch(() => null),
+      fetch(`${CLOUD}/api/market/snapshot`).catch(() => null),
+    ]);
+
+    if (!fundingResp?.ok) return;
+    const fundingData = await fundingResp.json();
+    const snapshotData = snapshotResp?.ok ? await snapshotResp.json() : null;
+
+    // Build stress map from snapshot
+    const stressMap: Map<string, number> = new Map();
+    if (snapshotData?.stress) {
+      for (const s of snapshotData.stress) {
+        stressMap.set(s.coin, s.score || 0);
+      }
+    }
+
+    // Scan monitored tokens for extreme conditions
+    const tokens = ['BTC', 'ETH', 'SOL'];
+    for (const rate of (fundingData.rates || [])) {
+      const coin = rate.coin;
+      if (!tokens.includes(coin)) continue;
+
+      // Cooldown check
+      const lastTime = lastSignalTime.get(coin) || 0;
+      if (Date.now() - lastTime < SCAN_COOLDOWN) continue;
+
+      const annualPct = Math.abs(rate.annual_pct || 0);
+      const fundingPct = rate.funding_8h_pct || 0;
+      const stress = stressMap.get(coin) || 0;
+
+      // Skip if funding is not extreme enough
+      if (annualPct < FUNDING_EXTREME_APY) continue;
+
+      // Determine direction based on funding
+      // Negative funding = shorts paying longs → LONG opportunity
+      // Positive funding = longs paying shorts → SHORT opportunity
+      const direction = fundingPct < 0 ? 'LONG' : 'SHORT';
+
+      // Calculate confidence: higher annual % and lower stress = more confident
+      let confidence = FUNDING_CONFIDENCE_BASE;
+      if (annualPct > 60) confidence += 0.10;
+      if (annualPct > 100) confidence += 0.05;
+      if (stress > STRESS_HIGH) confidence -= 0.10; // Reduce confidence in stressed markets
+      confidence = Math.min(0.90, Math.max(0.50, confidence));
+
+      const reason = `Funding ${fundingPct > 0 ? '+' : ''}${(fundingPct * 100).toFixed(4)}% (${rate.annual_pct?.toFixed(1)}% APY). ` +
+        `OI: $${(parseFloat(rate.open_interest || '0') * parseFloat(rate.mark_px || '0') / 1e6).toFixed(0)}M. ` +
+        (stress > 0 ? `Stress: ${stress}/100.` : '');
+
+      // Publish signal to bus
+      SwarmBus.publish({
+        channel: 'realtime',
+        from: 'signal-scanner',
+        type: 'signal',
+        priority: 1,
+        payload: { symbol: coin, direction, confidence, reason },
+        ttl: 300,
+      });
+
+      lastSignalTime.set(coin, Date.now());
+      console.log(`[Scanner] Signal: ${coin} ${direction} @ ${(confidence * 100).toFixed(0)}% — ${reason}`);
+    }
+  } catch (e) {
+    console.warn('[Scanner] Scan failed:', e);
+  }
+}
+
+function startSignalScanner() {
+  if (scannerTimer) return;
+  // First scan after 30s (let app stabilize), then every 5 min
+  setTimeout(() => {
+    runSignalScan();
+    scannerTimer = setInterval(runSignalScan, SCAN_INTERVAL);
+  }, 30_000);
+  console.log('[Scanner] Signal scanner started (every 5 min)');
+}
+
+function stopSignalScanner() {
+  if (scannerTimer) {
+    clearInterval(scannerTimer);
+    scannerTimer = null;
   }
 }
 
@@ -863,28 +993,158 @@ function buildClaudeEnv(): Record<string, string> {
   }
 
   const extraPaths = [
-    path.join(os.homedir(), '.local', 'bin'),
-    'C:\\Users\\Public\\node-v22.15.0-win-x64',
+    path.join(os.homedir(), '.local', 'bin'),           // uv, claude
+    'C:\\Users\\Public\\node-v22.15.0-win-x64',         // node, npm
+    'C:\\Program Files\\Python313',                      // python3
+    'C:\\Program Files\\Python313\\Scripts',              // pip
+    path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python312'),
+    path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python312', 'Scripts'),
+    path.join(os.homedir(), 'AppData', 'Local', 'Microsoft', 'WindowsApps'), // python3 alias
     'C:\\Program Files\\GitHub CLI',
+    'C:\\WINDOWS\\system32',                             // standard Windows tools
   ];
-  const currentPath = env['PATH'] || '';
+  let currentPath = env['PATH'] || '';
   for (const p of extraPaths) {
     if (!currentPath.includes(p)) {
-      env['PATH'] = p + ';' + currentPath;
+      currentPath = p + ';' + currentPath;
     }
   }
+  env['PATH'] = currentPath;
 
   return env;
 }
 
 
+// ── Execute order via Python HLConnector ──
+function executeHLOrder(order: any): Promise<any> {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(process.cwd(), 'scripts', 'hl_execute.py');
+    const pythonPaths = [
+      'python',
+      'python3',
+      'C:\\Program Files\\Python313\\python.exe',
+      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python312', 'python.exe'),
+    ];
+
+    // Try to find a working Python
+    const tryPython = (idx: number) => {
+      if (idx >= pythonPaths.length) {
+        resolve({ success: false, error: 'Python not found' });
+        return;
+      }
+
+      const args = [
+        scriptPath,
+        '--symbol', order.symbol,
+        '--direction', order.direction,
+        '--size', order.size || 'quarter',
+        '--score', String(order.score || 0),
+      ];
+
+      // Testnet by default — only add --mainnet if explicitly requested
+      if (order.mainnet) args.push('--mainnet');
+
+      // Pass key via env (read from Vault or process.env)
+      const execEnv = { ...process.env };
+      Vault.get('HL_TESTNET_PRIVATE_KEY').then(vaultKey => {
+        if (vaultKey) execEnv['HL_TESTNET_PRIVATE_KEY'] = vaultKey;
+        return Vault.get('HL_PRIVATE_KEY');
+      }).then(mainKey => {
+        if (mainKey) execEnv['HL_PRIVATE_KEY'] = mainKey;
+      }).catch(() => {}).finally(() => {
+
+      execFile(pythonPaths[idx], args, { timeout: 30_000, env: execEnv }, (err, stdout, stderr) => {
+        if (err && (err as any).code === 'ENOENT') {
+          tryPython(idx + 1); // Try next Python
+          return;
+        }
+        if (err) {
+          console.error(`[Swarm] HL execution error:`, err.message, stderr);
+          resolve({ success: false, error: err.message });
+          return;
+        }
+        try {
+          const result = JSON.parse(stdout.trim());
+          resolve(result);
+        } catch {
+          resolve({ success: false, error: `Invalid output: ${stdout.slice(0, 200)}` });
+        }
+      });
+
+      }); // end .finally()
+    };
+
+    tryPython(0);
+  });
+}
+
 // ── Setup IPC handlers ──
 export function setupPtyManager(mainWindow: BrowserWindow) {
+  _mainWindow = mainWindow;
 
   // ── Start bus listener + compaction immediately (don't wait for terminal open) ──
   startBusListener();
   startBusCompaction();
-  console.log('[Swarm] Orchestrator ready — bus listener active, waiting for signals');
+  startSignalScanner();
+  console.log('[Swarm] Orchestrator ready — bus listener + signal scanner active');
+
+  // ── Swarm order confirmation IPC ──
+
+  ipcMain.handle('swarm-confirm-order', async (_event, orderId: string) => {
+    const order = pendingOrders.get(orderId);
+    if (!order) return { success: false, error: 'Order not found or expired' };
+
+    console.log(`[Swarm] User CONFIRMED order ${orderId}: ${order.symbol} ${order.direction} ${order.size}`);
+    pendingOrders.delete(orderId);
+
+    // Execute via HLConnector (testnet)
+    const result = await executeHLOrder(order);
+    console.log(`[Swarm] Execution result:`, JSON.stringify(result));
+
+    // Publish result to bus
+    SwarmBus.publish({
+      channel: 'realtime',
+      from: 'claude-main',
+      type: 'result',
+      priority: 1,
+      payload: {
+        symbol: order.symbol,
+        direction: order.direction,
+        size: order.size,
+        execution: result,
+        confirmed_by: 'user',
+      },
+    });
+
+    // Notify frontend
+    if (_mainWindow && !_mainWindow.isDestroyed()) {
+      _mainWindow.webContents.send('swarm-order-executed', { orderId, result });
+    }
+
+    return result;
+  });
+
+  ipcMain.handle('swarm-reject-order', async (_event, orderId: string) => {
+    const order = pendingOrders.get(orderId);
+    if (!order) return { success: false, error: 'Order not found' };
+
+    console.log(`[Swarm] User REJECTED order ${orderId}: ${order.symbol} ${order.direction}`);
+    pendingOrders.delete(orderId);
+
+    SwarmBus.publish({
+      channel: 'realtime',
+      from: 'claude-main',
+      type: 'result',
+      priority: 3,
+      payload: { symbol: order.symbol, action: 'REJECTED', reason: 'User rejected order' },
+    });
+
+    return { success: true, action: 'rejected' };
+  });
+
+  ipcMain.handle('swarm-pending-orders', async () => {
+    return Array.from(pendingOrders.values());
+  });
 
   // ── Helper: clean up a terminal session ──
   function cleanupSession(termId: string) {
@@ -947,6 +1207,7 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       console.log(`[PTY] Session created: ${termId} (PID: ${ptyProcess.pid})`);
       sessions.set(termId, ptyProcess);
       agentMap.set(termId, agentId);
+      releaseSpawnSlot(); // Release immediately after spawn so queued agents don't wait 8s
       startAutoSave();
       MemoryManager.startMaintenance();
 
@@ -994,7 +1255,6 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
 
       // Hydrate memories from cloud + inject memory context after Claude boots
       setTimeout(async () => {
-        releaseSpawnSlot();
         try {
           await MemoryManager.hydrateFromCloud(agentId);
           const memoryBlock = MemoryManager.buildPromptBlock(agentId);
@@ -1009,13 +1269,15 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
               prompt += dataBlock + '\n\n';
             }
             prompt += 'No respondas a esto, simplemente tenlo en cuenta.';
-            safePtyWrite(ptyProcess, prompt + '\r');
+            safePtyWrite(ptyProcess, prompt);
+            // Send Enter separately with small delay to ensure Claude's input buffer is ready
+            setTimeout(() => safePtyWrite(ptyProcess, '\r'), 500);
             console.log(`[Memory] Injected ${MemoryManager.getStats(agentId).total} memories + data context for ${agentId}`);
           }
         } catch (e) {
           console.warn(`[Memory] Failed to inject memories for ${agentId}:`, e);
         }
-      }, 8000); // Wait 8s for Claude to fully boot
+      }, 15000); // Wait 15s for Claude to fully boot
       return { success: true };
     } catch (error) {
       releaseSpawnSlot();

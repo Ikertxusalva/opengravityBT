@@ -1,6 +1,7 @@
 Set WshShell = CreateObject("WScript.Shell")
 Set WshEnv = WshShell.Environment("Process")
 WshEnv("PATH") = "C:\Users\Public\node-v22.15.0-win-x64;" & WshEnv("PATH")
+WshEnv("HL_TESTNET_PRIVATE_KEY") = "0xbca839ea4293b419e36ecc0f50f61af15bdb8242e6feb4fa05288c615d64aa94"
 
 ' Kill orphaned processes that block port 8888
 WshShell.Run "cmd /c taskkill /F /IM electron.exe >nul 2>&1", 0, True
