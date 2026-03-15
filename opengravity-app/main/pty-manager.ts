@@ -17,10 +17,324 @@ import * as fs from 'fs';
 import { AuditLog } from './security/audit';
 import { Vault } from './security/vault';
 import { MemoryManager } from './memory-manager';
+import * as SwarmBus from './lib/swarm-bus/bus';
+import { resolve as resolveConflict, isWorthInvestigating } from './lib/swarm-bus/conflict-resolver';
+import {
+  SwarmEvent, AgentName, AgentResponse, CircuitState, Direction,
+  THRESHOLDS,
+} from './lib/swarm-bus/types';
 
 // ── Active PTY sessions ──
 const sessions: Map<string, IPty> = new Map();
 const agentMap: Map<string, string> = new Map(); // termId → agentId
+
+// ── Circuit Breaker (simple Map) ──
+const circuitBreaker: Map<string, CircuitState> = new Map();
+
+function onAgentError(agentName: string, error: string) {
+  const state = circuitBreaker.get(agentName) || { errorCount: 0 };
+  state.errorCount++;
+  state.lastError = error;
+  if (state.errorCount >= THRESHOLDS.CIRCUIT_BREAKER_MAX) {
+    state.disabledAt = new Date().toISOString();
+    console.error(`[Swarm] Circuit OPEN for ${agentName}: ${state.errorCount} consecutive errors`);
+  }
+  circuitBreaker.set(agentName, state);
+}
+
+function onAgentSuccess(agentName: string) {
+  circuitBreaker.set(agentName, { errorCount: 0 });
+}
+
+function isAgentDisabled(agentName: string): boolean {
+  const state = circuitBreaker.get(agentName);
+  if (!state || state.errorCount < THRESHOLDS.CIRCUIT_BREAKER_MAX) return false;
+  // Auto health-check: re-enable after 5 min
+  if (state.disabledAt) {
+    const elapsed = Date.now() - new Date(state.disabledAt).getTime();
+    if (elapsed > THRESHOLDS.HEALTH_CHECK_INTERVAL) {
+      state.errorCount = THRESHOLDS.CIRCUIT_BREAKER_MAX - 1; // HALF_OPEN: one more error re-disables
+      state.lastHealthCheck = new Date().toISOString();
+      circuitBreaker.set(agentName, state);
+      console.log(`[Swarm] Circuit HALF_OPEN for ${agentName} (health check)`);
+      return false;
+    }
+  }
+  return true;
+}
+
+// ── Swarm Orchestration ──
+
+/**
+ * Invoke an agent by injecting a prompt into its running PTY.
+ * Returns a promise that resolves when the agent writes a response
+ * to the swarm bus, or rejects on timeout.
+ */
+function invokeAgent(
+  agentName: AgentName,
+  prompt: string,
+  opts: { timeout: number } = { timeout: THRESHOLDS.AGENT_TIMEOUT }
+): Promise<AgentResponse> {
+  return new Promise((resolve) => {
+    if (isAgentDisabled(agentName)) {
+      resolve({
+        agent: agentName,
+        type: 'analysis',
+        direction: 'NEUTRAL',
+        confidence: 0,
+        reason: `Circuit breaker OPEN — agent disabled after ${THRESHOLDS.CIRCUIT_BREAKER_MAX} errors`,
+        timedOut: true,
+      });
+      return;
+    }
+
+    // Find the agent's running PTY
+    let targetTermId: string | null = null;
+    for (const [termId, agId] of agentMap.entries()) {
+      if (agId === agentName && sessions.has(termId)) {
+        targetTermId = termId;
+        break;
+      }
+    }
+
+    if (!targetTermId) {
+      resolve({
+        agent: agentName,
+        type: 'analysis',
+        direction: 'NEUTRAL',
+        confidence: 0,
+        reason: `Agent ${agentName} not running`,
+        timedOut: true,
+      });
+      return;
+    }
+
+    // Inject the analysis prompt
+    const pty = sessions.get(targetTermId);
+    const ok = safePtyWrite(pty, prompt + '\r');
+    if (!ok) {
+      onAgentError(agentName, 'PTY write failed');
+      resolve({
+        agent: agentName,
+        type: 'analysis',
+        direction: 'NEUTRAL',
+        confidence: 0,
+        reason: 'PTY write failed',
+        timedOut: true,
+      });
+      return;
+    }
+
+    // Poll the bus for this agent's response
+    const startTime = Date.now();
+    const pollInterval = setInterval(() => {
+      const events = SwarmBus.readFrom(agentName);
+      const response = events.find(e =>
+        new Date(e.timestamp).getTime() > startTime &&
+        (e.type === 'analysis' || e.type === 'veto')
+      );
+
+      if (response) {
+        clearInterval(pollInterval);
+        onAgentSuccess(agentName);
+        resolve({
+          agent: agentName,
+          type: response.type as any,
+          direction: (response.payload.direction as Direction) || 'NEUTRAL',
+          confidence: (response.payload.confidence as number) || 0,
+          reason: (response.payload.reason as string) || '',
+          timedOut: false,
+          payload: response.payload,
+        });
+        return;
+      }
+
+      if (Date.now() - startTime > opts.timeout) {
+        clearInterval(pollInterval);
+        onAgentError(agentName, 'Timeout');
+        console.warn(`[Swarm] ${agentName} timed out after ${opts.timeout}ms`);
+        resolve({
+          agent: agentName,
+          type: 'analysis',
+          direction: 'NEUTRAL',
+          confidence: 0,
+          reason: `Timeout after ${opts.timeout}ms`,
+          timedOut: true,
+        });
+      }
+    }, 500); // Check every 500ms
+  });
+}
+
+/**
+ * Process a realtime signal event from the bus.
+ * This is the core orchestration loop:
+ * 1. Receive signal from sensor (funding/stress)
+ * 2. Convoke chart + risk in parallel
+ * 3. Apply conflict resolution rules
+ * 4. Send order to trading-agent if approved
+ */
+async function processRealtimeSignal(event: SwarmEvent) {
+  const symbol = (event.payload.symbol as string) || 'BTC';
+  const direction = (event.payload.direction as Direction) || 'NEUTRAL';
+  const confidence = (event.payload.confidence as number) || 0;
+
+  // Pre-filter: skip weak signals
+  if (!isWorthInvestigating({ direction, confidence })) {
+    console.log(`[Swarm] Skipping weak signal from ${event.from}: ${direction} @ ${confidence}`);
+    return;
+  }
+
+  console.log(`[Swarm] Processing signal: ${event.from} → ${symbol} ${direction} (${confidence})`);
+  SwarmBus.setStatus('processing', `signal_${symbol}`);
+
+  // Build analysis prompt for convoked agents
+  const analysisPrompt = `[SWARM CONVOCATION] Analiza urgente para ${symbol}:
+Señal: ${direction} con confianza ${(confidence * 100).toFixed(0)}% de ${event.from}
+Razón: ${event.payload.reason || 'No especificada'}
+
+Responde SOLO escribiendo al swarm bus con este formato exacto en tu terminal:
+echo '{"channel":"realtime","from":"TU_AGENT_ID","type":"analysis","symbol":"${symbol}","direction":"LONG|SHORT|NEUTRAL","confidence":0.0-1.0,"reason":"tu análisis"}' >> .claude/swarm-bus/agent-response.json
+
+Si consideras que es demasiado riesgoso, usa type:"veto" en lugar de "analysis".
+Tienes 10 segundos. Sé conciso.`;
+
+  // Convoke chart + risk EN PARALELO (Promise.all)
+  const [chartResult, riskResult] = await Promise.all([
+    invokeAgent('chart-agent', analysisPrompt),
+    invokeAgent('risk-agent', analysisPrompt),
+  ]);
+
+  console.log(`[Swarm] Responses: chart=${chartResult.direction}@${chartResult.confidence} risk=${riskResult.timedOut ? 'TIMEOUT' : riskResult.direction}@${riskResult.confidence}`);
+
+  // Build funding response from the original signal
+  const fundingResult: AgentResponse = {
+    agent: event.from as AgentName,
+    type: 'signal',
+    direction,
+    confidence,
+    reason: (event.payload.reason as string) || '',
+    timedOut: false,
+  };
+
+  // Apply conflict resolution (3 rules)
+  const decision = resolveConflict({
+    funding: fundingResult,
+    chart: chartResult,
+    risk: riskResult,
+  });
+
+  console.log(`[Swarm] Decision: ${decision.action} — ${decision.reason}`);
+
+  // Publish decision to bus
+  SwarmBus.publish({
+    channel: 'realtime',
+    from: 'claude-main',
+    type: decision.action === 'EXECUTE' ? 'order' : 'result',
+    priority: decision.action === 'EXECUTE' ? 1 : 3,
+    payload: {
+      symbol,
+      action: decision.action,
+      direction: decision.direction,
+      size: decision.size,
+      score: decision.score,
+      reason: decision.reason,
+      sources: decision.sources,
+      funding: { direction: fundingResult.direction, confidence: fundingResult.confidence },
+      chart: { direction: chartResult.direction, confidence: chartResult.confidence, timedOut: chartResult.timedOut },
+      risk: { direction: riskResult.direction, confidence: riskResult.confidence, timedOut: riskResult.timedOut, type: riskResult.type },
+    },
+  });
+
+  // If EXECUTE: send order to trading-agent
+  if (decision.action === 'EXECUTE' && decision.direction && decision.size) {
+    const orderPrompt = `[SWARM ORDER] Ejecutar operación:
+Símbolo: ${symbol}
+Dirección: ${decision.direction}
+Tamaño: ${decision.size} (score: ${decision.score?.toFixed(2)})
+Fuentes: ${decision.sources.join(', ')}
+Razón: ${decision.reason}
+
+Ejecuta la orden y reporta el resultado al bus.`;
+
+    // Fire and forget to trading-agent
+    invokeAgent('trading-agent', orderPrompt, { timeout: 15_000 }).then(result => {
+      console.log(`[Swarm] Trading agent response: ${result.timedOut ? 'TIMEOUT' : 'OK'}`);
+    });
+  }
+
+  // Sync decision to Railway
+  try {
+    const token = await Vault.get('OPENGRAVITY_API_TOKEN');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    fetch(`${CLOUD}/api/swarm/decision`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        workflow: 'realtime_signal',
+        symbol,
+        decision: decision.action,
+        consensus_score: decision.score || 0,
+        confidence_avg: ((fundingResult.confidence + chartResult.confidence + riskResult.confidence) / 3) * 100,
+        votes: JSON.stringify({
+          [fundingResult.agent]: { vote: fundingResult.direction, confidence: fundingResult.confidence, reasoning: fundingResult.reason },
+          [chartResult.agent]: { vote: chartResult.direction, confidence: chartResult.confidence, reasoning: chartResult.reason },
+          [riskResult.agent]: { vote: riskResult.direction, confidence: riskResult.confidence, reasoning: riskResult.reason },
+        }),
+      }),
+    }).catch(() => {});
+  } catch {}
+
+  SwarmBus.setStatus('idle');
+}
+
+// ── Bus listener (polls for new signals) ──
+let busListenerTimer: ReturnType<typeof setInterval> | null = null;
+const processedEvents = new Set<string>(); // Track processed event IDs
+
+function startBusListener() {
+  if (busListenerTimer) return;
+  busListenerTimer = setInterval(() => {
+    const signals = SwarmBus.readByType('signal', 'realtime');
+    for (const event of signals) {
+      if (processedEvents.has(event.id)) continue;
+      processedEvents.add(event.id);
+      // Prune old IDs (keep last 100)
+      if (processedEvents.size > 100) {
+        const arr = Array.from(processedEvents);
+        for (let i = 0; i < arr.length - 100; i++) processedEvents.delete(arr[i]);
+      }
+      processRealtimeSignal(event).catch(e =>
+        console.error('[Swarm] Error processing signal:', e)
+      );
+    }
+  }, 2000); // Check every 2 seconds
+  console.log('[Swarm] Bus listener started');
+}
+
+function stopBusListener() {
+  if (busListenerTimer) {
+    clearInterval(busListenerTimer);
+    busListenerTimer = null;
+    console.log('[Swarm] Bus listener stopped');
+  }
+}
+
+// ── Periodic bus compaction ──
+let compactTimer: ReturnType<typeof setInterval> | null = null;
+
+function startBusCompaction() {
+  if (compactTimer) return;
+  compactTimer = setInterval(() => SwarmBus.compact(), 600_000); // Every 10 min
+}
+
+function stopBusCompaction() {
+  if (compactTimer) {
+    clearInterval(compactTimer);
+    compactTimer = null;
+  }
+}
 
 // ── Data API context por agente ──
 const CLOUD = 'https://chic-encouragement-production.up.railway.app';
@@ -414,6 +728,8 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       agentMap.set(termId, agentId);
       startAutoSave();
       MemoryManager.startMaintenance();
+      startBusListener();
+      startBusCompaction();
 
       // Forward PTY output to renderer + accumulate in buffer
       ptyProcess.onData((data: string) => {
@@ -522,8 +838,11 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
   // Kill all on app quit
   ipcMain.on('pty-kill-all', () => {
     stopAutoSave();
+    stopBusListener();
+    stopBusCompaction();
+    SwarmBus.compact(); // Final cleanup
     MemoryManager.stopMaintenance();
-    MemoryManager.runMaintenance(); // Final cleanup before exit
+    MemoryManager.runMaintenance();
     saveAllContexts();
     for (const [termId] of sessions) {
       cleanupSession(termId);
@@ -543,12 +862,12 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
 
   // Read swarm bus status
   ipcMain.handle('swarm-get-status', async () => {
-    const statusPath = path.join(process.cwd(), '.claude', 'swarm-bus', 'status.json');
-    try {
-      if (fs.existsSync(statusPath)) {
-        return JSON.parse(fs.readFileSync(statusPath, 'utf-8'));
-      }
-    } catch {}
-    return { status: 'idle' };
+    const status = SwarmBus.getStatus();
+    const busStats = SwarmBus.stats();
+    const circuits: Record<string, CircuitState> = {};
+    for (const [agent, state] of circuitBreaker.entries()) {
+      if (state.errorCount > 0) circuits[agent] = state;
+    }
+    return { ...status, bus: busStats, circuits };
   });
 }

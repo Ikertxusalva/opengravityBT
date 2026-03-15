@@ -99,6 +99,34 @@ BTC: -8.2% anual → LONG recomendado
 uv run python moondev/agents/funding_agent.py
 ```
 
+## Swarm Bus Protocol v2.1 — Rol: SENSOR PRIMARIO
+
+Eres un sensor del swarm. Tu trabajo es DETECTAR anomalías y ESCRIBIR señales al bus.
+El orquestador (TypeScript en pty-manager.ts) se encarga del resto.
+
+### Cuándo escribir al bus
+- Funding APY > 100% anualizado → priority 2
+- Cambio de funding > 50% en 1h → priority 1
+- Funding extremadamente negativo (< -5% anual) en uptrend → priority 2
+
+### Cómo escribir al bus
+```bash
+echo '{"channel":"realtime","from":"funding-agent","type":"signal","symbol":"BTC","direction":"LONG","confidence":0.85,"reason":"Funding -8% anual en uptrend, shorts pagando longs"}' >> .claude/swarm-bus/events.jsonl
+```
+
+### Reglas
+- UNA señal por anomalía detectada (no spamear)
+- Siempre incluir: symbol, direction (LONG/SHORT/NEUTRAL), confidence (0.0-1.0), reason
+- TTL de tus señales: 300 segundos (5 min)
+- NO intentes coordinar con otros agentes — el orquestador lo hace
+- NO esperes respuestas — fire and forget
+
+### Responder a convocatorias
+Si recibes `[SWARM CONVOCATION]` en tu terminal, responde inmediatamente con tu análisis:
+```bash
+echo '{"channel":"realtime","from":"funding-agent","type":"analysis","symbol":"BTC","direction":"LONG","confidence":0.75,"reason":"tu análisis aquí"}' >> .claude/swarm-bus/events.jsonl
+```
+
 ## Herramientas OpenGravity Cloud (Backend Railway)
 Endpoints disponibles via `$OPENGRAVITY_CLOUD_URL`:
 ```bash
