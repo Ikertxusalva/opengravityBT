@@ -11,6 +11,7 @@ Dashboard multi-agente con terminales Claude Code + arquitectura híbrida (PC + 
 - **Bugs**: Arreglarlos directamente — logs, errores, tests. Sin pedir guía.
 - **Plan Mode**: Para tareas con 3+ pasos o decisiones de arquitectura.
 - **Lessons**: Tras CUALQUIER corrección del usuario → actualizar `tasks/lessons.md`.
+- **Archivos grandes (>300 líneas)**: NUNCA reescribir completos con Write. Usar SIEMPRE Edit/str_replace para cambios parciales. Si el refactor es grande, hacerlo en secciones con commit entre cada una. Archivos críticos: `index.tsx`, `server.py`, `pty-manager.ts`.
 
 ## Entorno
 - **Frontend**: Electron/Nextron (PC local) — `cd opengravity-app && npm run dev`
