@@ -16,10 +16,10 @@ const AGENTS = [
 ];
 
 const STARTUP_AGENTS = [
-  // Swarm lean: 2 agentes al inicio para ahorrar RAM (~800 MB menos)
-  // chart-agent y risk-agent se convocan on-demand cuando hay señal
+  // Swarm lean: 3 agentes al inicio (chart/risk se convocan on-demand)
   { agentId: 'funding-agent', delay: 400 },
   { agentId: 'trading-agent', delay: 900 },
+  { agentId: 'swarm-agent', delay: 1400 },
 ];
 
 interface TerminalState {
