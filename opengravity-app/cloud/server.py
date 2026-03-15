@@ -1983,6 +1983,31 @@ async def _get_asyncpg_pool():
     return app.state.asyncpg_pool
 
 
+@app.get("/api/data/debug")
+async def debug_db():
+    """Temp debug endpoint — check asyncpg connectivity."""
+    raw_url = os.environ.get("DATABASE_URL", "")
+    has_url = bool(raw_url)
+    url_prefix = raw_url[:25] + "..." if raw_url else "EMPTY"
+    try:
+        import asyncpg as _apg
+        apg_version = _apg.__version__
+    except ImportError as e:
+        return {"has_url": has_url, "url_prefix": url_prefix, "asyncpg": f"IMPORT ERROR: {e}"}
+    try:
+        # Try direct connect
+        if raw_url.startswith("postgres://"):
+            raw_url = raw_url.replace("postgres://", "postgresql://", 1)
+        raw_url = raw_url.replace("postgresql+psycopg2://", "postgresql://")
+        pool = await _apg.create_pool(raw_url, min_size=1, max_size=2, timeout=10)
+        async with pool.acquire() as conn:
+            v = await conn.fetchval("SELECT version()")
+        await pool.close()
+        return {"has_url": has_url, "url_prefix": url_prefix, "asyncpg": apg_version, "pg_version": v}
+    except Exception as e:
+        return {"has_url": has_url, "url_prefix": url_prefix, "asyncpg": apg_version, "error": str(e)}
+
+
 @app.get("/api/data/funding")
 async def get_funding_data(symbol: str = "BTC", hours: int = 168):
     """Get funding rate history. Default 7 days."""
