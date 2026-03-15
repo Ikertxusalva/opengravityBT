@@ -67,8 +67,8 @@ function isAgentDisabled(agentName: string): boolean {
 
 /**
  * Invoke an agent by injecting a prompt into its running PTY.
- * Returns a promise that resolves when the agent writes a response
- * to the swarm bus, or rejects on timeout.
+ * If the agent is not running, falls back to deterministic analysis
+ * using Railway API data. The swarm NEVER stops because a terminal is closed.
  */
 function invokeAgent(
   agentName: AgentName,
@@ -77,14 +77,8 @@ function invokeAgent(
 ): Promise<AgentResponse> {
   return new Promise((resolve) => {
     if (isAgentDisabled(agentName)) {
-      resolve({
-        agent: agentName,
-        type: 'analysis',
-        direction: 'NEUTRAL',
-        confidence: 0,
-        reason: `Circuit breaker OPEN — agent disabled after ${THRESHOLDS.CIRCUIT_BREAKER_MAX} errors`,
-        timedOut: true,
-      });
+      console.log(`[Swarm] ${agentName} circuit OPEN — using deterministic fallback`);
+      deterministicFallback(agentName, prompt).then(resolve);
       return;
     }
 
@@ -98,15 +92,8 @@ function invokeAgent(
     }
 
     if (!targetTermId) {
-      console.log(`[Swarm] ⚠ ${agentName} not running — skipping convocation`);
-      resolve({
-        agent: agentName,
-        type: 'analysis',
-        direction: 'NEUTRAL',
-        confidence: 0,
-        reason: `Agent ${agentName} not running — open its terminal to participate in swarm`,
-        timedOut: true,
-      });
+      console.log(`[Swarm] ${agentName} not running — using deterministic fallback`);
+      deterministicFallback(agentName, prompt).then(resolve);
       return;
     }
 
@@ -115,16 +102,12 @@ function invokeAgent(
     const ok = safePtyWrite(pty, prompt + '\r');
     if (!ok) {
       onAgentError(agentName, 'PTY write failed');
-      resolve({
-        agent: agentName,
-        type: 'analysis',
-        direction: 'NEUTRAL',
-        confidence: 0,
-        reason: 'PTY write failed',
-        timedOut: true,
-      });
+      console.log(`[Swarm] ${agentName} PTY write failed — using deterministic fallback`);
+      deterministicFallback(agentName, prompt).then(resolve);
       return;
     }
+
+    console.log(`[Swarm] ${agentName} convoked via PTY — waiting for response...`);
 
     // Poll the bus for this agent's response
     const startTime = Date.now();
@@ -138,6 +121,7 @@ function invokeAgent(
       if (response) {
         clearInterval(pollInterval);
         onAgentSuccess(agentName);
+        console.log(`[Swarm] ${agentName} responded via bus: ${response.payload.direction}@${response.payload.confidence}`);
         resolve({
           agent: agentName,
           type: response.type as any,
@@ -152,19 +136,251 @@ function invokeAgent(
 
       if (Date.now() - startTime > opts.timeout) {
         clearInterval(pollInterval);
-        onAgentError(agentName, 'Timeout');
-        console.warn(`[Swarm] ${agentName} timed out after ${opts.timeout}ms`);
-        resolve({
-          agent: agentName,
-          type: 'analysis',
-          direction: 'NEUTRAL',
-          confidence: 0,
-          reason: `Timeout after ${opts.timeout}ms`,
-          timedOut: true,
-        });
+        console.warn(`[Swarm] ${agentName} timed out after ${opts.timeout}ms — using deterministic fallback`);
+        deterministicFallback(agentName, prompt).then(resolve);
       }
-    }, 500); // Check every 500ms
+    }, 500);
   });
+}
+
+// ── Deterministic Fallback ──
+// When an agent is not running or times out, use Railway API data
+// and hardcoded rules to produce an analysis. No LLM needed.
+
+async function deterministicFallback(agentName: AgentName, prompt: string): Promise<AgentResponse> {
+  // Extract symbol from the convocation prompt
+  const symbolMatch = prompt.match(/symbol[:\s]*["']?(\w+)/i) || prompt.match(/para (\w+)/i);
+  const symbol = symbolMatch?.[1]?.toUpperCase() || 'BTC';
+
+  try {
+    if (agentName === 'chart-agent') {
+      return await fallbackChart(symbol);
+    } else if (agentName === 'risk-agent') {
+      return await fallbackRisk(symbol);
+    } else if (agentName === 'funding-agent') {
+      return await fallbackFunding(symbol);
+    }
+  } catch (e) {
+    console.error(`[Swarm] Deterministic fallback failed for ${agentName}:`, e);
+  }
+
+  // Ultimate fallback: NEUTRAL with 0 confidence
+  return {
+    agent: agentName,
+    type: 'analysis',
+    direction: 'NEUTRAL',
+    confidence: 0,
+    reason: `Fallback: no data available for ${agentName}`,
+    timedOut: false,
+  };
+}
+
+/**
+ * Chart fallback: fetch candles from Railway, compute SMA cross + RSI.
+ * SMA20 > SMA50 = LONG, SMA20 < SMA50 = SHORT, else NEUTRAL.
+ */
+async function fallbackChart(symbol: string): Promise<AgentResponse> {
+  const resp = await fetch(`${CLOUD}/api/hl/candles/${symbol}?interval=1h&count=60`);
+  if (!resp.ok) throw new Error(`Candles API ${resp.status}`);
+  const data = await resp.json();
+  const candles: number[] = (data.candles || data || []).map((c: any) => parseFloat(c.close || c.c || c[4] || 0));
+
+  if (candles.length < 50) {
+    return { agent: 'chart-agent', type: 'analysis', direction: 'NEUTRAL', confidence: 0.2,
+      reason: `Insufficient candles (${candles.length})`, timedOut: false };
+  }
+
+  // SMA20 vs SMA50
+  const sma = (arr: number[], period: number) => {
+    const slice = arr.slice(-period);
+    return slice.reduce((a, b) => a + b, 0) / slice.length;
+  };
+  const sma20 = sma(candles, 20);
+  const sma50 = sma(candles, 50);
+  const price = candles[candles.length - 1];
+
+  // RSI(14)
+  const gains: number[] = [];
+  const losses: number[] = [];
+  for (let i = candles.length - 14; i < candles.length; i++) {
+    const diff = candles[i] - candles[i - 1];
+    gains.push(diff > 0 ? diff : 0);
+    losses.push(diff < 0 ? -diff : 0);
+  }
+  const avgGain = gains.reduce((a, b) => a + b, 0) / 14;
+  const avgLoss = losses.reduce((a, b) => a + b, 0) / 14;
+  const rsi = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
+
+  let direction: Direction = 'NEUTRAL';
+  let confidence = 0.4;
+  const reasons: string[] = [];
+
+  // Trend: SMA cross
+  if (sma20 > sma50 * 1.002) {
+    direction = 'LONG';
+    reasons.push(`SMA20(${sma20.toFixed(0)}) > SMA50(${sma50.toFixed(0)})`);
+    confidence += 0.15;
+  } else if (sma20 < sma50 * 0.998) {
+    direction = 'SHORT';
+    reasons.push(`SMA20(${sma20.toFixed(0)}) < SMA50(${sma50.toFixed(0)})`);
+    confidence += 0.15;
+  }
+
+  // RSI confirmation
+  if (rsi < 30 && direction !== 'SHORT') {
+    direction = 'LONG';
+    reasons.push(`RSI oversold (${rsi.toFixed(0)})`);
+    confidence += 0.15;
+  } else if (rsi > 70 && direction !== 'LONG') {
+    direction = 'SHORT';
+    reasons.push(`RSI overbought (${rsi.toFixed(0)})`);
+    confidence += 0.15;
+  } else {
+    reasons.push(`RSI neutral (${rsi.toFixed(0)})`);
+  }
+
+  // Price above/below SMAs
+  if (price > sma20 && price > sma50 && direction === 'LONG') confidence += 0.1;
+  if (price < sma20 && price < sma50 && direction === 'SHORT') confidence += 0.1;
+
+  confidence = Math.min(confidence, 0.95);
+
+  console.log(`[Swarm] chart-agent fallback: ${symbol} ${direction} @ ${confidence.toFixed(2)} — ${reasons.join(', ')}`);
+  return {
+    agent: 'chart-agent', type: 'analysis', direction,
+    confidence: parseFloat(confidence.toFixed(2)),
+    reason: `[Deterministic] ${reasons.join('; ')}`,
+    timedOut: false,
+  };
+}
+
+/**
+ * Risk fallback: fetch stress index + funding from Railway.
+ * Stress score > 80 = VETO. Funding extreme + high stress = lower confidence.
+ */
+async function fallbackRisk(symbol: string): Promise<AgentResponse> {
+  const [stressResp, fundingResp] = await Promise.all([
+    fetch(`${CLOUD}/api/market/snapshot`).catch(() => null),
+    fetch(`${CLOUD}/api/hl/funding`).catch(() => null),
+  ]);
+
+  let stressScore = 0;
+  let fundingAnnual = 0;
+
+  if (stressResp?.ok) {
+    const snapshot = await stressResp.json();
+    const rankings = snapshot.stress || [];
+    const coinStress = rankings.find((r: any) => r.coin === symbol || r.symbol === symbol);
+    stressScore = coinStress?.stress_score || coinStress?.score || 0;
+  }
+
+  if (fundingResp?.ok) {
+    const fundingData = await fundingResp.json();
+    const rates = fundingData.rates || [];
+    const coinFunding = rates.find((r: any) => r.coin === symbol);
+    fundingAnnual = coinFunding?.annual_pct || 0;
+  }
+
+  // VETO conditions
+  if (stressScore > 80) {
+    console.log(`[Swarm] risk-agent fallback VETO: stress score ${stressScore} > 80`);
+    return {
+      agent: 'risk-agent', type: 'veto', direction: 'NEUTRAL',
+      confidence: 0.9,
+      reason: `[Deterministic VETO] Stress score ${stressScore}/100 exceeds safety threshold`,
+      timedOut: false,
+    };
+  }
+
+  if (Math.abs(fundingAnnual) > 200) {
+    console.log(`[Swarm] risk-agent fallback VETO: extreme funding ${fundingAnnual}%`);
+    return {
+      agent: 'risk-agent', type: 'veto', direction: 'NEUTRAL',
+      confidence: 0.85,
+      reason: `[Deterministic VETO] Extreme funding ${fundingAnnual.toFixed(0)}% annual — liquidation risk`,
+      timedOut: false,
+    };
+  }
+
+  // Normal analysis
+  let direction: Direction = 'NEUTRAL';
+  let confidence = 0.5;
+  const reasons: string[] = [`stress: ${stressScore}/100`, `funding: ${fundingAnnual.toFixed(1)}%`];
+
+  // Low stress = safer to trade
+  if (stressScore < 30) {
+    confidence += 0.2;
+    reasons.push('low stress environment');
+  } else if (stressScore < 60) {
+    confidence += 0.1;
+    reasons.push('moderate stress');
+  } else {
+    confidence -= 0.1;
+    reasons.push('elevated stress — reduced size recommended');
+  }
+
+  // Funding direction hint
+  if (fundingAnnual < -10) {
+    direction = 'LONG';
+    reasons.push('negative funding favors longs');
+  } else if (fundingAnnual > 50) {
+    direction = 'SHORT';
+    reasons.push('high funding pressure on longs');
+  }
+
+  confidence = Math.max(0.1, Math.min(confidence, 0.95));
+
+  console.log(`[Swarm] risk-agent fallback: ${direction} @ ${confidence.toFixed(2)} — ${reasons.join(', ')}`);
+  return {
+    agent: 'risk-agent', type: 'analysis', direction,
+    confidence: parseFloat(confidence.toFixed(2)),
+    reason: `[Deterministic] ${reasons.join('; ')}`,
+    timedOut: false,
+  };
+}
+
+/**
+ * Funding fallback: fetch funding rates from Railway.
+ * Already a sensor, so this mainly confirms the signal with fresh data.
+ */
+async function fallbackFunding(symbol: string): Promise<AgentResponse> {
+  const resp = await fetch(`${CLOUD}/api/hl/funding`);
+  if (!resp.ok) throw new Error(`Funding API ${resp.status}`);
+  const data = await resp.json();
+  const rates = data.rates || [];
+  const coin = rates.find((r: any) => r.coin === symbol);
+
+  if (!coin) {
+    return { agent: 'funding-agent', type: 'analysis', direction: 'NEUTRAL', confidence: 0.1,
+      reason: `No funding data for ${symbol}`, timedOut: false };
+  }
+
+  const annual = coin.annual_pct || 0;
+  let direction: Direction = 'NEUTRAL';
+  let confidence = 0.5;
+  const reasons: string[] = [`${symbol} funding: ${annual.toFixed(1)}% annual (${coin.sentiment})`];
+
+  if (annual < -5) {
+    direction = 'LONG';
+    confidence = Math.min(0.9, 0.5 + Math.abs(annual) / 100);
+    reasons.push('negative funding = shorts paying longs');
+  } else if (annual > 50) {
+    direction = 'SHORT';
+    confidence = Math.min(0.9, 0.5 + annual / 200);
+    reasons.push('extreme positive funding = overleveraged longs');
+  } else if (annual > 20) {
+    direction = 'SHORT';
+    confidence = 0.4;
+    reasons.push('elevated funding');
+  }
+
+  console.log(`[Swarm] funding-agent fallback: ${direction} @ ${confidence.toFixed(2)} — ${reasons.join(', ')}`);
+  return {
+    agent: 'funding-agent', type: 'analysis', direction,
+    confidence: parseFloat(confidence.toFixed(2)),
+    reason: `[Deterministic] ${reasons.join('; ')}`,
+    timedOut: false,
+  };
 }
 
 /**
