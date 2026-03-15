@@ -15,12 +15,17 @@ async def init_schema(pool: asyncpg.Pool):
     """Run schema.sql to create tables if they don't exist."""
     schema_path = Path(__file__).parent / "schema.sql"
     sql = schema_path.read_text()
+    # Strip SQL comments before execution
+    lines = [l for l in sql.splitlines() if not l.strip().startswith("--")]
+    clean_sql = "\n".join(lines)
     async with pool.acquire() as conn:
-        # asyncpg requires individual statement execution
-        for stmt in sql.split(";"):
+        for stmt in clean_sql.split(";"):
             stmt = stmt.strip()
-            if stmt and not stmt.startswith("--"):
-                await conn.execute(stmt)
+            if stmt:
+                try:
+                    await conn.execute(stmt)
+                except Exception as e:
+                    print(f"[DB] Statement warning: {e}")
     print("[DB] Schema initialized")
 
 

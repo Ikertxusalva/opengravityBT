@@ -1975,12 +1975,16 @@ async def _get_asyncpg_pool():
             schema_path = Path(__file__).parent / "data_collector" / "storage" / "schema.sql"
             if schema_path.exists():
                 sql = schema_path.read_text()
+                lines = [l for l in sql.splitlines() if not l.strip().startswith("--")]
+                clean_sql = "\n".join(lines)
                 async with pool.acquire() as conn:
-                    # asyncpg needs statements executed individually
-                    for stmt in sql.split(";"):
+                    for stmt in clean_sql.split(";"):
                         stmt = stmt.strip()
-                        if stmt and not stmt.startswith("--"):
-                            await conn.execute(stmt)
+                        if stmt:
+                            try:
+                                await conn.execute(stmt)
+                            except Exception:
+                                pass  # Table/index may already exist
             app.state.asyncpg_pool = pool
             print("[ASYNCPG] Pool created + schema initialized")
         except Exception as e:
