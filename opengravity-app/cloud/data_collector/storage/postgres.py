@@ -16,7 +16,11 @@ async def init_schema(pool: asyncpg.Pool):
     schema_path = Path(__file__).parent / "schema.sql"
     sql = schema_path.read_text()
     async with pool.acquire() as conn:
-        await conn.execute(sql)
+        # asyncpg requires individual statement execution
+        for stmt in sql.split(";"):
+            stmt = stmt.strip()
+            if stmt and not stmt.startswith("--"):
+                await conn.execute(stmt)
     print("[DB] Schema initialized")
 
 
