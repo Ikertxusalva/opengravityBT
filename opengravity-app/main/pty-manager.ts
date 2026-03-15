@@ -98,12 +98,13 @@ function invokeAgent(
     }
 
     if (!targetTermId) {
+      console.log(`[Swarm] ⚠ ${agentName} not running — skipping convocation`);
       resolve({
         agent: agentName,
         type: 'analysis',
         direction: 'NEUTRAL',
         confidence: 0,
-        reason: `Agent ${agentName} not running`,
+        reason: `Agent ${agentName} not running — open its terminal to participate in swarm`,
         timedOut: true,
       });
       return;
@@ -189,15 +190,14 @@ async function processRealtimeSignal(event: SwarmEvent) {
   SwarmBus.setStatus('processing', `signal_${symbol}`);
 
   // Build analysis prompt for convoked agents
-  const analysisPrompt = `[SWARM CONVOCATION] Analiza urgente para ${symbol}:
-Señal: ${direction} con confianza ${(confidence * 100).toFixed(0)}% de ${event.from}
-Razón: ${event.payload.reason || 'No especificada'}
+  const analysisPrompt = `[SWARM CONVOCATION] ${symbol} — señal ${direction} (${(confidence * 100).toFixed(0)}%) de ${event.from}.
+Razón: ${event.payload.reason || 'N/A'}
 
-Responde SOLO escribiendo al swarm bus con este formato exacto en tu terminal:
-echo '{"channel":"realtime","from":"TU_AGENT_ID","type":"analysis","symbol":"${symbol}","direction":"LONG|SHORT|NEUTRAL","confidence":0.0-1.0,"reason":"tu análisis"}' >> .claude/swarm-bus/agent-response.json
+RESPONDE EJECUTANDO ESTE COMANDO (cambia direction, confidence y reason):
+echo '{"channel":"realtime","from":"TU_AGENT_ID","type":"analysis","timestamp":"${new Date().toISOString()}","ttl":300,"priority":2,"payload":{"symbol":"${symbol}","direction":"LONG","confidence":0.7,"reason":"tu análisis corto"}}' >> .claude/swarm-bus/events.jsonl
 
-Si consideras que es demasiado riesgoso, usa type:"veto" en lugar de "analysis".
-Tienes 10 segundos. Sé conciso.`;
+Si el riesgo es inaceptable, usa "type":"veto" en vez de "analysis".
+Tienes 30 segundos. Solo ejecuta el echo, nada más.`;
 
   // Convoke chart + risk EN PARALELO (Promise.all)
   const [chartResult, riskResult] = await Promise.all([

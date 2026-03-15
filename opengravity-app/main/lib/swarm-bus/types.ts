@@ -144,5 +144,5 @@ export const THRESHOLDS = {
   HALF_POSITION_SCORE: 0.60,
   CIRCUIT_BREAKER_MAX: 3,     // consecutive errors before disable
   HEALTH_CHECK_INTERVAL: 300_000, // 5 minutes
-  AGENT_TIMEOUT: 10_000,      // 10 seconds per agent invocation
+  AGENT_TIMEOUT: 30_000,      // 30 seconds per agent invocation (Claude needs time to think + execute)
 } as const;
