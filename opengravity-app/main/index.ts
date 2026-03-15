@@ -88,10 +88,13 @@ async function createWindow() {
 
   // ── Content Security Policy ────────────────────────────────────────────────
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const wsUrl = 'wss://chic-encouragement-production.up.railway.app';
+    const railwayBase = 'https://chic-encouragement-production.up.railway.app';
+    const railwayWs = 'wss://chic-encouragement-production.up.railway.app';
+    const apis = `${railwayBase} ${railwayWs} https://*.polymarket.com https://*.coingecko.com https://api.hyperliquid.xyz`;
+    const fonts = 'https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com';
     const csp = isProd
-      ? `default-src 'self' app:; script-src 'self' app:; style-src 'self' app: 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' ${wsUrl} https://*.polymarket.com https://*.coingecko.com https://api.hyperliquid.xyz; font-src 'self' app: https://cdn.jsdelivr.net; img-src 'self' app: data: https:;`
-      : `default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' ws://localhost:* http://localhost:* ${wsUrl} https://*.polymarket.com https://*.coingecko.com https://api.hyperliquid.xyz; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: https:;`;
+      ? `default-src 'self' app:; script-src 'self' app:; style-src 'self' app: 'unsafe-inline' ${fonts}; connect-src 'self' ${apis}; font-src 'self' app: ${fonts}; img-src 'self' app: data: https:;`
+      : `default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' ${fonts}; connect-src 'self' ws://localhost:* http://localhost:* ${apis}; font-src 'self' ${fonts}; img-src 'self' data: https:;`;
     callback({
       responseHeaders: {
         ...details.responseHeaders,
@@ -367,6 +370,67 @@ ipcMain.handle('copy-daemon-install', async () => runDaemonCmd('--install'));
 ipcMain.handle('copy-daemon-uninstall', async () => runDaemonCmd('--uninstall'));
 ipcMain.handle('copy-daemon-status', async () => runDaemonCmd('--status'));
 
+// ── Strategy Results (lee JSONs de moondev/results/) ──
+const RESULTS_DIR = path.join(process.cwd(), '..', 'moondev', 'results');
+
+ipcMain.handle('strategy-results', async () => {
+  try {
+    if (!fs.existsSync(RESULTS_DIR)) return { leaderboard: [], error: 'Directorio no encontrado: ' + RESULTS_DIR };
+    const files = fs.readdirSync(RESULTS_DIR).filter(f => f.endsWith('.json') && f.startsWith('multi_'));
+    const bestByStrategy: Record<string, any> = {};
+    for (const file of files) {
+      try {
+        const data = JSON.parse(fs.readFileSync(path.join(RESULTS_DIR, file), 'utf8'));
+        const strategy = data.strategy;
+        for (const sym of (data.symbols || [])) {
+          const existing = bestByStrategy[strategy];
+          if (!existing || sym.sharpe > existing.sharpe) {
+            bestByStrategy[strategy] = {
+              strategy,
+              period: data.period,
+              interval: data.interval,
+              generated_at: data.generated_at,
+              global_verdict: data.summary?.global_verdict || 'NO_VIABLE',
+              passing: data.summary?.passing || 0,
+              total_assets: data.symbols?.length || 0,
+              best_symbol: sym.symbol,
+              return_pct: sym.return_pct,
+              sharpe: sym.sharpe,
+              max_dd: sym.max_dd,
+              trades: sym.trades,
+              win_rate: sym.win_rate,
+              verdict: sym.verdict,
+            };
+          }
+        }
+      } catch {}
+    }
+    const leaderboard = Object.values(bestByStrategy).sort((a: any, b: any) => b.sharpe - a.sharpe);
+    return { leaderboard, total_files: files.length };
+  } catch (e) {
+    return { leaderboard: [], error: String(e) };
+  }
+});
+
+// Watcher: notifica al renderer cuando llegan nuevos resultados
+let resultsWatcher: fs.FSWatcher | null = null;
+let resultsDebounce: ReturnType<typeof setTimeout> | null = null;
+
+function startResultsWatcher() {
+  if (resultsWatcher || !fs.existsSync(RESULTS_DIR)) return;
+  try {
+    resultsWatcher = fs.watch(RESULTS_DIR, (_evt, filename) => {
+      if (!filename?.endsWith('.json')) return;
+      if (resultsDebounce) clearTimeout(resultsDebounce);
+      resultsDebounce = setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('strategy-results-update');
+        }
+      }, 800);
+    });
+  } catch {}
+}
+
 function startCopyCycleLoop() {
   if (copyCycleTimer) return;
   // First copy cycle 2 min after app start
@@ -399,4 +463,5 @@ app.whenReady().then(() => {
   startPolymarketWatcher();
   startPolyCycleLoop();
   startCopyCycleLoop();
+  startResultsWatcher();
 });
