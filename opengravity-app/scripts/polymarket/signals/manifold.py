@@ -68,7 +68,7 @@ def _fetch_manifold_markets(limit: int = 300) -> list:
 def check_manifold_signal(polymarket_question: str,
                           polymarket_price_yes: float,
                           min_edge: float = 0.07,
-                          min_similarity: float = 0.28) -> Optional[dict]:
+                          min_similarity: float = 0.40) -> Optional[dict]:
     """
     Busca en Manifold un mercado similar y detecta discrepancia de precio.
 

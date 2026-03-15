@@ -43,6 +43,16 @@ try:
 except ImportError:
     SIGNALS_AVAILABLE = False
 
+# Cross-market inconsistency signal
+try:
+    from signals.cross_market import check_cross_market_inconsistency
+    CROSS_MARKET_AVAILABLE = True
+except ImportError:
+    CROSS_MARKET_AVAILABLE = False
+
+    def check_cross_market_inconsistency(*args, **kwargs):
+        return []
+
 # LLM probability estimator (Groq)
 try:
     from signals.llm_estimator import estimate_probability as llm_estimate
@@ -761,7 +771,7 @@ def check_tournament_relative_value(m: dict, markets_pool: list,
     }
 
 
-def analyze_market(m: dict, markets_pool: Optional[list] = None) -> Optional[dict]:
+def analyze_market(m: dict, markets_pool: Optional[list] = None, cross_signals: Optional[dict] = None) -> Optional[dict]:
     """Analisis completo de un mercado. Retorna senal si hay edge."""
     condition_id = m.get("conditionId", "")
     if not condition_id:
@@ -872,6 +882,15 @@ def analyze_market(m: dict, markets_pool: Optional[list] = None) -> Optional[dic
         tv = check_tournament_relative_value(m, markets_pool, price_yes)
         if tv:
             checks.append(tv)
+
+    # 5b. Cross-market inconsistency (pre-computado en cmd_scan)
+    if cross_signals and condition_id in cross_signals:
+        cs = cross_signals[condition_id]
+        checks.append({
+            "source": "cross_market_ladder",
+            "edge": round(abs(cs.get("edge", 0)), 4),
+            "direction": cs.get("direction", "BUY_YES"),
+        })
 
     # 6. Overreaction (solo si hay senal previa -- es costoso)
     if checks:
@@ -1612,13 +1631,24 @@ def cmd_scan(auto_open=True):
 
     print(f"  {len(markets)} mercados. Analizando con {len(BASE_RATES)} keywords...\n")
 
+    # Pre-computar señales cross-market para todo el pool
+    cross_hits: dict = {}
+    if CROSS_MARKET_AVAILABLE:
+        try:
+            cm_signals = check_cross_market_inconsistency(markets)
+            cross_hits = {s["condition_id"]: s for s in cm_signals if s.get("condition_id")}
+            if cross_hits:
+                print(f"  [cross_market] {len(cross_hits)} señales detectadas")
+        except Exception as e:
+            print(f"  [cross_market] Error: {e}")
+
     signals = []
     for i, m in enumerate(markets):
         q = m.get("question", "")[:55]
         sys.stdout.write(f"  [{i+1:03d}/{len(markets)}] {q:<55}\r")
         sys.stdout.flush()
         # Pasar el pool completo para el analisis cross-market (tournament_rv)
-        sig = analyze_market(m, markets_pool=markets)
+        sig = analyze_market(m, markets_pool=markets, cross_signals=cross_hits)
         if sig:
             signals.append(sig)
         time.sleep(0.05)

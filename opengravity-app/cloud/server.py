@@ -266,6 +266,7 @@ _last_stress_rankings: list = []  # cached for REST endpoint
 _last_funding_rates: dict = {}  # cached for REST endpoint
 _last_liquidations: list = []  # cached for REST endpoint
 _last_whale_data: dict = {"longs": [], "shorts": []}  # cached for REST endpoint
+_binance_funding_cache: dict[str, float] = {}  # coin -> annual_pct (cross-exchange cache)
 
 
 async def fetch_prices():
@@ -790,11 +791,13 @@ async def fetch_binance_funding():
                     continue
                 try:
                     fr = float(item.get("lastFundingRate", 0) or 0)
+                    annual = round(fr * 24 * 365 * 100, 2)
                     rates[coin] = {
                         "funding_8h_pct": round(fr * 100, 4),
-                        "annual_pct": round(fr * 24 * 365 * 100, 2),
+                        "annual_pct": annual,
                         "mark_price": float(item.get("markPrice", 0) or 0),
                     }
+                    _binance_funding_cache[coin] = annual
                 except (TypeError, ValueError):
                     pass
             if rates:
@@ -891,6 +894,15 @@ async def compute_stress_index():
                 score += 20; signals.append("CAPITULATION"); direction = "CAPITULATION_SIGNAL"
             elif annual > 20 and short_liqs > long_liqs and short_liqs > 100_000:
                 score += 20; signals.append("SHORT_SQUEEZE"); direction = "SHORT_SQUEEZE_SIGNAL"
+
+            # Cross-exchange divergence/confluence (vs Binance)
+            if coin in _binance_funding_cache:
+                binance_annual = _binance_funding_cache[coin]
+                divergence = abs(annual - binance_annual)
+                if divergence > 50:
+                    score += 15; signals.append(f"EXCHANGE_DIVERGENCE:{divergence:.0f}%")
+                elif (annual >= 0) == (binance_annual >= 0):
+                    score += 10; signals.append("EXCHANGE_CONFLUENCE")
 
             score = round(min(score, 100.0), 1)
             stress_results.append({

@@ -59,6 +59,14 @@ COPY_DISCARD_DAYS = 7       # Días de pérdidas consecutivas → descarte
 COPY_MONITOR_HOURS = 4      # Monitorear posiciones cada 4h
 DISCOVER_INTERVAL_HOURS = 24  # Discover diario
 
+# Wallets pinned para copy trading (vacío = usar top N por score)
+# Seleccionadas por ser las más ACTIVAS del top 50 con mejor ROI real
+PINNED_WALLETS = [
+    "0x6a72f61820b26b1fe4d956e17b6dc2a1ea3033ee",  # kch123       — Rank#3  $11M   4.4% ROI | 2 pos activas
+    "0x94a428cfa4f84b264e01f70d93d02bc96cb36356",  # GCottrell93  — Rank#24 $3.4M 21.7% ROI | 5 pos activas
+    "0xd7f85d0eb0fe0732ca38d9107ad0d4d01b1289e4",  # tdrhrhhd     — Rank#50 $1.8M 13.9% ROI | 14 pos activas
+]
+
 
 def _load_json(path: Path, default=None):
     try:
@@ -108,14 +116,17 @@ def fetch_leaderboard(limit: int = 100) -> list:
 
 
 def fetch_wallet_positions(address: str) -> list:
-    """Fetch posiciones abiertas de una wallet."""
+    """Fetch posiciones abiertas de una wallet via Data API (filtra solo las con valor > 0)."""
     try:
-        resp = httpx.get(f"{GAMMA}/positions", params={
-            "address": address.lower(),
-            "sizeThreshold": 0.01,
+        resp = httpx.get(f"{DATA_API}/v1/positions", params={
+            "user": address.lower(),
+            "limit": 20,
         }, timeout=15)
         if resp.status_code == 200:
-            return resp.json() if isinstance(resp.json(), list) else []
+            data = resp.json()
+            positions = data if isinstance(data, list) else []
+            # Solo posiciones con mercado aún abierto (currentValue > 0)
+            return [p for p in positions if float(p.get("currentValue", 0) or 0) > 0]
     except Exception:
         pass
     return []
@@ -486,21 +497,27 @@ def cmd_copy_cycle():
         print("  [COPY] Sin wallets tracked")
         return
 
-    # Filtrar wallets elegibles para copiar (score >= mínimo, no descartadas)
-    eligible = [w for w in wallets if w.get("score", 0) >= COPY_MIN_WALLET_SCORE
-                and not w.get("discarded", False)]
+    # Filtrar wallets elegibles (pinned si están definidas, sino por score)
+    if PINNED_WALLETS:
+        eligible = [w for w in wallets if w["address"] in PINNED_WALLETS
+                    and not w.get("discarded", False)]
+        print(f"  [COPY] Modo pinned: {len(eligible)}/{len(PINNED_WALLETS)} wallets activas")
+    else:
+        eligible = [w for w in wallets if w.get("score", 0) >= COPY_MIN_WALLET_SCORE
+                    and not w.get("discarded", False)]
     if not eligible:
         print("  [COPY] Sin wallets elegibles para copy trading")
         return
 
-    print(f"  [COPY] {len(eligible)} wallets elegibles para copy trading")
+    print(f"  [COPY] {len(eligible)} wallets monitoreadas: {[w['name'] for w in eligible]}")
 
     # Cargar posiciones anteriores (snapshot) para detectar NUEVAS
     prev_positions = _load_json(POSITIONS_FILE, {})
+    first_run = not prev_positions  # True si no hay datos previos
 
     # Actualizar posiciones actuales
     current_positions = {}
-    for w in eligible[:15]:  # Top 15 por score
+    for w in eligible[:15]:  # Top 15 por score (o todas las pinned)
         addr = w["address"]
         positions = fetch_wallet_positions(addr)
         if positions:
@@ -535,6 +552,13 @@ def cmd_copy_cycle():
                     "avg_price": float(pos.get("avgPrice", 0) or 0),
                     "current_price": float(pos.get("curPrice", 0) or pos.get("price", 0) or 0),
                 })
+
+    # Primera ejecución: guardar baseline sin abrir trades
+    if first_run:
+        total = sum(len(d["positions"]) for d in current_positions.values())
+        print(f"  [COPY] BASELINE establecido — {total} posiciones actuales ignoradas")
+        print(f"         El próximo ciclo detectará posiciones NUEVAS como señales de copy.")
+        return
 
     if not new_trades:
         print("  [COPY] Sin nuevas posiciones detectadas")

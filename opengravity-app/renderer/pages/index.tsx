@@ -54,7 +54,26 @@ export default function HomePage() {
   const [stressData, setStressData] = React.useState<Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>>([]);
   const [liquidationData, setLiquidationData] = React.useState<Array<{ coin: string; side: string; usd_size: number; px?: string; sz?: string; time_ms?: number; tid?: number; leverage?: number; liq_px?: string; entry_px?: string; margin_used?: string; _new?: boolean }>>([]);
   const [whaleData, setWhaleData] = React.useState<{ longs: any[]; shorts: any[] }>({ longs: [], shorts: [] });
+  const [fundingHistoryData, setFundingHistoryData] = React.useState<Array<{ timestamp: number; annual_pct: number }>>([]);
+  const [fundingHistoryCoin, setFundingHistoryCoin] = React.useState('BTC');
   
+  const fetchFundingHistory = React.useCallback(async (coin: string) => {
+    try {
+      const res = await fetch(`${CLOUD_URL}/api/hl/funding/history/${coin}?days=7`);
+      const data = await res.json();
+      const records = Array.isArray(data) ? data : (data.history || []);
+      // Map time_ms → timestamp for the chart component
+      setFundingHistoryData(records.map((r: any) => ({
+        timestamp: r.time_ms || r.timestamp || 0,
+        annual_pct: r.annual_pct || 0,
+      })));
+    } catch {}
+  }, []);
+
+  React.useEffect(() => {
+    fetchFundingHistory(fundingHistoryCoin);
+  }, [fundingHistoryCoin, fetchFundingHistory]);
+
   const startupDoneRef = React.useRef(false);
   const wsRef = React.useRef<WebSocket | null>(null);
   const tokenRef = React.useRef<string | null>(null);
@@ -268,7 +287,7 @@ export default function HomePage() {
         <span className="logo">OPENGRAVITY</span>
         <div className="separator" />
         <button className={`nav-tab ${activeView === 'terminals' ? 'active' : ''}`} onClick={() => setActiveView('terminals')}>TERMINALS</button>
-        <button className={`nav-tab ${activeView === 'market' ? 'active' : ''}`} onClick={() => { setActiveView('market'); fetchMarketData(); }}>MARKET</button>
+        <button className={`nav-tab ${activeView === 'market' ? 'active' : ''}`} onClick={() => { setActiveView('market'); fetchMarketData(); fetchFundingHistory(fundingHistoryCoin); }}>MARKET</button>
         <button className={`nav-tab ${activeView === 'polymarket' ? 'active' : ''}`} onClick={() => setActiveView('polymarket')}>POLYMARKET</button>
         <button className={`nav-tab ${activeView === 'strategies' ? 'active' : ''}`} onClick={() => setActiveView('strategies')}>STRATEGIES</button>
         <div className="nav-spacer" />
@@ -342,7 +361,8 @@ export default function HomePage() {
           )}
         </div>
         <div style={{ display: activeView === 'market' ? 'contents' : 'none' }}>
-          <MarketPanel fundingData={fundingData} stressData={stressData} liquidationData={liquidationData} whaleData={whaleData} />
+          <MarketPanel fundingData={fundingData} stressData={stressData} liquidationData={liquidationData} whaleData={whaleData}
+            fundingHistoryData={fundingHistoryData} fundingHistoryCoin={fundingHistoryCoin} onFundingHistoryCoinChange={setFundingHistoryCoin} />
         </div>
         <div style={{ display: activeView === 'polymarket' ? 'contents' : 'none' }}>
           <PolymarketPanel />
@@ -1004,13 +1024,54 @@ function PolymarketPanel() {
 }
 
 
+function FundingMiniChart(props: { data: Array<{ timestamp: number; annual_pct: number }> }) {
+  const { data } = props;
+  if (data.length < 2) return null;
+
+  const W = 300, H = 80;
+  const minY = Math.min(...data.map(d => d.annual_pct));
+  const maxY = Math.max(...data.map(d => d.annual_pct));
+  const rangeY = maxY - minY || 1;
+  const pad = 4;
+
+  const points = data.map((d, i) => {
+    const x = pad + (i / (data.length - 1)) * (W - pad * 2);
+    const y = H - pad - ((d.annual_pct - minY) / rangeY) * (H - pad * 2);
+    return `${x},${y}`;
+  }).join(' ');
+
+  // Zero line position
+  const zeroY = H - pad - ((0 - minY) / rangeY) * (H - pad * 2);
+  const lastVal = data[data.length - 1].annual_pct;
+  const lineColor = lastVal > 20 ? '#00e676' : lastVal < -20 ? '#ff4455' : '#448aff';
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '100%' }} preserveAspectRatio="none">
+      {/* Zero line */}
+      {minY < 0 && maxY > 0 && (
+        <line x1={pad} y1={zeroY} x2={W - pad} y2={zeroY} stroke="#2a2a4a" strokeWidth="0.5" strokeDasharray="4,3" />
+      )}
+      {/* Funding line */}
+      <polyline points={points} fill="none" stroke={lineColor} strokeWidth="1.5" strokeLinejoin="round" />
+      {/* Labels */}
+      <text x={W - pad} y={10} textAnchor="end" fill="#6a6a8a" fontSize="8">{maxY.toFixed(0)}%</text>
+      <text x={W - pad} y={H - 2} textAnchor="end" fill="#6a6a8a" fontSize="8">{minY.toFixed(0)}%</text>
+      <text x={W - pad - 50} y={10} textAnchor="end" fill={lineColor} fontSize="9" fontWeight="bold">{lastVal > 0 ? '+' : ''}{lastVal.toFixed(0)}%/y</text>
+    </svg>
+  );
+}
+
+
 function MarketPanel(props: {
   fundingData: Record<string, { h8_pct: number; annual_pct: number }>;
   stressData: Array<{ coin: string; score: number; annual_funding_pct: number; direction: string; signals: string[] }>;
   liquidationData: Array<{ coin: string; side: string; usd_size: number; px?: string; sz?: string; time_ms?: number; tid?: number; leverage?: number; liq_px?: string; entry_px?: string; margin_used?: string; _new?: boolean }>;
   whaleData: { longs: any[]; shorts: any[] };
+  fundingHistoryData?: Array<{ timestamp: number; annual_pct: number }>;
+  fundingHistoryCoin?: string;
+  onFundingHistoryCoinChange?: (coin: string) => void;
 }) {
-  const { fundingData, stressData, liquidationData } = props;
+  const { fundingData, stressData, liquidationData, fundingHistoryData, fundingHistoryCoin, onFundingHistoryCoinChange } = props;
 
   const fundingColor = (annual: number) => {
     if (annual > 100) return '#ff4455';
@@ -1099,35 +1160,63 @@ function MarketPanel(props: {
         )}
       </div>
 
-      {/* Column 2: Funding Rates — full height */}
-      <div style={sectionStyle}>
-        <div style={{ ...titleStyle, display: 'flex', justifyContent: 'space-between' }}>
-          <span>FUNDING RATES — ALL ASSETS</span>
-          <span style={{ fontSize: '9px', color: '#6a6a8a', letterSpacing: '0', fontWeight: 400 }}>{sortedFunding.length} perps</span>
-        </div>
-        {sortedFunding.length === 0 ? (
-          <div style={emptyStyle}>Esperando datos...</div>
-        ) : (
-          <div style={scrollStyle}>
-            {sortedFunding.map(([coin, data]) => (
-              <div key={coin} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderBottom: '1px solid #0e0e1a' }}>
-                <span style={{ width: '38px', fontSize: '11px', fontWeight: 600, color: '#e0e0f0' }}>{coin}</span>
-                <div style={{ flex: 1, height: '4px', background: '#12121e', borderRadius: '2px', overflow: 'hidden', position: 'relative' }}>
-                  <div style={{
-                    position: 'absolute', height: '100%', borderRadius: '2px',
-                    left: data.annual_pct >= 0 ? '50%' : `${50 + Math.max(data.annual_pct / 4, -50)}%`,
-                    width: `${Math.min(Math.abs(data.annual_pct) / 4, 50)}%`,
-                    background: fundingColor(data.annual_pct),
-                  }} />
+      {/* Column 2: Funding Rates + History Chart */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0 }}>
+        <div style={{ ...sectionStyle, flex: 1 }}>
+          <div style={{ ...titleStyle, display: 'flex', justifyContent: 'space-between' }}>
+            <span>FUNDING RATES — ALL ASSETS</span>
+            <span style={{ fontSize: '9px', color: '#6a6a8a', letterSpacing: '0', fontWeight: 400 }}>{sortedFunding.length} perps</span>
+          </div>
+          {sortedFunding.length === 0 ? (
+            <div style={emptyStyle}>Esperando datos...</div>
+          ) : (
+            <div style={scrollStyle}>
+              {sortedFunding.map(([coin, data]) => (
+                <div key={coin} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderBottom: '1px solid #0e0e1a' }}>
+                  <span style={{ width: '38px', fontSize: '11px', fontWeight: 600, color: '#e0e0f0' }}>{coin}</span>
+                  <div style={{ flex: 1, height: '4px', background: '#12121e', borderRadius: '2px', overflow: 'hidden', position: 'relative' }}>
+                    <div style={{
+                      position: 'absolute', height: '100%', borderRadius: '2px',
+                      left: data.annual_pct >= 0 ? '50%' : `${50 + Math.max(data.annual_pct / 4, -50)}%`,
+                      width: `${Math.min(Math.abs(data.annual_pct) / 4, 50)}%`,
+                      background: fundingColor(data.annual_pct),
+                    }} />
+                  </div>
+                  <span style={{ width: '56px', fontSize: '10px', color: fundingColor(data.annual_pct), textAlign: 'right', fontFamily: 'monospace' }}>
+                    {data.h8_pct > 0 ? '+' : ''}{data.h8_pct.toFixed(4)}%
+                  </span>
+                  <span style={{ width: '48px', fontSize: '10px', color: fundingColor(data.annual_pct), textAlign: 'right', fontWeight: 600 }}>
+                    {data.annual_pct > 0 ? '+' : ''}{data.annual_pct.toFixed(0)}%/y
+                  </span>
                 </div>
-                <span style={{ width: '56px', fontSize: '10px', color: fundingColor(data.annual_pct), textAlign: 'right', fontFamily: 'monospace' }}>
-                  {data.h8_pct > 0 ? '+' : ''}{data.h8_pct.toFixed(4)}%
-                </span>
-                <span style={{ width: '48px', fontSize: '10px', color: fundingColor(data.annual_pct), textAlign: 'right', fontWeight: 600 }}>
-                  {data.annual_pct > 0 ? '+' : ''}{data.annual_pct.toFixed(0)}%/y
-                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Funding History Mini-Chart */}
+        {fundingHistoryData && (
+          <div style={{ ...sectionStyle, height: '140px', flexShrink: 0 }}>
+            <div style={{ ...titleStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>FUNDING HISTORY — 7D</span>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {['BTC', 'ETH', 'SOL'].map(c => (
+                  <button key={c} onClick={() => onFundingHistoryCoinChange?.(c)} style={{
+                    fontSize: '9px', padding: '1px 6px', borderRadius: '3px', border: 'none', cursor: 'pointer',
+                    background: fundingHistoryCoin === c ? '#448aff30' : 'transparent',
+                    color: fundingHistoryCoin === c ? '#448aff' : '#4a4a6a',
+                    fontWeight: fundingHistoryCoin === c ? 700 : 400,
+                  }}>{c}</button>
+                ))}
               </div>
-            ))}
+            </div>
+            <div style={{ flex: 1, padding: '6px 12px', minHeight: 0 }}>
+              {fundingHistoryData.length === 0 ? (
+                <div style={{ ...emptyStyle, padding: '8px' }}>Sin datos</div>
+              ) : (
+                <FundingMiniChart data={fundingHistoryData} />
+              )}
+            </div>
           </div>
         )}
       </div>
