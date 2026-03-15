@@ -15,10 +15,21 @@ async def init_schema(pool: asyncpg.Pool):
     """Run schema.sql to create tables if they don't exist."""
     schema_path = Path(__file__).parent / "schema.sql"
     sql = schema_path.read_text()
-    # Strip SQL comments before execution
-    lines = [l for l in sql.splitlines() if not l.strip().startswith("--")]
-    clean_sql = "\n".join(lines)
     async with pool.acquire() as conn:
+        # First drop broken tables from previous bad schema init
+        for table in ["funding_rates", "liquidations", "market_snapshots", "swarm_trades"]:
+            try:
+                cols = await conn.fetch(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name=$1", table)
+                col_names = [r["column_name"] for r in cols]
+                if cols and "exchange" not in col_names and table != "market_snapshots" and table != "swarm_trades":
+                    print(f"[DB] Table {table} is broken (missing columns), dropping...")
+                    await conn.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
+            except Exception:
+                pass
+        # Now create all tables — strip comments, execute each statement
+        lines = [l for l in sql.splitlines() if not l.strip().startswith("--")]
+        clean_sql = "\n".join(lines)
         for stmt in clean_sql.split(";"):
             stmt = stmt.strip()
             if stmt:
