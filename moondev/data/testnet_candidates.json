@@ -1,0 +1,132 @@
+{
+  "generated_at": "2026-03-16T00:00:00Z",
+  "source": "mass_backtest_all_88.json (88 strategies x BTC/ETH/SOL 1h 365d)",
+  "status": "READY_FOR_TESTNET",
+  "active": false,
+  "notes": "Estrategias validadas por backtest. NO activar sin revision manual. Ya hay estrategias corriendo en testnet.",
+  "criteria": {
+    "min_sharpe": 1.0,
+    "max_dd_pct": -25.0,
+    "min_win_rate_pct": 40.0,
+    "min_trades": 20
+  },
+  "candidates": [
+    {
+      "strategy": "inst-heatmap-btc",
+      "registry_key": "inst-heatmap-btc",
+      "module": "rbi.strategies.institutional_strategies",
+      "factory": "make_heatmap_rotation_strategy",
+      "tier": "A",
+      "avg_sharpe": 1.58,
+      "results_by_asset": {
+        "BTC-USD": {"sharpe": 0.70, "return_pct": 5.8, "max_dd_pct": -7.8, "win_rate": 54.5, "trades": 77},
+        "ETH-USD": {"sharpe": 1.83, "return_pct": 35.7, "max_dd_pct": -14.2, "win_rate": 55.9, "trades": 59},
+        "SOL-USD": {"sharpe": 2.20, "return_pct": 83.1, "max_dd_pct": -11.3, "win_rate": 61.4, "trades": 70}
+      },
+      "recommended_assets": ["ETH", "SOL"],
+      "recommended_timeframe": "1h",
+      "edge": "Correlacion BTC como filtro de regimen. Altcoins correladas en mercado alcista.",
+      "risk_notes": "BTC Sharpe 0.70 (sub-par). Focalizar en alts con alta correlacion BTC."
+    },
+    {
+      "strategy": "bb-inside-keltner",
+      "registry_key": "bb-inside-keltner",
+      "module": "btquantr.engine.templates",
+      "tier": "B",
+      "avg_sharpe": 0.61,
+      "results_by_asset": {
+        "BTC-USD": {"sharpe": 1.02, "return_pct": 37.7, "max_dd_pct": -19.8, "win_rate": 47.7, "trades": 44},
+        "ETH-USD": {"sharpe": 0.94, "return_pct": 69.3, "max_dd_pct": -31.0, "win_rate": 46.0, "trades": 74},
+        "SOL-USD": {"sharpe": -0.14, "return_pct": -3.8, "max_dd_pct": -30.9, "win_rate": 37.8, "trades": 45}
+      },
+      "recommended_assets": ["BTC"],
+      "recommended_timeframe": "1h",
+      "edge": "BB squeeze inside Keltner Channel. Volatility compression breakout.",
+      "risk_notes": "Solo PASS en BTC. ETH borderline (DD -31%). SOL falla. Asset-specific."
+    },
+    {
+      "strategy": "bollinger-squeeze",
+      "registry_key": "bollinger-squeeze",
+      "module": "rbi.strategies.bollinger",
+      "tier": "B",
+      "avg_sharpe": 0.61,
+      "results_by_asset": {
+        "BTC-USD": {"sharpe": 1.02, "return_pct": 37.7, "max_dd_pct": -19.8, "win_rate": 47.7, "trades": 44},
+        "ETH-USD": {"sharpe": 0.94, "return_pct": 69.3, "max_dd_pct": -31.0, "win_rate": 46.0, "trades": 74},
+        "SOL-USD": {"sharpe": -0.14, "return_pct": -3.8, "max_dd_pct": -30.9, "win_rate": 37.8, "trades": 45}
+      },
+      "recommended_assets": ["BTC"],
+      "recommended_timeframe": "1h",
+      "edge": "Identica logica a bb-inside-keltner. Bollinger squeeze con confirmacion.",
+      "risk_notes": "Mismo perfil que bb-inside-keltner. No correr ambas (duplicado)."
+    },
+    {
+      "strategy": "rsi-divergence",
+      "registry_key": "rsi-divergence",
+      "module": "rbi.strategies.rsi",
+      "tier": "B",
+      "avg_sharpe": -1.56,
+      "results_by_asset": {
+        "BTC-USD": {"sharpe": 1.00, "return_pct": 52.4, "max_dd_pct": -20.4, "win_rate": 51.7, "trades": 60},
+        "ETH-USD": {"sharpe": -2.46, "return_pct": -58.1, "max_dd_pct": -73.6, "win_rate": 38.0, "trades": 108},
+        "SOL-USD": {"sharpe": -3.23, "return_pct": -66.8, "max_dd_pct": -74.2, "win_rate": 36.8, "trades": 133}
+      },
+      "recommended_assets": ["BTC"],
+      "recommended_timeframe": "1h",
+      "edge": "RSI divergence detection. Excelente en BTC (+52%, Sharpe 1.0).",
+      "risk_notes": "PELIGRO: destruye capital en ETH/SOL. SOLO BTC. Single-asset only."
+    },
+    {
+      "strategy": "stoch-macd-confirm",
+      "registry_key": "stoch-macd-confirm",
+      "module": "btquantr.engine.templates",
+      "tier": "C",
+      "avg_sharpe": -0.37,
+      "results_by_asset": {
+        "BTC-USD": {"sharpe": 0.70, "return_pct": 13.2, "max_dd_pct": -8.6, "win_rate": 45.2, "trades": 31},
+        "ETH-USD": {"sharpe": -0.19, "return_pct": -3.5, "max_dd_pct": -28.2, "win_rate": 38.2, "trades": 34},
+        "SOL-USD": {"sharpe": -1.61, "return_pct": -27.0, "max_dd_pct": -38.1, "win_rate": 29.2, "trades": 48}
+      },
+      "recommended_assets": ["BTC"],
+      "recommended_timeframe": "1h",
+      "edge": "Stochastic + MACD doble confirmacion. BTC DD bajo (-8.6%).",
+      "risk_notes": "No alcanza Sharpe 1.0 en promedio. BTC es el unico asset razonable."
+    },
+    {
+      "strategy": "trend-capture-pro",
+      "registry_key": "trend-capture-pro",
+      "module": "rbi.strategies.trend_capture_pro",
+      "tier": "C",
+      "avg_sharpe": -0.64,
+      "results_by_asset": {
+        "BTC-USD": {"sharpe": -1.35, "return_pct": -11.6, "max_dd_pct": -14.3, "win_rate": 20.0, "trades": 10},
+        "ETH-USD": {"sharpe": 0.67, "return_pct": 11.8, "max_dd_pct": -12.3, "win_rate": 53.3, "trades": 30},
+        "SOL-USD": {"sharpe": -1.26, "return_pct": -19.9, "max_dd_pct": -26.4, "win_rate": 40.4, "trades": 47}
+      },
+      "recommended_assets": ["ETH"],
+      "recommended_timeframe": "1h",
+      "edge": "Multi-factor trend capture. ETH unico asset positivo.",
+      "risk_notes": "BTC y SOL negativos. ETH Sharpe 0.67 borderline. Watchlist, no deploy."
+    }
+  ],
+  "deployment_priority": [
+    {
+      "priority": 1,
+      "strategy": "inst-heatmap-btc",
+      "assets": ["ETH", "SOL"],
+      "reason": "Unica estrategia con Sharpe >1.5 avg y consistencia multi-asset. DD <15% en todos."
+    },
+    {
+      "priority": 2,
+      "strategy": "bb-inside-keltner",
+      "assets": ["BTC"],
+      "reason": "Sharpe 1.02 en BTC, DD -19.8%. Volatility squeeze edge probado."
+    },
+    {
+      "priority": 3,
+      "strategy": "rsi-divergence",
+      "assets": ["BTC"],
+      "reason": "Sharpe 1.0 y +52% en BTC. SOLO BTC — prohibido en alts."
+    }
+  ]
+}

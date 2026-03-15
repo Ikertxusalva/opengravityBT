@@ -10,6 +10,7 @@ from typing import List
 
 class StrategyStatus(Enum):
     GLOBAL = "global"              # Viable multi-asset
+    TESTNET_READY = "testnet_ready" # Validada por backtest, lista para testnet (no activa)
     SINGLE_ASSET = "single_asset"  # Solo viable en activos especificos
     LABORATORY = "laboratory"      # Necesita re-diseno
     DEPRECATED = "deprecated"      # Descartada
@@ -222,10 +223,13 @@ STRATEGIES: List[StrategyEntry] = [
         name="RBI-BollingerSqueeze",
         module="moondev.strategies.rbi.bollinger",
         class_name="BollingerSqueeze",
-        status=StrategyStatus.SINGLE_ASSET,
+        status=StrategyStatus.TESTNET_READY,
         viable_assets=["BTC"],
         timeframe="1h",
-        notes="BTC-USD 1h Feb 2026: Sharpe 0.48, Return +12.19%, MaxDD -17.32%, WR 40.74%, 27 trades. Mejor estrategia RBI en BTC 1h.",
+        notes="TESTNET CANDIDATE #2 (2026-03-16). BB inside Keltner / Bollinger Squeeze. "
+              "BTC: Sharpe=1.02 Ret=+37.7% DD=-19.8% WR=47.7% T=44. "
+              "ETH: Sharpe=0.94 Ret=+69.3% DD=-31.0% (DD alto). "
+              "SOL: Sharpe=-0.14 (falla). Deploy: SOLO BTC 1h.",
     ),
     StrategyEntry(
         name="RBI-BollingerBreakoutLong",
@@ -273,8 +277,13 @@ STRATEGIES: List[StrategyEntry] = [
         name="RBI-RSIDivergence",
         module="moondev.strategies.rbi.rsi",
         class_name="RSIDivergence",
-        status=StrategyStatus.LABORATORY,
-        notes="BTC-USD 1h Feb 2026: Sharpe -1.21, Return -19.50%. Migrada desde RBI-Backtester. Pendiente de multi-test.",
+        status=StrategyStatus.TESTNET_READY,
+        viable_assets=["BTC"],
+        timeframe="1h",
+        notes="TESTNET CANDIDATE #3 (2026-03-16). RSI divergence detection. "
+              "BTC: Sharpe=1.00 Ret=+52.4% DD=-20.4% WR=51.7% T=60. "
+              "PELIGRO: ETH Sharpe=-2.46, SOL Sharpe=-3.23 (destruye capital). "
+              "Deploy: EXCLUSIVAMENTE BTC 1h. Prohibido en alts.",
     ),
 
     # -- MACD --
@@ -636,18 +645,15 @@ STRATEGIES: List[StrategyEntry] = [
         name="RBI-HeatMapRotation",
         module="moondev.strategies.rbi.institutional_strategies",
         class_name="make_heatmap_rotation_strategy",
-        status=StrategyStatus.SINGLE_ASSET,
-        viable_assets=["BTC", "ETH", "SOL"],
+        status=StrategyStatus.TESTNET_READY,
+        viable_assets=["ETH", "SOL"],
         timeframe="1h",
-        notes="Multi-test 2026-03-14 | 7 activos 1h | 3/7 PASS (43%) | VIABLE. "
-              "PASS: BTC Sharpe=1.60 Ret=+9.3% DD=-5.0% T=42, "
-              "ETH Sharpe=1.79 Ret=+12.9% DD=-5.8% T=34, "
-              "SOL Sharpe=2.76 Ret=+35.0% DD=-5.8% T=35. "
-              "PRECAUCION: AAPL Sharpe=1.21 Ret=+23.1% DD=-7.2% T=18 (trades insuficientes). "
-              "Stocks: SPY -2.5%, QQQ +1.7%, NVDA -2.9%. "
-              "Diagnostico: correlacion con BTC como filtro = excelente para altcoins. "
-              "Edge real: altcoins muy correladas con BTC en mercado alcista. "
-              "NOTA: T<50 (no supera PASS_MIN_TRADES=50 del config pero si el criterio usuario >=20).",
+        notes="TESTNET CANDIDATE #1 (2026-03-16). Mass backtest 88 strats: avg Sharpe 1.58, best 2.20 (SOL). "
+              "ETH: Sharpe=1.83 Ret=+35.7% DD=-14.2% WR=55.9% T=59. "
+              "SOL: Sharpe=2.20 Ret=+83.1% DD=-11.3% WR=61.4% T=70. "
+              "BTC: Sharpe=0.70 (sub-par, no recomendado). "
+              "Edge: correlacion BTC como filtro de regimen para altcoins. "
+              "Deploy: ETH + SOL 1h. NO activar sin revision manual.",
     ),
 
     # -- Estrategias macro (factories, requieren yfinance) --
