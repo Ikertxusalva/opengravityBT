@@ -360,6 +360,7 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       sessions.set(termId, ptyProcess);
       agentMap.set(termId, agentId);
       startAutoSave();
+      MemoryManager.startMaintenance();
 
       // Forward PTY output to renderer + accumulate in buffer
       ptyProcess.onData((data: string) => {
@@ -460,6 +461,8 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
   // Kill all on app quit
   ipcMain.on('pty-kill-all', () => {
     stopAutoSave();
+    MemoryManager.stopMaintenance();
+    MemoryManager.runMaintenance(); // Final cleanup before exit
     saveAllContexts();
     for (const [termId] of sessions) {
       cleanupSession(termId);
