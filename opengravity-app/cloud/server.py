@@ -1965,11 +1965,20 @@ async def _get_asyncpg_pool():
         raw_url = os.environ.get("DATABASE_URL", "")
         if raw_url.startswith("postgres://"):
             raw_url = raw_url.replace("postgres://", "postgresql://", 1)
-        # Strip +psycopg2 if present (asyncpg needs raw postgresql://)
         raw_url = raw_url.replace("postgresql+psycopg2://", "postgresql://")
-        if raw_url:
-            app.state.asyncpg_pool = await _apg.create_pool(raw_url, min_size=1, max_size=5)
-        else:
+        if not raw_url:
+            return None
+        try:
+            pool = await _apg.create_pool(raw_url, min_size=1, max_size=5)
+            # Ensure collector tables exist on first connect
+            from pathlib import Path
+            schema_path = Path(__file__).parent / "data_collector" / "storage" / "schema.sql"
+            if schema_path.exists():
+                async with pool.acquire() as conn:
+                    await conn.execute(schema_path.read_text())
+            app.state.asyncpg_pool = pool
+        except Exception as e:
+            print(f"[ASYNCPG] Pool creation failed: {e}")
             return None
     return app.state.asyncpg_pool
 
