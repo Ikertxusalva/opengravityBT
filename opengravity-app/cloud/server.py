@@ -1956,6 +1956,138 @@ async def get_whale_positions_endpoint():
     }
 
 
+# ── Data Collector Endpoints ──────────────────────────────────────────
+
+async def _get_asyncpg_pool():
+    """Lazy-init asyncpg pool for data collector queries."""
+    if not hasattr(app.state, "asyncpg_pool") or app.state.asyncpg_pool is None:
+        import asyncpg as _apg
+        raw_url = os.environ.get("DATABASE_URL", "")
+        if raw_url.startswith("postgres://"):
+            raw_url = raw_url.replace("postgres://", "postgresql://", 1)
+        # Strip +psycopg2 if present (asyncpg needs raw postgresql://)
+        raw_url = raw_url.replace("postgresql+psycopg2://", "postgresql://")
+        if raw_url:
+            app.state.asyncpg_pool = await _apg.create_pool(raw_url, min_size=1, max_size=5)
+        else:
+            return None
+    return app.state.asyncpg_pool
+
+
+@app.get("/api/data/funding")
+async def get_funding_data(symbol: str = "BTC", hours: int = 168):
+    """Get funding rate history. Default 7 days."""
+    pool = await _get_asyncpg_pool()
+    if not pool:
+        raise HTTPException(503, "Database not configured")
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT timestamp, exchange, symbol, funding_rate, funding_apy, mark_price
+            FROM funding_rates
+            WHERE symbol = $1 AND timestamp > NOW() - INTERVAL '1 hour' * $2
+            ORDER BY timestamp DESC
+        """, symbol.upper(), hours)
+    return [dict(r) for r in rows]
+
+
+@app.get("/api/data/funding/divergence")
+async def get_funding_divergence(symbol: str = "BTC"):
+    """Get latest funding rate from each exchange for cross-exchange divergence."""
+    pool = await _get_asyncpg_pool()
+    if not pool:
+        raise HTTPException(503, "Database not configured")
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT DISTINCT ON (exchange) exchange, funding_rate, funding_apy, mark_price, timestamp
+            FROM funding_rates
+            WHERE symbol = $1
+            ORDER BY exchange, timestamp DESC
+        """, symbol.upper())
+    result = {r["exchange"]: {
+        "rate": float(r["funding_rate"]),
+        "apy": float(r["funding_apy"]) if r["funding_apy"] else None,
+        "mark": float(r["mark_price"]) if r["mark_price"] else None,
+        "timestamp": r["timestamp"].isoformat(),
+    } for r in rows}
+    return result
+
+
+@app.get("/api/data/oi")
+async def get_open_interest(symbol: str = "BTC", hours: int = 168):
+    """Get open interest history."""
+    pool = await _get_asyncpg_pool()
+    if not pool:
+        raise HTTPException(503, "Database not configured")
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT timestamp, exchange, symbol, oi_contracts, oi_usd
+            FROM open_interest
+            WHERE symbol = $1 AND timestamp > NOW() - INTERVAL '1 hour' * $2
+            ORDER BY timestamp DESC
+        """, symbol.upper(), hours)
+    return [dict(r) for r in rows]
+
+
+@app.get("/api/data/liquidations")
+async def get_liquidations(symbol: str = None, hours: int = 24):
+    """Get recent liquidations. Optional symbol filter."""
+    pool = await _get_asyncpg_pool()
+    if not pool:
+        raise HTTPException(503, "Database not configured")
+    async with pool.acquire() as conn:
+        if symbol:
+            rows = await conn.fetch("""
+                SELECT timestamp, exchange, symbol, side, quantity, usd_value, price
+                FROM liquidations
+                WHERE symbol = $1 AND timestamp > NOW() - INTERVAL '1 hour' * $2
+                ORDER BY timestamp DESC LIMIT 500
+            """, symbol.upper(), hours)
+        else:
+            rows = await conn.fetch("""
+                SELECT timestamp, exchange, symbol, side, quantity, usd_value, price
+                FROM liquidations
+                WHERE timestamp > NOW() - INTERVAL '1 hour' * $1
+                ORDER BY timestamp DESC LIMIT 500
+            """, hours)
+    return [dict(r) for r in rows]
+
+
+@app.get("/api/data/snapshots")
+async def get_market_snapshots(hours: int = 168):
+    """Get market snapshots (hourly aggregates)."""
+    pool = await _get_asyncpg_pool()
+    if not pool:
+        raise HTTPException(503, "Database not configured")
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT * FROM market_snapshots
+            WHERE timestamp > NOW() - INTERVAL '1 hour' * $1
+            ORDER BY timestamp DESC
+        """, hours)
+    return [dict(r) for r in rows]
+
+
+@app.get("/api/data/collector/status")
+async def get_collector_status():
+    """Check data collector health — latest timestamps per table."""
+    pool = await _get_asyncpg_pool()
+    if not pool:
+        raise HTTPException(503, "Database not configured")
+    async with pool.acquire() as conn:
+        tables = ["funding_rates", "open_interest", "liquidations", "market_snapshots", "ohlcv"]
+        status = {}
+        for table in tables:
+            try:
+                row = await conn.fetchrow(f"SELECT MAX(timestamp) as latest, COUNT(*) as total FROM {table}")
+                status[table] = {
+                    "latest": row["latest"].isoformat() if row["latest"] else None,
+                    "total_rows": row["total"],
+                }
+            except Exception:
+                status[table] = {"latest": None, "total_rows": 0}
+    return status
+
+
 # ── WebSocket for real-time data ──
 
 @app.websocket("/ws")

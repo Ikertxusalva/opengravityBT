@@ -1,0 +1,13 @@
+id,strategy_name,concept,backtestable,status,date_created,source
+1,HurstMeanReversionFilter,Hurst Exponent + Mean Reversion Detection,yes,pending,2026-03-15,Hurst research + BB combinations
+2,NakedPOCMagnet,Volume Profile POC naked levels,yes,pending,2026-03-15,Volume Profile research + VWAP
+3,CVDDivergenceWarn,Cumulative Volume Delta divergence,yes,pending,2026-03-15,CVD research + price action
+4,WyckoffSpringRejection,Wyckoff accumulation/spring patterns,yes,pending,2026-03-15,Wyckoff methodology
+5,EntropyMomentumDecay,Shannon Entropy + Momentum decay,yes,pending,2026-03-15,Market entropy research
+6,MultiFrameCorrelationArb,BTC-ETH correlation divergence arbitrage,yes,pending,2026-03-15,Multi-timeframe correlation research
+7,CashCarryFunding,Funding rate arbitrage spot+perp,yes,pending,2026-03-15,Crypto carry trade research
+8,VolatilitySqueezeEntropy,Bollinger squeeze + entropy + CVD,yes,pending,2026-03-15,Volatility + volume research
+9,LiquidationCascadeFront,Liquidation cascade absorption,yes,pending,2026-03-15,Market microstructure
+10,OBVAbsorptionBreakout,OBV absorption + breakout confirmation,yes,pending,2026-03-15,Volume profile absorption patterns
+11,MicroStructureMomentum,5-min scalp with volume + stochastic,yes,pending,2026-03-15,Microstructure trading
+12,SmartMoneySpringFake,Fake spring detection via OBV divergence,yes,pending,2026-03-15,Wyckoff smart money technique

@@ -20,5 +20,7 @@ ENV PORT=8080
 
 EXPOSE $PORT
 
-# Run with dynamic port (Railway injects PORT at runtime)
-CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Run API server + data collector daemon
+COPY start.sh .
+RUN chmod +x start.sh
+CMD ["sh", "start.sh"]

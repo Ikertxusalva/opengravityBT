@@ -1,0 +1,23 @@
+HurstMeanReversionFilter: Buy crypto when Hurst(50) < 0.45 AND price touches BB_lower(20,2) AND volume > SMA(20)*0.8; exit when price > BB_middle OR Hurst > 0.55. SL: 2.5%, TP: 3.5%. 1h-4h. BTC/ETH.
+
+NakedPOCMagnet: Buy when price bounces from naked VPOC(previous session) AND Anchored_VWAP(from bounce) slips below entry AND RSI(14) < 40; exit when price revisits VPOC OR 3 consecutive closes above VWAP. SL: 1.5 ATR, TP: 2 ATR. 4h daily. BTC/ETH/major alts.
+
+CVDDivergenceWarn: Short when price prints new 5-day high BUT CVD shows lower high (bearish divergence) AND OBV(20) also fails to confirm; exit on CVD reversal OR price closes below 10-SMA. SL: 1.2 ATR, TP: 2.5%. 1h-4h. Crypto spots/futures.
+
+WyckoffSpringRejection: Buy on LPS (Last Point of Supply) after confirmed Wyckoff spring (price spike down with high vol, quick reversal) AND close > spring high + 0.5% AND ADX(14) > 22; exit on breakout failure OR 2% loss. SL: spring low - 0.3%, TP: 5%. Daily. BTC/ETH.
+
+EntropyMomentumDecay: Long when RSI(14) > 60 BUT Shannon_Entropy(20) drops below 0.6 (market ordering after disorder) AND momentum divergence (ROC(12) declining while price rising); exit when entropy spikes above 0.8 OR momentum turns negative. SL: 1.5%, TP: 4%. 15m-1h scalp.
+
+MultiFrameCorrelationArb: Long BTC + Short ETH when BTC 1h-4h correlation diverges (BTC makes new high, ETH makes lower high on same bars) AND basis (BTC-ETH) > 2 standard deviations; exit when correlation re-aligns OR basis mean-reverts. Pairs trade, SL: 1 ATR each, TP: 3%. 4h-Daily.
+
+CashCarryFunding: Long spot BTC/ETH + Short perpetual when funding_rate > 40% annualized AND basis > 1.5% AND funding rate direction = positive; hold for 8-hour funding payment. Hedge with tight SL on spot (0.5%), protect perp short with 1% TP. Low-risk yield strategy.
+
+VolatilitySqueezeEntropy: Buy when BB(20,2) squeeze detected (bandwidth < 5% historical avg) AND volume contracts AND CVD makes higher low; exit on BB breakout OR volume spike. Scalp strategy, SL: 0.8%, TP: 1.5%. 5m-15m. High-volume assets only.
+
+LiquidationCascadeFront: Long when liquidation cascades (sudden large CVD spike + volume spike + price dip) stabilize AND price closes above cascade low + 0.3% AND 20-SMA > 50-SMA; exit on next cascade OR close below 20-SMA. SL: 0.5 ATR, TP: 2.5%. 1h-4h. Perpetual markets.
+
+OBVAbsorptionBreakout: Buy after consolidation phase where OBV(20) rises while price flat/down (absorption) then price breaks up with OBV confirmation AND MACD(12,26,9) histogram turns positive simultaneously; exit when MACD turns negative OR 2% trailing SL. SL: 1 ATR, TP: 5%. Daily-4h. Major alts.
+
+MicroStructureMomentum: Scalp when 5-min candle closes above high of previous 2 candles AND volume spike > 3x SMA(20) AND Stochastic(14,3,3) < 30 (oversold bounce) AND price > EMA(50); exit on 1st lower low OR 2-min timeout. SL: 0.5%, TP: 1.2%. 5m. Liquid pairs only.
+
+SmartMoneySpringFake: Short when price breaks below support with spike volume BUT OBV fails to confirm (no selling pressure) AND price closes back above support next candle; this is a fake spring. Exit on close below support or SL. SL: 1 ATR below spring, TP: 3%. 1h-4h. BTC/ETH major alts.
