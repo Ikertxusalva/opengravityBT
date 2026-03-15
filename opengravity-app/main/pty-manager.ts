@@ -475,6 +475,7 @@ Tienes 30 segundos. Solo ejecuta el echo, nada más.`;
       direction: decision.direction,
       size: decision.size,
       score: decision.score,
+      priority: event.priority || 2,  // Pass signal priority for order type selection
       reason: decision.reason,
       sources: decision.sources,
       funding: { direction: fundingResult.direction, confidence: fundingResult.confidence, reason: fundingResult.reason },
@@ -1111,6 +1112,7 @@ function executeHLOrder(order: any): Promise<any> {
         '--direction', order.direction,
         '--size', order.size || 'quarter',
         '--score', String(order.score || 0),
+        '--priority', String(order.priority || 2),
       ];
 
       // Testnet by default — only add --mainnet if explicitly requested
@@ -1125,7 +1127,7 @@ function executeHLOrder(order: any): Promise<any> {
         if (mainKey) execEnv['HL_PRIVATE_KEY'] = mainKey;
       }).catch(() => {}).finally(() => {
 
-      execFile(pythonPaths[idx], args, { timeout: 30_000, env: execEnv }, (err, stdout, stderr) => {
+      execFile(pythonPaths[idx], args, { timeout: 90_000, env: execEnv }, (err, stdout, stderr) => {
         if (err && (err as any).code === 'ENOENT') {
           tryPython(idx + 1); // Try next Python
           return;

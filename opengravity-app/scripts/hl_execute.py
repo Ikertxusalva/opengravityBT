@@ -5,14 +5,21 @@ Uses HLConnector for mainnet, direct REST API for testnet (SDK bug workaround).
 Called by pty-manager.ts when user confirms a swarm EXECUTE decision.
 Outputs JSON to stdout for the TypeScript caller to parse.
 
+Order logic:
+  - Default: LIMIT order with 0.1% slippage (better entry price)
+  - If limit not filled within FILL_TIMEOUT (60s): cancel + retry as IOC market
+  - Priority 1 signals skip limit and go straight to market (time-sensitive)
+
 Usage:
     python hl_execute.py --symbol BTC --direction LONG --size half --score 0.74
     python hl_execute.py --symbol ETH --direction SHORT --size full --score 0.85 --mainnet
+    python hl_execute.py --symbol BTC --direction LONG --size full --score 0.90 --priority 1
 """
 import argparse
 import json
 import os
 import sys
+import time
 import requests
 
 # Add project root to path for imports
@@ -25,6 +32,11 @@ MAINNET_URL = "https://api.hyperliquid.xyz"
 SIZE_MAP_TESTNET = {'full': 50.0, 'half': 25.0, 'quarter': 12.5}
 SIZE_MAP_MAINNET = {'full': 25.0, 'half': 12.5, 'quarter': 6.25}
 
+# Order execution config
+LIMIT_SLIPPAGE = 0.001   # 0.1% slippage for limit orders (tight, good entry)
+MARKET_SLIPPAGE = 0.005  # 0.5% slippage for market fallback
+FILL_TIMEOUT = 60        # Seconds to wait for limit fill before market fallback
+
 
 def hl_post(base_url: str, payload: dict) -> dict:
     """POST to HyperLiquid info API."""
@@ -33,7 +45,7 @@ def hl_post(base_url: str, payload: dict) -> dict:
     return resp.json()
 
 
-def execute_order(symbol: str, direction: str, size: str, score: float, testnet: bool = True) -> dict:
+def execute_order(symbol: str, direction: str, size: str, score: float, testnet: bool = True, priority: int = 2) -> dict:
     """Execute a market order on HyperLiquid."""
     key_env = 'HL_TESTNET_PRIVATE_KEY' if testnet else 'HL_PRIVATE_KEY'
     private_key = os.environ.get(key_env) or os.environ.get('HYPERLIQUID_PRIVATE_KEY', '')
@@ -112,14 +124,12 @@ def execute_order(symbol: str, direction: str, size: str, score: float, testnet:
         _orig_init = _hl_info.Info.__init__
 
         def _patched_init(self, base_url, skip_ws=False, meta=None, spot_meta=None, perp_dexs=None, timeout=None):
-            # Base class (API) attributes
             self.base_url = base_url
             self.session = requests.Session()
             self.session.headers.update({"Content-Type": "application/json"})
             self.timeout = timeout or 10
             self._logger = __import__('logging').getLogger(__name__)
             self.ws_manager = None
-            # Fetch meta and build lookups (skip spot which causes the crash)
             _meta = meta or requests.post(base_url + "/info", json={"type": "meta"}, timeout=10).json()
             self.coin_to_asset = {}
             self.name_to_coin = {}
@@ -134,36 +144,111 @@ def execute_order(symbol: str, direction: str, size: str, score: float, testnet:
         try:
             from hyperliquid.exchange import Exchange
             exchange = Exchange(account, base_url)
-            # Use limit order with controlled slippage (0.5%) instead of market_open (3%)
-            # to avoid "price too far from oracle" on testnet
-            slippage = 1.005 if is_buy else 0.995
-            limit_px = int(round(price * slippage))  # tick size = 1 for BTC
-            response = exchange.order(symbol, is_buy, asset_size, limit_px, {'limit': {'tif': 'Gtc'}})
+
+            # ── Order type selection ──
+            # Priority 1 = urgent → market (IOC with wider slippage)
+            # Priority 2/3 = normal → limit (GTC with tight slippage) + market fallback
+            use_market = (priority == 1)
+
+            # Tick size: BTC=1 (integer), most others vary
+            # For simplicity, round to integer for prices >1000, 2 decimals otherwise
+            def round_price(px):
+                if px > 1000:
+                    return int(round(px))
+                elif px > 10:
+                    return round(px, 1)
+                else:
+                    return round(px, 2)
+
+            if use_market:
+                # MARKET ORDER — IOC with 0.5% slippage
+                slippage = 1 + MARKET_SLIPPAGE if is_buy else 1 - MARKET_SLIPPAGE
+                market_px = round_price(price * slippage)
+                response = exchange.order(symbol, is_buy, asset_size, market_px, {'limit': {'tif': 'Ioc'}})
+                order_type = 'market'
+            else:
+                # LIMIT ORDER — GTC with 0.1% slippage (better entry)
+                slippage = 1 + LIMIT_SLIPPAGE if is_buy else 1 - LIMIT_SLIPPAGE
+                limit_px = round_price(price * slippage)
+                response = exchange.order(symbol, is_buy, asset_size, limit_px, {'limit': {'tif': 'Gtc'}})
+                order_type = 'limit'
+
+            if response.get("status") != "ok":
+                return {
+                    'success': False, 'error': str(response.get("response", "unknown")),
+                    'network': network, 'balance': balance, 'price': price, 'order_type': order_type,
+                }
+
+            # Extract order status
+            order_id = None
+            filled = False
+            try:
+                statuses = response["response"]["data"]["statuses"]
+                status0 = statuses[0]
+                if "filled" in status0:
+                    order_id = status0["filled"].get("oid")
+                    filled = True
+                elif "resting" in status0:
+                    order_id = status0["resting"].get("oid")
+                    filled = False
+            except (KeyError, IndexError, TypeError):
+                pass
+
+            # ── LIMIT FILL TIMEOUT → MARKET FALLBACK ──
+            if order_type == 'limit' and not filled and order_id is not None:
+                # Wait up to FILL_TIMEOUT seconds for the limit to fill
+                deadline = time.time() + FILL_TIMEOUT
+                while time.time() < deadline:
+                    time.sleep(5)
+                    try:
+                        # Check if order is still open
+                        open_orders = hl_post(base_url, {"type": "openOrders", "user": address})
+                        still_open = any(str(o.get("oid")) == str(order_id) for o in open_orders)
+                        if not still_open:
+                            filled = True
+                            break
+                    except Exception:
+                        pass
+
+                if not filled:
+                    # Cancel the limit order and place market
+                    try:
+                        # Find asset index for cancel
+                        asset_idx = None
+                        for i, a in enumerate(meta_universe):
+                            if a["name"] == symbol:
+                                asset_idx = i
+                                break
+                        if asset_idx is not None:
+                            exchange.cancel(symbol, order_id)
+                    except Exception:
+                        pass  # Best effort cancel
+
+                    # Market fallback with wider slippage
+                    market_slippage = 1 + MARKET_SLIPPAGE if is_buy else 1 - MARKET_SLIPPAGE
+                    market_px = round_price(price * market_slippage)
+                    try:
+                        response2 = exchange.order(symbol, is_buy, asset_size, market_px, {'limit': {'tif': 'Ioc'}})
+                        if response2.get("status") == "ok":
+                            try:
+                                s2 = response2["response"]["data"]["statuses"][0]
+                                if "filled" in s2:
+                                    order_id = s2["filled"].get("oid")
+                                    filled = True
+                                    order_type = 'market_fallback'
+                            except (KeyError, IndexError, TypeError):
+                                pass
+                    except Exception:
+                        pass  # Market fallback failed, return limit result
+
         finally:
             _hl_info.Info.__init__ = _orig_init
-
-        if response.get("status") != "ok":
-            return {
-                'success': False, 'error': str(response.get("response", "unknown")),
-                'network': network, 'balance': balance, 'price': price,
-            }
-
-        # Extract order ID (can be "filled" or "resting")
-        try:
-            statuses = response["response"]["data"]["statuses"]
-            status0 = statuses[0]
-            if "filled" in status0:
-                order_id = status0["filled"].get("oid")
-            elif "resting" in status0:
-                order_id = status0["resting"].get("oid")
-            else:
-                order_id = None
-        except (KeyError, IndexError, TypeError):
-            order_id = None
 
         return {
             'success': True,
             'order_id': order_id,
+            'order_type': order_type,
+            'filled': filled,
             'network': network,
             'usd_amount': usd_amount,
             'asset_size': asset_size,
@@ -187,11 +272,13 @@ def main():
     parser.add_argument('--size', default='quarter', choices=['full', 'half', 'quarter'])
     parser.add_argument('--score', type=float, default=0.0)
     parser.add_argument('--mainnet', action='store_true')
+    parser.add_argument('--priority', type=int, default=2, choices=[1, 2, 3])
     args = parser.parse_args()
 
     result = execute_order(
         symbol=args.symbol, direction=args.direction,
         size=args.size, score=args.score, testnet=not args.mainnet,
+        priority=args.priority,
     )
     print(json.dumps(result))
     sys.exit(0 if result.get('success') else 1)
