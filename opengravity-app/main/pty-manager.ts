@@ -881,6 +881,11 @@ function buildClaudeEnv(): Record<string, string> {
 // ── Setup IPC handlers ──
 export function setupPtyManager(mainWindow: BrowserWindow) {
 
+  // ── Start bus listener + compaction immediately (don't wait for terminal open) ──
+  startBusListener();
+  startBusCompaction();
+  console.log('[Swarm] Orchestrator ready — bus listener active, waiting for signals');
+
   // ── Helper: clean up a terminal session ──
   function cleanupSession(termId: string) {
     const pty = sessions.get(termId);
@@ -944,8 +949,6 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       agentMap.set(termId, agentId);
       startAutoSave();
       MemoryManager.startMaintenance();
-      startBusListener();
-      startBusCompaction();
 
       // Forward PTY output to renderer + accumulate in buffer
       ptyProcess.onData((data: string) => {
