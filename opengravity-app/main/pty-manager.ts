@@ -682,6 +682,78 @@ function stopSignalScanner() {
   }
 }
 
+// ── Strategy Scanner — Runs backtested strategies on live data via Python ──
+let stratScannerTimer: ReturnType<typeof setInterval> | null = null;
+const STRAT_SCAN_INTERVAL = 5 * 60_000; // Every 5 minutes
+const STRAT_SCAN_COOLDOWN = 60 * 60_000; // 1 hour cooldown per strategy signal (avoid spam)
+const lastStratSignalTime: Map<string, number> = new Map();
+
+function runStrategyScanner() {
+  const scriptPath = path.join(process.cwd(), 'scripts', 'strategy_scanner.py');
+  if (!fs.existsSync(scriptPath)) {
+    console.warn('[StratScanner] strategy_scanner.py not found at', scriptPath);
+    return;
+  }
+
+  // Find Python executable
+  const venvPython = path.resolve(process.cwd(), '..', '.venv', 'Scripts', 'python.exe');
+  const pythonCmd = fs.existsSync(venvPython) ? venvPython : 'python';
+
+  // Bus file path
+  const busFile = path.resolve(process.cwd(), '..', '.claude', 'swarm-bus', 'events.jsonl');
+
+  console.log('[StratScanner] Running strategy evaluation...');
+
+  execFile(pythonCmd, [scriptPath], {
+    cwd: path.resolve(process.cwd(), '..'),
+    env: {
+      ...process.env,
+      RAILWAY_URL: 'https://chic-encouragement-production.up.railway.app',
+      BUS_FILE: busFile,
+    },
+    timeout: 30_000, // 30s max
+  }, (error, stdout, stderr) => {
+    if (stdout) {
+      // Print Python output to console
+      for (const line of stdout.split('\n')) {
+        if (line.trim()) console.log(`[StratScanner] ${line}`);
+      }
+    }
+    if (stderr) {
+      console.warn('[StratScanner] stderr:', stderr.slice(0, 200));
+    }
+
+    if (error) {
+      // Exit code 10 = signals written (not an error)
+      if ((error as any).code === 10) {
+        console.log('[StratScanner] Strategy signals detected and written to bus');
+        // The bus listener will pick them up automatically on next tick
+      } else if ((error as any).code !== 0) {
+        console.warn('[StratScanner] Script error:', error.message?.slice(0, 200));
+      }
+    } else {
+      console.log('[StratScanner] No strategy signals (market idle)');
+    }
+  });
+}
+
+function startStrategyScanner() {
+  if (stratScannerTimer) return;
+  // First scan after 45s (let funding scanner go first), then every 5 min
+  setTimeout(() => {
+    runStrategyScanner();
+    stratScannerTimer = setInterval(runStrategyScanner, STRAT_SCAN_INTERVAL);
+  }, 45_000);
+  console.log('[StratScanner] Strategy scanner started (every 5 min)');
+}
+
+function stopStrategyScanner() {
+  if (stratScannerTimer) {
+    clearInterval(stratScannerTimer);
+    stratScannerTimer = null;
+  }
+}
+
 // ── Data API context por agente ──
 const CLOUD = 'https://chic-encouragement-production.up.railway.app';
 
@@ -1086,7 +1158,8 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
   startBusListener();
   startBusCompaction();
   startSignalScanner();
-  console.log('[Swarm] Orchestrator ready — bus listener + signal scanner active');
+  startStrategyScanner();
+  console.log('[Swarm] Orchestrator ready — bus listener + funding scanner + strategy scanner active');
 
   // ── Swarm order confirmation IPC ──
 
@@ -1321,6 +1394,8 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
     stopAutoSave();
     stopBusListener();
     stopBusCompaction();
+    stopSignalScanner();
+    stopStrategyScanner();
     SwarmBus.compact(); // Final cleanup
     MemoryManager.stopMaintenance();
     MemoryManager.runMaintenance();
