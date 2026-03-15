@@ -1,0 +1,280 @@
+================================================================================
+    RBI AGENT — RESEARCH OUTPUT INDEX
+    OpenGravity Trading Research — Marzo 15, 2026
+================================================================================
+
+ARCHIVOS GENERADOS (4 documentos principales)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. ESTRATEGIAS_NUEVAS_SUMMARY.txt (ESTE ARCHIVO ES EL PUNTO DE INICIO)
+   ────────────────────────────────────────────────────────────────
+   Resumen ejecutivo de 15 estrategias nuevas con priorización en Tiers
+
+   Contenido:
+   ✓ Resumen de 15 estrategias encontradas
+   ✓ Ordenadas por prioridad (Tier 1-4)
+   ✓ Breve descripción de cada una
+   ✓ Sharpe esperado, datos requeridos
+   ✓ Próximos pasos para backtesting
+
+   LEER PRIMERO: Estrategia Agent, Risk Agent, Management
+   TIEMPO LECTURA: 15-20 minutos
+
+
+2. strategies_nuevas_marzo_2026.md (ESPECIFICACIÓN COMPLETA)
+   ─────────────────────────────────────────────────────
+   Documento detallado con TODA la información de las 15 estrategias
+
+   Contenido:
+   ✓ 15 estrategias con especificación 100% completa
+   ✓ Nombre, descripción, indicadores, parámetros
+   ✓ Entrada/salida, SL/TP, filtros exactos
+   ✓ Timeframe, mercado, parámetros backtestables
+   ✓ Fuentes académicas con links directos
+   ✓ Matriz de categorización (microstructure, volatility, etc.)
+   ✓ Notas de implementación + priorización
+
+   REFERENCIA TÉCNICA: Strategy Agent (implementación)
+   TIEMPO LECTURA: 30-40 minutos (skim) / 90+ (detailed review)
+
+
+3. TECHNICAL_SPECS_TIER1_IMPLEMENTATION.md (READY-TO-CODE)
+   ───────────────────────────────────────────────────────
+   Detalles técnicos precisos para codificar las 3 primeras estrategias
+
+   Contenido:
+   ✓ FearGreedExtremeReversion: lógica pseudocódigo, data sources, backtesting
+   ✓ IntradaySeasonalityUTC: seasonality data validada, edge explanation
+   ✓ AdaptiveMovingAverageMomentum: KAMA formula, RSI combo, position sizing
+   ✓ Data quality assurance + source validation
+   ✓ Performance targets para live trading
+   ✓ Integration pipeline con OpenGravity (Strategy → Risk → Registry)
+   ✓ Implementation checklists + references
+
+   ENTREGA A: Strategy Agent (codificación backtesting.py)
+   TIEMPO IMPLEMENTACIÓN: 2-4 horas por estrategia
+
+
+4. FUTURE_RESEARCH_BACKLOG.md (NEXT SESSIONS)
+   ──────────────────────────────────────────
+   15 áreas de investigación NO cubiertas en este batch
+
+   Contenido:
+   ✓ Graph Neural Networks para transaction clustering
+   ✓ NLP sentiment analysis (Twitter, Reddit, Medium)
+   ✓ Perpetual funding rate forecasting (LSTM)
+   ✓ Cross-exchange arbitrage (DEX + CEX)
+   ✓ Volatility term structure trading
+   ✓ Hidden order flow detection
+   ✓ Transformer-based regime classification
+   ✓ Multi-timeframe confluence detection
+   ✓ Liquidity mining arbitrage
+   ✓ Maker/Taker imbalance indicator
+   ✓ Optimal execution algorithms
+   ✓ Stablecoin depegging prediction
+   ✓ Latency arbitrage exploitation
+   ✓ Recursive risk-parity rebalancing
+   ✓ Catalyst-driven event trading
+
+   TAMBIÉN INCLUYE:
+   ✓ Tools & APIs to integrate (Databento, Tardis, Glassnode Pro, etc.)
+   ✓ Academic sources to monitor (arXiv, SSRN, journals)
+   ✓ Quick wins for next week (4-6 hour implementations)
+
+   ENTREGA A: RBI Agent (para futuras sesiones)
+   TIEMPO LECTURA: 20-30 minutos
+
+
+ESTRUCTURA DE ARCHIVO COMPLETA
+═══════════════════════════════════════════════════════════════════════════════
+
+OpenGravity/
+├── research/
+│   ├── strategies/
+│   │   ├── strategies_nuevas_marzo_2026.md           [TECH SPEC COMPLETO]
+│   │   ├── TECHNICAL_SPECS_TIER1_IMPLEMENTATION.md   [READY-TO-CODE]
+│   │   ├── ESTRATEGIAS_NUEVAS_SUMMARY.txt            [EXECUTIVE SUMMARY]
+│   │   └── INDEX_ESTRATEGIAS_MARZO_2026.txt          [TÚ ESTÁS AQUÍ]
+│   └── FUTURE_RESEARCH_BACKLOG.md                    [NEXT SESSIONS]
+│
+└── .claude/
+    └── memory/
+        └── rbi_research_batch_march_2026.md          [MEMORY SNAPSHOT]
+
+
+CÓMO USAR ESTOS ARCHIVOS
+═══════════════════════════════════════════════════════════════════════════════
+
+FLUJO POR ROL:
+
+┌─ MANAGEMENT (C-Level, Board Review)
+│  1. Leer: ESTRATEGIAS_NUEVAS_SUMMARY.txt (15 min)
+│  2. Focus: Tier 1-2 strategies, ROI expectations, timeline
+│  3. Decision: Approve Tier 1 backtesting (FearGreed, Seasonality, KAMA)
+│
+├─ STRATEGY AGENT (Coding & Implementation)
+│  1. Leer: TECHNICAL_SPECS_TIER1_IMPLEMENTATION.md (complete)
+│  2. Code: FearGreedExtremeReversion en backtesting.py
+│  3. Code: IntradaySeasonalityUTC en backtesting.py
+│  4. Code: AdaptiveMovingAverageMomentum en backtesting.py
+│  5. Test: Backtest 2020-2026, validar contra specs
+│  6. Reference: strategies_nuevas_marzo_2026.md para Tier 2-4 futura
+│
+├─ RISK AGENT (Validation & Metrics)
+│  1. Input: Backtest results from Strategy Agent (JSON/CSV)
+│  2. Validate: Sharpe > 1.5, Win Rate > 55%, DD < 20%
+│  3. Test: Run on 25 assets × 3 timeframes
+│  4. Output: Risk analysis report per strategy
+│  5. Gate: If passes → green light for testnet
+│
+├─ TRADING AGENT (Live Deployment)
+│  1. Input: Validated strategy from Risk Agent
+│  2. Deploy: To testnet (Binance Paper Trading)
+│  3. Monitor: Real-time P&L, slippage, execution quality
+│  4. Gate: If testnet Sharpe > 1.5 → promote to production
+│
+└─ RBI AGENT (Next Research Cycle)
+   1. Reference: FUTURE_RESEARCH_BACKLOG.md
+   2. Select: 2-3 next areas to investigate
+   3. Timeline: 1-2 weeks for next batch of 15 strategies
+
+
+TIMELINE ESTIMADO
+═══════════════════════════════════════════════════════════════════════════════
+
+WEEK 1 (STARTING NOW):
+  Day 1-2: Strategy Agent codes Tier 1 (3 strategies)
+  Day 2-3: Backtest runs (2020-2026)
+  Day 3-4: Risk Agent validates metrics
+
+WEEK 2:
+  Day 1: Fix any issues from backtest (if Sharpe < target)
+  Day 2-3: Deploy Tier 1 to testnet
+  Day 3-4: Monitor testnet performance
+
+WEEK 3:
+  Day 1-2: If testnet Sharpe > 1.5: promote to production
+  Day 1-2: Start coding Tier 2 strategies (4 estrategias)
+  Day 3-4: RBI Agent begins next research batch
+
+FULL DEPLOYMENT TIMELINE:
+  Tier 1 (3): Ready for prod in ~10-12 days
+  Tier 2 (4): Ready for prod in ~3-4 weeks
+  Tier 3 (4): Ready for prod in ~8-10 weeks (requires APIs, more complex)
+  Tier 4 (4): Ready for prod in ~12+ weeks (research-grade, extensive validation)
+
+
+FUENTES DE DATOS REQUERIDAS
+═══════════════════════════════════════════════════════════════════════════════
+
+TIER 1 (INMEDIATO):
+  ✓ Binance API (free): OHLCV, real-time prices
+  ✓ Alternative.me API (free): Fear & Greed Index
+  ✓ Glassnode API (free tier): MVRV Z-score basics
+  ✓ CoinMarketCap API (free): BTC dominance, altseason index
+
+TIER 2:
+  ✓ CoinGlass API (free tier): Liquidation data
+  ✓ CoinQuant API (free): Exchange flows, on-chain metrics
+  ✓ Nansen (free tier limited): Whale tracking clusters
+
+TIER 3-4:
+  ⚠ Coinalyze / Tardis.dev: VPIN + order book data ($$$)
+  ⚠ Deribit API: Options data + volatility surface ($)
+  ⚠ Glassnode Pro: Full on-chain metrics ($$$)
+  ⚠ Nansen Pro: Advanced cluster + behavior analysis ($$$)
+
+
+MÉTRICAS DE ÉXITO
+═══════════════════════════════════════════════════════════════════════════════
+
+Backtest Results (Tier 1 target):
+  ✓ Sharpe Ratio > 1.8
+  ✓ Win Rate > 60%
+  ✓ Profit Factor > 2.0
+  ✓ Max Drawdown < 15%
+
+Live Testnet Results (21-30 days):
+  ✓ Sharpe > 1.5 (testnet often underperforms backtest)
+  ✓ Consistency: ±10% monthly returns
+  ✓ No unexpected correlation with market crashes
+  ✓ Execution quality: avg slippage < 0.05%
+
+Production Gateway Criteria:
+  ✓ Testnet Sharpe > 1.5
+  ✓ Live trading capital: Start with 0.5 BTC (~$20k)
+  ✓ Monitoring: Daily P&L reports, drawdown alerts
+  ✓ Killswitch: Auto-pause if DD > 10% in any week
+
+
+NOTAS IMPORTANTES
+═══════════════════════════════════════════════════════════════════════════════
+
+1. TODAS LAS ESTRATEGIAS SON NUEVAS
+   → No están en el backlog oficial (LiquidationDoubleDip, RSIBand, etc.)
+   → Representan NUEVAS dimensiones de análisis (microstructure, sentiment, on-chain)
+
+2. RESEARCH VALIDADO
+   → 15 búsquedas web exhaustivas
+   → Papers académicos 2024-2026
+   → Fuentes reputadas (arXiv, Springer, ScienceDirect, CFB, Kaiko)
+
+3. EDGE TEMPORAL
+   → Data y papers del 2025-2026
+   → Máxima relevancia a mercado actual
+   → Algunos insights (MVRV < 1.2 en marzo 2026) son "hot signals"
+
+4. IMPLEMENTATION READY
+   → Tier 1 strategies: pseudocódigo completo + parámetros exactos
+   → No ambigüedad en lógica de entrada/salida
+   → Backtesting checkpoints incluidos
+
+5. RIESGOS CONOCIDOS
+   → VPIN/microstructure strategies requieren data quality A+ (expensive)
+   → Options strategies requieren Deribit API (account + KYC)
+   → Multi-asset strategies (PCA) pueden requerir rebalancing overhead
+   → Algunas strategies no backtestables sin data específica (riesgo: overfitting)
+
+
+PRÓXIMOS PASOS INMEDIATOS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. USER (Tú):
+   □ Revisa ESTRATEGIAS_NUEVAS_SUMMARY.txt (15 min)
+   □ Selecciona qué Tier empezar (recomendación: Tier 1 + Tier 2 en paralelo)
+   □ Aprueba timeline y presupuesto de datos
+
+2. STRATEGY AGENT:
+   □ Recibe TECHNICAL_SPECS_TIER1_IMPLEMENTATION.md
+   □ Comienza codificación de FearGreedExtreme (4-6 horas)
+   □ Reporta progreso + blockers
+
+3. RISK AGENT (Standby):
+   □ Revisa TECHNICAL_SPECS_TIER1_IMPLEMENTATION.md
+   □ Prepara métricas & validation pipeline
+   □ Espera backtest results from Strategy Agent
+
+4. RBI AGENT (Yo):
+   □ Monitorear backtest progreso
+   □ Disponible para detalles técnicos adicionales
+   □ Si tiempo disponible: comenzar research Tier 2-3 en paralelo
+
+
+CONTACTO & SOPORTE
+═══════════════════════════════════════════════════════════════════════════════
+
+Para preguntas sobre:
+  - Estrategias específicas: Revisa .md detallado + referenced papers
+  - Implementación técnica: TECHNICAL_SPECS_TIER1_IMPLEMENTATION.md
+  - Futuras investigaciones: FUTURE_RESEARCH_BACKLOG.md
+  - Decisiones de priorización: ESTRATEGIAS_NUEVAS_SUMMARY.txt
+
+Todas las fuentes incluyen links académicos directos para verificación.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+Research completado: Marzo 15, 2026 | 3 horas investigación exhaustiva
+Estrategias nuevas: 15 (validadas académicamente, ready to backtest)
+Tier 1 lista: 3 estrategias (implementación 4-6 horas cada una)
+Pipeline: RBI → Strategy → Backtest → Risk → Registry → Testnet → Production
+═══════════════════════════════════════════════════════════════════════════════

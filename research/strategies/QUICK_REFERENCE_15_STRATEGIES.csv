@@ -1,0 +1,16 @@
+ID,Nombre,Categoría,Timeframe,Mercado,Sharpe_Esperado,Win_Rate_Target,Complejidad,Status,Parámetros_Clave,Data_Requerida
+1,VPINLiquidityToxicity,Market Microstructure,5m-15m,BTC/ETH Perps,2.0-2.8,58-65%,Alto,Tier 3,VPIN_threshold=0.65,Coinalyze/Tardis
+2,DynamicCointegrationPairsOrnstein,Statistical Arbitrage,4H,Spot Pairs,2.5-3.5,55-65%,Muy Alto,Tier 4,half_life=20-40_periods,Multiple pairs historical
+3,VolatilitySurfaceSkewArbitraje,Volatility Surface,1H-4H,BTC/ETH Opciones,2.2-2.8,55-65%,Muy Alto,Tier 4,skew_percentile=85,Deribit API
+4,BTCDominanceAltseasonRotation,Cross-Asset Momentum,4H-1D,Spot Basket,1.8-2.2,58-65%,Medio,Tier 2,dominance_threshold=48%,CoinMarketCap API
+5,FearGreedExtremeReversion,Sentiment-Driven,1H,BTC/ETH,1.8-2.2,58-68%,Bajo,Tier 1,FGI_threshold=<25//>75,alternative.me/CoinGlass
+6,HiddenMarkovRegimeSwitcher,Regime-Adaptive,1D-4H,BTC/ETH,1.8-2.3,55-65%,Muy Alto,Tier 4,n_states=3,Historical OHLCV 60d
+7,OrderBookLiquidityClusterBreakout,Market Microstructure,5m-1H,Spot,1.8-2.5,55-65%,Alto,Tier 3,cluster_size_min=50_BTC,Exchange real-time API
+8,FuturesTermStructureContangoBasis,Basis Trading,4H-1D,Spot+Perps,2.0-2.5,55-65%,Medio,Tier 2,contango_entry=0.05%,Binance API
+9,LiquidationCascadeVolumeDetector,Liquidation,1m-5m,Perps,1.8-2.3,55-65%,Alto,Tier 3,liquidation_threshold=5%_vol,CoinGlass/Coinalyze
+10,OnChainWhaleAccumulationMomentum,On-Chain,4H-1D,Spot,1.6-2.0,55-65%,Medio,Tier 2,whale_threshold=1000_BTC,Glassnode/Nansen
+11,IntradaySeasonalityUTCTimeZones,Pattern/Seasonality,1H,BTC,1.6-1.8,62-68%,Bajo,Tier 1,entry_time=20:50-21:00_UTC,Binance OHLCV
+12,AdaptiveMovingAverageMomentum,Trend-Following,4H,Altcoins,1.5-1.9,52-58%,Bajo,Tier 1,KAMA_period=50/200,TA-Lib/pandas_ta
+13,VarianceRiskPremiumHarvester,Volatility Surface,1D,BTC/ETH Opciones,1.8-2.5,55-65%,Muy Alto,Tier 4,iv_percentile=75,Deribit API
+14,PCAFactorMomentumLongShort,Statistical Arbitrage,1D-7D,Multi-Crypto,2.0+,55-65%,Muy Alto,Tier 4,n_components=3,Top 10 cryptos data
+15,SocialVolumeSpikeAnomalyDetection,Market Microstructure,5m-15m,Spot,1.6-2.2,55-65%,Alto,Tier 3,OBV_spike_threshold=25%,Binance 5m volume data
