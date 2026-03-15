@@ -367,6 +367,9 @@ export default function HomePage() {
         <div style={{ display: activeView === 'polymarket' ? 'contents' : 'none' }}>
           <PolymarketPanel />
         </div>
+        <div style={{ display: activeView === 'strategies' ? 'contents' : 'none' }}>
+          <StrategiesPanel />
+        </div>
       </div>
 
       {showPicker && (
@@ -1446,6 +1449,125 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
         </div>
       )}
       <div className="terminal-body" ref={xtermRef} />
+    </div>
+  );
+}
+
+function StrategiesPanel() {
+  const [leaderboard, setLeaderboard] = React.useState<any[]>([]);
+  const [totalFiles, setTotalFiles] = React.useState(0);
+  const [error, setError] = React.useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
+
+  const load = React.useCallback(async () => {
+    const electron = (window as any).electron;
+    if (!electron?.strategies?.getResults) return;
+    try {
+      const result = await electron.strategies.getResults();
+      if (result.error) { setError(result.error); return; }
+      setLeaderboard(result.leaderboard || []);
+      setTotalFiles(result.total_files || 0);
+      setLastUpdated(new Date());
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+
+  React.useEffect(() => {
+    load();
+    const electron = (window as any).electron;
+    const unsub = electron?.strategies?.onUpdate?.(() => load());
+    return () => unsub?.();
+  }, [load]);
+
+  const verdictColor = (v: string) => {
+    if (v === 'VIABLE') return '#00e676';
+    if (v === 'MARGINAL') return '#ffb300';
+    return '#ff4455';
+  };
+
+  return (
+    <div style={{ padding: '24px', overflowY: 'auto', height: '100%', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '16px', letterSpacing: '2px', color: '#e0e0e0' }}>STRATEGY LEADERBOARD</h2>
+          {lastUpdated && (
+            <span style={{ fontSize: '11px', color: '#555', marginTop: '4px', display: 'block' }}>
+              Actualizado {lastUpdated.toLocaleTimeString('es-ES')} · {totalFiles} archivos
+            </span>
+          )}
+        </div>
+        <button
+          onClick={load}
+          style={{ background: 'transparent', border: '1px solid #333', color: '#888', padding: '6px 14px', cursor: 'pointer', fontSize: '11px', letterSpacing: '1px' }}
+        >
+          ↻ REFRESH
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ color: '#ff4455', fontSize: '12px', padding: '12px', border: '1px solid #ff445530', marginBottom: '16px' }}>
+          {error}
+        </div>
+      )}
+
+      {leaderboard.length === 0 && !error && (
+        <div style={{ color: '#444', fontSize: '13px', textAlign: 'center', marginTop: '80px' }}>
+          Sin resultados aún. Ejecuta el Backtest Architect para generar estrategias.
+        </div>
+      )}
+
+      {leaderboard.length > 0 && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <thead>
+            <tr style={{ color: '#555', borderBottom: '1px solid #222' }}>
+              <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 400, letterSpacing: '1px' }}>#</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 400, letterSpacing: '1px' }}>ESTRATEGIA</th>
+              <th style={{ textAlign: 'right', padding: '8px 10px', fontWeight: 400, letterSpacing: '1px' }}>SHARPE</th>
+              <th style={{ textAlign: 'right', padding: '8px 10px', fontWeight: 400, letterSpacing: '1px' }}>RETURN</th>
+              <th style={{ textAlign: 'right', padding: '8px 10px', fontWeight: 400, letterSpacing: '1px' }}>MAX DD</th>
+              <th style={{ textAlign: 'right', padding: '8px 10px', fontWeight: 400, letterSpacing: '1px' }}>WIN%</th>
+              <th style={{ textAlign: 'right', padding: '8px 10px', fontWeight: 400, letterSpacing: '1px' }}>TRADES</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 400, letterSpacing: '1px' }}>MEJOR ACTIVO</th>
+              <th style={{ textAlign: 'center', padding: '8px 10px', fontWeight: 400, letterSpacing: '1px' }}>VEREDICTO</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leaderboard.map((s, i) => (
+              <tr key={s.strategy} style={{ borderBottom: '1px solid #1a1a1a' }}>
+                <td style={{ padding: '10px', color: '#444' }}>{i + 1}</td>
+                <td style={{ padding: '10px', color: '#ccc', fontWeight: 500 }}>{s.strategy}</td>
+                <td style={{ padding: '10px', textAlign: 'right', color: s.sharpe >= 1 ? '#00e676' : s.sharpe >= 0 ? '#ffb300' : '#ff4455', fontWeight: 600 }}>
+                  {s.sharpe?.toFixed(2)}
+                </td>
+                <td style={{ padding: '10px', textAlign: 'right', color: s.return_pct >= 0 ? '#00e676' : '#ff4455' }}>
+                  {s.return_pct >= 0 ? '+' : ''}{s.return_pct?.toFixed(1)}%
+                </td>
+                <td style={{ padding: '10px', textAlign: 'right', color: '#ff4455' }}>
+                  {s.max_dd?.toFixed(1)}%
+                </td>
+                <td style={{ padding: '10px', textAlign: 'right', color: '#888' }}>
+                  {s.win_rate?.toFixed(0)}%
+                </td>
+                <td style={{ padding: '10px', textAlign: 'right', color: '#555' }}>{s.trades}</td>
+                <td style={{ padding: '10px', color: '#666' }}>{s.best_symbol}</td>
+                <td style={{ padding: '10px', textAlign: 'center' }}>
+                  <span style={{
+                    color: verdictColor(s.verdict),
+                    border: `1px solid ${verdictColor(s.verdict)}40`,
+                    padding: '2px 8px',
+                    fontSize: '10px',
+                    letterSpacing: '1px',
+                  }}>
+                    {s.verdict || 'NO_VIABLE'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
