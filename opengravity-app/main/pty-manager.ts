@@ -16,6 +16,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { AuditLog } from './security/audit';
 import { Vault } from './security/vault';
+import { MemoryManager } from './memory-manager';
 
 // ── Active PTY sessions ──
 const sessions: Map<string, IPty> = new Map();
@@ -126,6 +127,37 @@ function safePtyKill(pty: IPty | undefined) {
 
 const savingAgents = new Set<string>();
 
+/**
+ * Extract explicit memory commands from terminal output.
+ * Agents can emit: [MEMORY:semantic] content here [/MEMORY]
+ * Or:              [REMEMBER] content here [/REMEMBER] (defaults to semantic)
+ */
+function extractMemories(agentId: string, lines: string[]) {
+  const fullText = lines.join('\n');
+
+  // Pattern 1: [MEMORY:type] content [/MEMORY]
+  const memoryRegex = /\[MEMORY:(\w+)\]\s*([\s\S]*?)\s*\[\/MEMORY\]/g;
+  let match;
+  while ((match = memoryRegex.exec(fullText)) !== null) {
+    const type = match[1] as any;
+    const content = match[2].trim();
+    if (content && ['semantic', 'episodic', 'procedural'].includes(type)) {
+      MemoryManager.save({ agent_id: agentId, type, content, importance: 0.7 });
+      console.log(`[Memory] Extracted ${type} memory for ${agentId}: ${content.slice(0, 60)}...`);
+    }
+  }
+
+  // Pattern 2: [REMEMBER] content [/REMEMBER] → semantic
+  const rememberRegex = /\[REMEMBER\]\s*([\s\S]*?)\s*\[\/REMEMBER\]/g;
+  while ((match = rememberRegex.exec(fullText)) !== null) {
+    const content = match[1].trim();
+    if (content) {
+      MemoryManager.save({ agent_id: agentId, type: 'semantic', content, importance: 0.6 });
+      console.log(`[Memory] Extracted remembered memory for ${agentId}: ${content.slice(0, 60)}...`);
+    }
+  }
+}
+
 async function saveAgentContext(agentId: string, buffer: string[]) {
   if (buffer.length === 0) return;
   if (savingAgents.has(agentId)) return;
@@ -140,6 +172,9 @@ async function saveAgentContext(agentId: string, buffer: string[]) {
       .map(l => l.trim())
       .filter(isUsefulLine);
     if (cleanLines.length === 0) return;
+
+    // Extract explicit memory commands from output
+    try { extractMemories(agentId, cleanLines); } catch {}
 
     let prevSessions = '';
     try {
@@ -368,8 +403,22 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
         }
       });
 
-      // Release spawn slot after Claude initializes
-      setTimeout(() => { releaseSpawnSlot(); }, 5000);
+      // Hydrate memories from cloud + inject memory context after Claude boots
+      setTimeout(async () => {
+        releaseSpawnSlot();
+        try {
+          await MemoryManager.hydrateFromCloud(agentId);
+          const memoryBlock = MemoryManager.buildPromptBlock(agentId);
+          if (memoryBlock) {
+            // Inject memory as initial context (Claude reads it as system info)
+            const memPrompt = `Tienes las siguientes memorias de sesiones anteriores. Úsalas como contexto:\n\n${memoryBlock}\n\nNo respondas a esto, simplemente tenlo en cuenta.`;
+            safePtyWrite(ptyProcess, memPrompt + '\r');
+            console.log(`[Memory] Injected ${MemoryManager.getStats(agentId).total} memories for ${agentId}`);
+          }
+        } catch (e) {
+          console.warn(`[Memory] Failed to inject memories for ${agentId}:`, e);
+        }
+      }, 8000); // Wait 8s for Claude to fully boot
       return { success: true };
     } catch (error) {
       releaseSpawnSlot();

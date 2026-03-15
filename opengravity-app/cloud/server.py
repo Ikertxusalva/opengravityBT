@@ -123,6 +123,25 @@ class AgentContext(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
 
 
+class AgentMemoryEntry(Base):
+    """Structured agent memories (semantic, episodic, procedural, working)."""
+    __tablename__ = "agent_memories"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    memory_id = Column(String(50), nullable=False, unique=True, index=True)  # mem-xxxx client ID
+    agent_id = Column(String(50), nullable=False, index=True)
+    type = Column(String(20), nullable=False)                      # semantic, episodic, procedural, working
+    scope = Column(String(20), default="private")                  # private, shared
+    content = Column(Text, nullable=False)
+    context = Column(Text, default="")
+    tags = Column(Text, default="[]")                              # JSON array
+    importance = Column(Float, default=0.5)
+    access_count = Column(Integer, default=0)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
 class FundingRate(Base):
     """Historical funding rates from HyperLiquid stored in Railway Postgres."""
     __tablename__ = "funding_rates"
@@ -1722,6 +1741,138 @@ async def save_agent_context(agent_id: str, data: dict):
             db.add(ctx)
         db.commit()
         return {"status": "ok", "agent_id": agent_id}
+    finally:
+        db.close()
+
+
+# ── Agent Memory Endpoints ──
+
+@app.get("/api/agent/memory/{agent_id}")
+async def get_agent_memories(agent_id: str, type: str = None, limit: int = 100):
+    """Get all memories for an agent (optionally filtered by type)."""
+    agent_id = validate_agent_id(agent_id)
+    db = SessionLocal()
+    try:
+        q = db.query(AgentMemoryEntry).filter(AgentMemoryEntry.agent_id == agent_id)
+        if type:
+            q = q.filter(AgentMemoryEntry.type == type)
+        results = q.order_by(AgentMemoryEntry.importance.desc()).limit(limit).all()
+        return {
+            "agent_id": agent_id,
+            "count": len(results),
+            "memories": [
+                {
+                    "id": r.memory_id,
+                    "agent_id": r.agent_id,
+                    "type": r.type,
+                    "scope": r.scope,
+                    "content": r.content,
+                    "context": r.context,
+                    "tags": json.loads(r.tags) if r.tags else [],
+                    "importance": r.importance,
+                    "access_count": r.access_count,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                    "expires_at": r.expires_at.isoformat() if r.expires_at else None,
+                    "links": [],
+                }
+                for r in results
+            ],
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/agent/memory/{agent_id}", dependencies=[Depends(verify_token)])
+async def save_agent_memory(agent_id: str, data: dict):
+    """Save or update a memory entry for an agent."""
+    agent_id = validate_agent_id(agent_id)
+    memory_id = data.get("id", "")
+    if not memory_id:
+        raise HTTPException(status_code=400, detail="Missing memory id")
+    db = SessionLocal()
+    try:
+        existing = db.query(AgentMemoryEntry).filter(
+            AgentMemoryEntry.memory_id == memory_id
+        ).first()
+        if existing:
+            existing.content = data.get("content", existing.content)
+            existing.context = data.get("context", existing.context)
+            existing.tags = json.dumps(data.get("tags", []))
+            existing.importance = data.get("importance", existing.importance)
+            existing.access_count = data.get("access_count", existing.access_count)
+            existing.updated_at = datetime.utcnow()
+        else:
+            expires_at = None
+            if data.get("expires_at"):
+                try:
+                    expires_at = datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00"))
+                except (ValueError, AttributeError):
+                    pass
+            entry = AgentMemoryEntry(
+                memory_id=memory_id,
+                agent_id=agent_id,
+                type=data.get("type", "semantic"),
+                scope=data.get("scope", "private"),
+                content=data.get("content", ""),
+                context=data.get("context", ""),
+                tags=json.dumps(data.get("tags", [])),
+                importance=data.get("importance", 0.5),
+                access_count=data.get("access_count", 0),
+                expires_at=expires_at,
+            )
+            db.add(entry)
+        db.commit()
+        return {"status": "ok", "memory_id": memory_id, "agent_id": agent_id}
+    finally:
+        db.close()
+
+
+@app.delete("/api/agent/memory/{agent_id}/{memory_id}", dependencies=[Depends(verify_token)])
+async def delete_agent_memory(agent_id: str, memory_id: str):
+    """Delete a specific memory entry."""
+    agent_id = validate_agent_id(agent_id)
+    db = SessionLocal()
+    try:
+        deleted = db.query(AgentMemoryEntry).filter(
+            AgentMemoryEntry.memory_id == memory_id,
+            AgentMemoryEntry.agent_id == agent_id,
+        ).delete()
+        db.commit()
+        return {"status": "ok", "deleted": deleted}
+    finally:
+        db.close()
+
+
+@app.get("/api/agent/memory/shared/all")
+async def get_shared_memories(limit: int = 50):
+    """Get all shared memories across agents."""
+    db = SessionLocal()
+    try:
+        results = db.query(AgentMemoryEntry).filter(
+            AgentMemoryEntry.scope == "shared"
+        ).order_by(AgentMemoryEntry.importance.desc()).limit(limit).all()
+        return {
+            "count": len(results),
+            "memories": [
+                {
+                    "id": r.memory_id,
+                    "agent_id": r.agent_id,
+                    "type": r.type,
+                    "scope": r.scope,
+                    "content": r.content,
+                    "context": r.context,
+                    "tags": json.loads(r.tags) if r.tags else [],
+                    "importance": r.importance,
+                    "access_count": r.access_count,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                    "expires_at": r.expires_at.isoformat() if r.expires_at else None,
+                    "links": [],
+                }
+                for r in results
+            ],
+        }
     finally:
         db.close()
 

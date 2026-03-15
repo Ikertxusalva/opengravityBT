@@ -43,6 +43,25 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.invoke('pty-inject', agentId, prompt),
   },
 
+  // Strategy results leaderboard
+  strategies: {
+    getResults: () => ipcRenderer.invoke('strategy-results'),
+    onUpdate: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('strategy-results-update', handler);
+      return () => { ipcRenderer.removeListener('strategy-results-update', handler); };
+    },
+  },
+
+  // Agent Memory system
+  memory: {
+    getStats: (agentId: string) => ipcRenderer.invoke('memory-get-stats', agentId),
+    getAll: (agentId: string) => ipcRenderer.invoke('memory-get-all', agentId),
+    search: (agentId: string, query: string) => ipcRenderer.invoke('memory-search', agentId, query),
+    save: (params: any) => ipcRenderer.invoke('memory-save', params),
+    delete: (memoryId: string, agentId: string) => ipcRenderer.invoke('memory-delete', memoryId, agentId),
+  },
+
   // Polymarket paper trading dashboard
   polymarket: {
     getData: () => ipcRenderer.invoke('polymarket-data'),
@@ -55,6 +74,9 @@ contextBridge.exposeInMainWorld('electron', {
     daemonInstall: () => ipcRenderer.invoke('copy-daemon-install'),
     daemonUninstall: () => ipcRenderer.invoke('copy-daemon-uninstall'),
     daemonStatus: () => ipcRenderer.invoke('copy-daemon-status'),
+    daemonStart: () => ipcRenderer.invoke('copy-daemon-start'),
+    daemonStop: () => ipcRenderer.invoke('copy-daemon-stop'),
+    daemonRunning: () => ipcRenderer.invoke('copy-daemon-running'),
     onUpdate: (callback: (data: any) => void) => {
       const handler = (_event: any, data: any) => callback(data);
       ipcRenderer.on('polymarket-update', handler);

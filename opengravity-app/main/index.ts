@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { app, BrowserWindow, ipcMain, session } from 'electron';
 import serve from 'electron-serve';
 import { setupPtyManager, saveAllContexts } from './pty-manager';
+import { MemoryManager } from './memory-manager';
 import { Vault } from './security/vault';
 import { AuditLog } from './security/audit';
 import { WalletGuard } from './security/wallet-guard';
@@ -370,6 +371,42 @@ ipcMain.handle('copy-daemon-install', async () => runDaemonCmd('--install'));
 ipcMain.handle('copy-daemon-uninstall', async () => runDaemonCmd('--uninstall'));
 ipcMain.handle('copy-daemon-status', async () => runDaemonCmd('--status'));
 
+// ── Copy Daemon Process Control (start/stop directo, sin Task Scheduler) ──────
+let daemonProcess: any = null;
+const DAEMON_PID_FILE = path.join(POLY_CWD, 'data', 'copy_daemon.pid');
+
+ipcMain.handle('copy-daemon-start', async () => {
+  if (daemonProcess && !daemonProcess.killed) {
+    return { ok: false, running: true, output: `Daemon ya corriendo (PID ${daemonProcess.pid})` };
+  }
+  const { spawn } = require('child_process');
+  daemonProcess = spawn('python', [COPY_DAEMON_SCRIPT], {
+    cwd: POLY_CWD, env: { ...process.env }, detached: false, stdio: 'ignore',
+  });
+  daemonProcess.on('exit', () => { daemonProcess = null; });
+  return { ok: true, running: true, output: `Daemon iniciado (PID ${daemonProcess.pid})` };
+});
+
+ipcMain.handle('copy-daemon-stop', async () => {
+  if (daemonProcess && !daemonProcess.killed) {
+    daemonProcess.kill();
+    daemonProcess = null;
+    return { ok: true, running: false, output: 'Daemon detenido' };
+  }
+  // Fallback: leer PID file si el proceso fue iniciado externamente
+  if (fs.existsSync(DAEMON_PID_FILE)) {
+    const pid = parseInt(fs.readFileSync(DAEMON_PID_FILE, 'utf8').trim());
+    try { process.kill(pid); } catch {}
+    return { ok: true, running: false, output: `Daemon detenido (PID ${pid})` };
+  }
+  return { ok: false, running: false, output: 'Daemon no estaba corriendo' };
+});
+
+ipcMain.handle('copy-daemon-running', async () => {
+  const running = !!(daemonProcess && !daemonProcess.killed);
+  return { running, pid: daemonProcess?.pid ?? null };
+});
+
 // ── Strategy Results (lee JSONs de moondev/results/) ──
 const RESULTS_DIR = path.join(process.cwd(), '..', 'moondev', 'results');
 
@@ -458,6 +495,49 @@ function startPolymarketWatcher() {
     });
   } catch {}
 }
+
+// ── Agent Memory IPC handlers ──
+
+ipcMain.handle('memory-get-stats', async (_event, agentId: string) => {
+  try {
+    return MemoryManager.getStats(agentId);
+  } catch {
+    return { total: 0 };
+  }
+});
+
+ipcMain.handle('memory-get-all', async (_event, agentId: string) => {
+  try {
+    return MemoryManager.getAll(agentId);
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle('memory-search', async (_event, agentId: string, query: string) => {
+  try {
+    return MemoryManager.search(agentId, query, 10);
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle('memory-save', async (_event, params: any) => {
+  try {
+    return MemoryManager.save(params);
+  } catch (e) {
+    return { error: String(e) };
+  }
+});
+
+ipcMain.handle('memory-delete', async (_event, memoryId: string, agentId: string) => {
+  try {
+    MemoryManager.delete(memoryId, agentId);
+    return { status: 'ok' };
+  } catch {
+    return { error: 'delete failed' };
+  }
+});
 
 app.whenReady().then(() => {
   startPolymarketWatcher();
