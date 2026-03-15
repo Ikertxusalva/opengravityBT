@@ -1667,7 +1667,8 @@ async def create_swarm_decision(decision: dict):
             "decision": entry.decision,
             "consensus_score": entry.consensus_score,
             "confidence_avg": entry.confidence_avg,
-            "timestamp": datetime.utcnow().isoformat(),
+            "votes": decision.get("votes", {}),
+            "created_at": entry.created_at.isoformat() if entry.created_at else datetime.utcnow().isoformat(),
         })
 
         return {"status": "ok", "id": entry.id}

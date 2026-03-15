@@ -1345,6 +1345,7 @@ function XTermPanel(props: { terminal: TerminalState; onClose: () => void; showH
       instancesRef?.current.delete(terminal.id);
       xterm.dispose();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [terminal.id, terminal.agentId]);
 
   return (
