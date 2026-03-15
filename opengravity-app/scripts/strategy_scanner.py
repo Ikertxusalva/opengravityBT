@@ -10,7 +10,9 @@ Strategies evaluadas:
   - VolatilitySqueezeV3 (BTC 1h): V2 + volume filter + BB 1.8std + KC 1.5
   - VolatilitySqueeze V1 (BTC 1h): Squeeze basico sin filtros extra
   - RSIBand (BNB 4h): RSI BB crossover + ADX
-  - HeatMapRotation (ETH, SOL 1h): Correlacion BTC + RSI + trend
+  - HeatMapRotation (ETH, SOL, DOGE, LINK, BNB, ADA 1h): Correlacion BTC + RSI + trend
+  - HeatMapRotation BTC (BTC 4h): BTC self-trend + RSI pullback entry
+  - LiquidationCascade (TSLA 1h): RSI oversold bounce on momentum stocks
 
 Exit codes:
   0 = sin senal (normal)
@@ -483,6 +485,130 @@ def eval_heatmap_rotation(df: pd.DataFrame, symbol: str) -> dict | None:
     return None
 
 
+# ── 6. HeatMapRotation BTC (BTC 4h) ──────────────────────────────────────
+# BTC self-mode: Sharpe 2.15, WR 78.7%, 122 trades en 2y-4h
+# Entry: BTC > SMA(20) + RSI pullback (35-55) + ADX > 20
+# SL 2x ATR, TP 3x ATR
+def eval_heatmap_btc(df: pd.DataFrame, symbol: str) -> dict | None:
+    if len(df) < 50 or symbol != "BTC":
+        return None
+
+    close = df["Close"].reset_index(drop=True)
+    high = df["High"].reset_index(drop=True)
+    low = df["Low"].reset_index(drop=True)
+
+    sma20 = ta.sma(close, length=20)
+    rsi = ta.rsi(close, length=14)
+    atr14 = ta.atr(high, low, close, length=14)
+    adx_df = ta.adx(high, low, close, length=14)
+    if any(x is None for x in [sma20, rsi, atr14, adx_df]):
+        return None
+    adx = adx_df.iloc[:, 0]
+
+    for offset in range(1, 4):
+        idx = len(close) - offset
+        if idx < 2:
+            continue
+
+        price = close.iloc[idx]
+        sma_val = sma20.iloc[idx]
+        rsi_val = rsi.iloc[idx]
+        rsi_prev = rsi.iloc[idx - 1]
+        atr_val = atr14.iloc[idx]
+        adx_val = adx.iloc[idx]
+
+        if any(pd.isna(x) for x in [sma_val, rsi_val, rsi_prev, atr_val, adx_val]):
+            continue
+        if atr_val <= 0:
+            continue
+
+        # BTC trending up + RSI pullback zone + ADX confirms trend
+        if price > sma_val and 35 <= rsi_val <= 55 and adx_val > 20:
+            # Fresh: previous RSI was outside pullback zone
+            if rsi_prev > 55 or rsi_prev < 35:
+                sl = price - atr_val * 2.0
+                tp = price + atr_val * 3.0
+                conf = 0.72
+                if adx_val > 30:
+                    conf += 0.05
+                if rsi_val < 45:
+                    conf += 0.05
+                return make_signal(symbol, "LONG", conf, "HeatMapBTC4h",
+                    f"BTC pullback RSI={rsi_val:.1f}, above SMA20, ADX={adx_val:.1f}",
+                    price, sl, tp, atr_val, offset,
+                    {"rsi": round(rsi_val, 1), "sma20": round(sma_val, 2),
+                     "adx": round(adx_val, 1)})
+
+    idx = len(close) - 1
+    rsi_now = rsi.iloc[idx] if not pd.isna(rsi.iloc[idx]) else 50
+    print(f"  [{symbol}] HeatMapBTC4h: RSI={rsi_now:.1f}, price vs SMA20={'ABOVE' if close.iloc[idx] > sma20.iloc[idx] else 'BELOW'}")
+    return None
+
+
+# ── 7. LiquidationCascade (TSLA 1h) ──────────────────────────────────────
+# Sharpe 1.79, +74.3%, WR 84.6% en TSLA. Oversold RSI bounce.
+# Entry: RSI < 30 + price near 20-period low + volume spike 2x
+# SL 1.5x ATR, TP 3x ATR
+def eval_liquidation_cascade(df: pd.DataFrame, symbol: str) -> dict | None:
+    if len(df) < 50:
+        return None
+
+    close = df["Close"].reset_index(drop=True)
+    high = df["High"].reset_index(drop=True)
+    low = df["Low"].reset_index(drop=True)
+    volume = df["Volume"].reset_index(drop=True)
+
+    rsi = ta.rsi(close, length=14)
+    atr14 = ta.atr(high, low, close, length=14)
+    vol_ma = ta.sma(volume, length=20)
+    swing_low = low.rolling(20).min()
+
+    if any(x is None for x in [rsi, atr14, vol_ma]):
+        return None
+
+    for offset in range(1, 4):
+        idx = len(close) - offset
+        if idx < 2:
+            continue
+
+        price = close.iloc[idx]
+        rsi_val = rsi.iloc[idx]
+        rsi_prev = rsi.iloc[idx - 1]
+        atr_val = atr14.iloc[idx]
+        vol_now = volume.iloc[idx]
+        vol_avg = vol_ma.iloc[idx]
+        sw_low = swing_low.iloc[idx]
+
+        if any(pd.isna(x) for x in [rsi_val, rsi_prev, atr_val, vol_avg, sw_low]):
+            continue
+        if atr_val <= 0 or vol_avg <= 0:
+            continue
+
+        vol_ratio = vol_now / vol_avg
+
+        # RSI oversold bounce + near swing low + volume spike
+        if rsi_val < 30 and price <= sw_low * 1.005 and vol_ratio > 2.0:
+            # Fresh: was not oversold before
+            if rsi_prev >= 30:
+                sl = price - atr_val * 1.5
+                tp = price + atr_val * 3.0
+                conf = 0.70
+                if rsi_val < 25:
+                    conf += 0.05
+                if vol_ratio > 3.0:
+                    conf += 0.05
+                return make_signal(symbol, "LONG", conf, "LiquidationCascade",
+                    f"RSI oversold={rsi_val:.1f}, near swing low, vol={vol_ratio:.1f}x",
+                    price, sl, tp, atr_val, offset,
+                    {"rsi": round(rsi_val, 1), "vol_ratio": round(vol_ratio, 2),
+                     "swing_low": round(sw_low, 2)})
+
+    idx = len(close) - 1
+    rsi_now = rsi.iloc[idx] if not pd.isna(rsi.iloc[idx]) else 50
+    print(f"  [{symbol}] LiqCascade: RSI={rsi_now:.1f}")
+    return None
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # STRATEGY REGISTRY — symbol, interval, evaluator
 # ═══════════════════════════════════════════════════════════════════════════
@@ -496,6 +622,16 @@ STRATEGIES = [
     # HeatMap Rotation — altcoins 1h (uses BTC correlation)
     ("ETH",  "1h", eval_heatmap_rotation),
     ("SOL",  "1h", eval_heatmap_rotation),
+    ("DOGE", "1h", eval_heatmap_rotation),
+    ("LINK", "1h", eval_heatmap_rotation),
+    ("BNB",  "1h", eval_heatmap_rotation),
+    ("ADA",  "1h", eval_heatmap_rotation),
+    # HeatMap BTC self-mode — BTC 4h (Sharpe 2.15, WR 78.7%)
+    ("BTC",  "4h", eval_heatmap_btc),
+    # LiquidationCascade — US momentum stocks (TSLA Sharpe 1.79, WR 84.6%)
+    ("TSLA", "1h", eval_liquidation_cascade),
+    ("AMD",  "1h", eval_liquidation_cascade),
+    ("QQQ",  "1h", eval_liquidation_cascade),
 ]
 
 
