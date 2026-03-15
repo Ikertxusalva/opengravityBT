@@ -3,7 +3,8 @@
 # Railway runs this via: CMD ["sh", "start.sh"]
 
 echo "[START] Launching data collector daemon..."
-python -m data_collector.collector 2>&1 | while read line; do echo "[COLLECTOR] $line"; done &
+export PYTHONUNBUFFERED=1
+python -m data_collector.collector &
 COLLECTOR_PID=$!
 echo "[START] Collector PID: $COLLECTOR_PID"
 
