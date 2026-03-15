@@ -22,6 +22,59 @@ import { MemoryManager } from './memory-manager';
 const sessions: Map<string, IPty> = new Map();
 const agentMap: Map<string, string> = new Map(); // termId → agentId
 
+// ── Data API context por agente ──
+const CLOUD = 'https://chic-encouragement-production.up.railway.app';
+
+function buildDataContextBlock(agentId: string): string {
+  const base: Record<string, string[]> = {
+    'trading-agent': [
+      `GET ${CLOUD}/api/hl/funding          → funding rates todos los perps (annual_pct, sentiment)`,
+      `GET ${CLOUD}/api/hl/prices           → precios mid de todos los perps HyperLiquid`,
+      `GET ${CLOUD}/api/hl/candles?symbol=BTC&interval=1h&limit=100  → velas OHLCV`,
+      `GET ${CLOUD}/api/market/snapshot     → snapshot completo: funding stress, liquidaciones, top movers`,
+    ],
+    'chart-agent': [
+      `GET ${CLOUD}/api/hl/candles?symbol=BTC&interval=1h&limit=200  → velas OHLCV (cambia symbol/interval)`,
+      `GET ${CLOUD}/api/hl/prices           → precios actuales`,
+      `GET ${CLOUD}/api/hl/orderbook?symbol=BTC  → order book L2`,
+    ],
+    'risk-agent': [
+      `GET ${CLOUD}/api/hl/liquidations     → liquidaciones recientes HyperLiquid`,
+      `GET ${CLOUD}/api/hl/funding          → funding rates + sentiment clasificado`,
+      `GET ${CLOUD}/api/market/snapshot     → snapshot de riesgo: stress score, top liquidados`,
+      `GET ${CLOUD}/api/hl/funding/history/{coin}  → histórico de funding`,
+    ],
+    'funding-agent': [
+      `GET ${CLOUD}/api/hl/funding          → funding rates todos los perps + sentiment`,
+      `GET ${CLOUD}/api/hl/funding/history/{coin}  → histórico funding por coin`,
+      `GET ${CLOUD}/api/market/snapshot     → snapshot completo incluyendo funding stress`,
+    ],
+    'rbi-agent': [
+      `GET ${CLOUD}/api/hl/candles?symbol=BTC&interval=1d&limit=365  → datos históricos para research`,
+      `GET ${CLOUD}/api/hl/funding          → contexto de mercado actual`,
+    ],
+    'backtest-architect': [
+      `GET ${CLOUD}/api/hl/candles?symbol=BTC&interval=1h&limit=500  → OHLCV para backtesting`,
+      `GET ${CLOUD}/api/hl/prices           → precios actuales para validación`,
+    ],
+    'strategy-agent': [
+      `GET ${CLOUD}/api/hl/candles?symbol=BTC&interval=1h&limit=200  → datos para desarrollar estrategia`,
+      `GET ${CLOUD}/api/hl/funding          → contexto de funding para estrategias de carry`,
+      `GET ${CLOUD}/api/market/snapshot     → snapshot de mercado actual`,
+    ],
+  };
+
+  const endpoints = base[agentId];
+  if (!endpoints) return '';
+
+  return `Tienes acceso a datos de mercado en tiempo real vía Railway. Úsalos con curl o fetch ANTES de cualquier análisis:
+
+${endpoints.join('\n')}
+
+Ejemplo de uso: curl -s "${CLOUD}/api/hl/funding" | head -c 2000
+Úsalos silenciosamente — no expliques que los estás llamando, solo analiza los datos.`;
+}
+
 // ── Context persistence ──
 const CONTEXT_DIR = path.join(process.cwd(), '.claude', 'agent-contexts');
 const CLOUD_URL = 'https://chic-encouragement-production.up.railway.app';
@@ -410,11 +463,19 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
         try {
           await MemoryManager.hydrateFromCloud(agentId);
           const memoryBlock = MemoryManager.buildPromptBlock(agentId);
-          if (memoryBlock) {
-            // Inject memory as initial context (Claude reads it as system info)
-            const memPrompt = `Tienes las siguientes memorias de sesiones anteriores. Úsalas como contexto:\n\n${memoryBlock}\n\nNo respondas a esto, simplemente tenlo en cuenta.`;
-            safePtyWrite(ptyProcess, memPrompt + '\r');
-            console.log(`[Memory] Injected ${MemoryManager.getStats(agentId).total} memories for ${agentId}`);
+          const dataBlock = buildDataContextBlock(agentId);
+
+          if (memoryBlock || dataBlock) {
+            let prompt = '';
+            if (memoryBlock) {
+              prompt += `Tienes las siguientes memorias de sesiones anteriores. Úsalas como contexto:\n\n${memoryBlock}\n\n`;
+            }
+            if (dataBlock) {
+              prompt += dataBlock + '\n\n';
+            }
+            prompt += 'No respondas a esto, simplemente tenlo en cuenta.';
+            safePtyWrite(ptyProcess, prompt + '\r');
+            console.log(`[Memory] Injected ${MemoryManager.getStats(agentId).total} memories + data context for ${agentId}`);
           }
         } catch (e) {
           console.warn(`[Memory] Failed to inject memories for ${agentId}:`, e);
