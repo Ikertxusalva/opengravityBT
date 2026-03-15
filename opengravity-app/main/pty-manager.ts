@@ -1,8 +1,13 @@
 /**
  * PTY Manager — Spawns and manages Claude Code terminal sessions.
  *
- * Adapted from RBI's TerminalBridge (Python/winpty) to Node.js/node-pty.
- * Each terminal gets a real PTY running `claude --dangerously-skip-permissions`.
+ * Hardened for stability with 3+ concurrent terminals on Windows.
+ * Key protections:
+ * - All pty.write/kill/resize wrapped in try-catch (EPIPE protection)
+ * - Robust Windows kill with taskkill /T /F fallback
+ * - Global uncaughtException handler for native module crashes
+ * - Async context saving (non-blocking main thread)
+ * - Throttled resize IPC
  */
 import { spawn, IPty } from 'node-pty';
 import { ipcMain, BrowserWindow } from 'electron';
@@ -22,33 +27,36 @@ const CLOUD_URL = 'https://chic-encouragement-production.up.railway.app';
 const sessionBuffers: Map<string, string[]> = new Map(); // termId → recent lines
 const MAX_BUFFER_LINES = 75;
 
+// ── Global crash protection ──
+// EPIPE from dead PTY processes must NOT crash the entire Electron app
+process.on('uncaughtException', (err) => {
+  if (err.message?.includes('EPIPE') || err.message?.includes('EOF') ||
+      err.message?.includes('write after end') || err.message?.includes('This socket has been ended')) {
+    console.warn('[PTY] Caught native error (non-fatal):', err.message);
+    return; // Swallow — PTY died, that's OK
+  }
+  // Re-throw everything else
+  console.error('[PTY] Uncaught exception:', err);
+  throw err;
+});
+
 function stripAnsi(str: string): string {
   return str
-    // CSI sequences: ESC [ ... letter (includes ?2026h/l, cursor, color, etc.)
     .replace(/\x1B\[[0-9;?]*[a-zA-Z]/g, '')
-    // OSC sequences: ESC ] ... BEL or ESC\ (e.g. ]0;title)
     .replace(/\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)/g, '')
-    // Other 2-char escape sequences
     .replace(/\x1B[^[\]][a-zA-Z]/g, '')
-    // Control characters (except \n and \r)
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 }
 
-// Semantic filter: discard lines with zero informational value
 function isUsefulLine(line: string): boolean {
   if (line.length < 4) return false;
-  // Spinners and "Working…" animations
   if (/^[\s✻✶*✢·⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏▁▂▃▄▅▆▇█]+Working[….]?$/u.test(line)) return false;
   if (/^Working[….]?$/.test(line)) return false;
-  // Voice mode noise
   if (/^Voice:\s*(processing|listening|recording)[….]?$/i.test(line)) return false;
   if (/^listening[….]?$/.test(line)) return false;
-  // UI box-drawing lines (Claude splash screen)
   if (/^[─│╭╰╮╯├┤┬┴┼▛▜▝▘▟▙▗▖\s]+$/.test(line)) return false;
-  // Escaped ANSI/control remnants that survived stripAnsi
   if (/^\[>[0-9]/.test(line)) return false;
   if (/^hift[+\s]/i.test(line)) return false;
-  // Claude CLI status bar / UI chrome
   if (/hold\s*Space\s*to\s*speak/i.test(line)) return false;
   if (/bypasspermissions/i.test(line)) return false;
   if (/^◐\s*(low|medium|high)/u.test(line)) return false;
@@ -58,7 +66,6 @@ function isUsefulLine(line: string): boolean {
   if (/Tipsforgetting/i.test(line)) return false;
   if (/Norecentactivity/i.test(line)) return false;
   if (/Recentactivity$/i.test(line)) return false;
-  // Lines dominated by box-drawing chars (>30%)
   const boxChars = (line.match(/[─│╭╰╮╯▛▜▝▘▟▙]/g) || []).length;
   if (boxChars > line.length * 0.3) return false;
   return true;
@@ -68,13 +75,60 @@ function ensureContextDir() {
   if (!fs.existsSync(CONTEXT_DIR)) fs.mkdirSync(CONTEXT_DIR, { recursive: true });
 }
 
+// ── Safe PTY operations (never throw) ──
 
-// Debounce guard: prevent overlapping saves for the same agent
+function safeSend(mainWindow: BrowserWindow, channel: string, ...args: any[]) {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(channel, ...args);
+    }
+  } catch {}
+}
+
+function safePtyWrite(pty: IPty | undefined, data: string): boolean {
+  if (!pty) return false;
+  try {
+    pty.write(data);
+    return true;
+  } catch (e: any) {
+    console.warn('[PTY] Write failed (process likely dead):', e.message);
+    return false;
+  }
+}
+
+function safePtyResize(pty: IPty | undefined, cols: number, rows: number): boolean {
+  if (!pty) return false;
+  try {
+    pty.resize(cols, rows);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safePtyKill(pty: IPty | undefined) {
+  if (!pty) return;
+  const pid = pty.pid;
+  try {
+    pty.kill();
+  } catch (e: any) {
+    console.warn(`[PTY] kill() failed for PID ${pid}:`, e.message);
+  }
+  // Windows fallback: force-kill the process tree
+  if (pid && process.platform === 'win32') {
+    try {
+      require('child_process').exec(`taskkill /PID ${pid} /T /F`, () => {});
+    } catch {}
+  }
+}
+
+// ── Context saving (async, non-blocking) ──
+
 const savingAgents = new Set<string>();
 
 async function saveAgentContext(agentId: string, buffer: string[]) {
   if (buffer.length === 0) return;
-  if (savingAgents.has(agentId)) return; // Skip if already saving
+  if (savingAgents.has(agentId)) return;
   savingAgents.add(agentId);
 
   try {
@@ -87,7 +141,6 @@ async function saveAgentContext(agentId: string, buffer: string[]) {
       .filter(isUsefulLine);
     if (cleanLines.length === 0) return;
 
-    // Read existing context to preserve history (keep last 2 sessions)
     let prevSessions = '';
     try {
       const existing = await fs.promises.readFile(contextFile, 'utf-8');
@@ -95,18 +148,16 @@ async function saveAgentContext(agentId: string, buffer: string[]) {
       if (sections.length > 0) {
         prevSessions = '\n---\n## Sesión anterior\n' + sections[0].trim().slice(0, 400) + '\n';
       }
-    } catch {} // File doesn't exist yet — OK
+    } catch {}
 
     const content = `# Contexto del agente: ${agentId}\n## Última sesión: ${now}\n\n${cleanLines.slice(-40).join('\n')}${prevSessions}`;
     await fs.promises.writeFile(contextFile, content, 'utf-8');
 
-    // Async backup to Railway (fire and forget)
     Vault.get('OPENGRAVITY_API_TOKEN').then(token => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       fetch(`${CLOUD_URL}/api/agent/context/${agentId}`, {
-        method: 'POST',
-        headers,
+        method: 'POST', headers,
         body: JSON.stringify({ context_summary: content }),
       }).catch(() => {});
     }).catch(() => {});
@@ -120,20 +171,20 @@ async function saveAgentContext(agentId: string, buffer: string[]) {
 export function saveAllContexts() {
   for (const [termId, agId] of agentMap.entries()) {
     const buf = sessionBuffers.get(termId) || [];
-    if (buf.length > 0) saveAgentContext(agId, buf);
+    if (buf.length > 0) saveAgentContext(agId, [...buf]);
   }
 }
 
-// ── Periodic auto-save: protects terminal work if app crashes ──
+// ── Periodic auto-save ──
 let autoSaveTimer: ReturnType<typeof setInterval> | null = null;
-const AUTO_SAVE_INTERVAL_MS = 90_000; // 90s — reduce mid-work spinner saves
+const AUTO_SAVE_INTERVAL_MS = 90_000;
 
 function startAutoSave() {
   if (autoSaveTimer) return;
   autoSaveTimer = setInterval(() => {
     for (const [termId, agId] of agentMap.entries()) {
       const buf = sessionBuffers.get(termId) || [];
-      if (buf.length > 0) saveAgentContext(agId, buf);
+      if (buf.length > 0) saveAgentContext(agId, [...buf]);
     }
   }, AUTO_SAVE_INTERVAL_MS);
 }
@@ -165,27 +216,23 @@ function acquireSpawnSlot(): Promise<void> {
 }
 
 function releaseSpawnSlot() {
-  activeSpawns--;
+  activeSpawns = Math.max(0, activeSpawns - 1);
   if (spawnQueue.length > 0) {
-    const next: (() => void) | undefined = spawnQueue.shift();
+    const next = spawnQueue.shift();
     next?.();
   }
 }
 
-// ── Build clean environment for Claude (same logic as RBI's _build_env) ──
+// ── Build clean environment for Claude ──
 function buildClaudeEnv(): Record<string, string> {
   const env: Record<string, string> = { ...process.env } as Record<string, string>;
 
   env['TERM'] = 'xterm-256color';
   env['COLORTERM'] = 'truecolor';
   env['FORCE_COLOR'] = '1';
-  // Increase memory limit for Claude Code (CLI)
   env['NODE_OPTIONS'] = '--max-old-space-size=4096';
-
-  // OpenGravity Cloud API (public endpoints, no auth needed)
   env['OPENGRAVITY_CLOUD_URL'] = 'https://chic-encouragement-production.up.railway.app';
 
-  // Remove sensitive variables from PTY environment
   const cleanVars = [
     'CLAUDECODE', 'CLAUDE_CODE', 'ANTHROPIC_CLAUDE_CODE',
     'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID',
@@ -197,7 +244,6 @@ function buildClaudeEnv(): Record<string, string> {
     delete env[v];
   }
 
-  // Add common paths
   const extraPaths = [
     path.join(os.homedir(), '.local', 'bin'),
     'C:\\Users\\Public\\node-v22.15.0-win-x64',
@@ -216,9 +262,28 @@ function buildClaudeEnv(): Record<string, string> {
 
 // ── Setup IPC handlers ──
 export function setupPtyManager(mainWindow: BrowserWindow) {
+
+  // ── Helper: clean up a terminal session ──
+  function cleanupSession(termId: string) {
+    const pty = sessions.get(termId);
+    if (pty) {
+      safePtyKill(pty);
+      sessions.delete(termId);
+    }
+    agentMap.delete(termId);
+    sessionBuffers.delete(termId);
+  }
+
   // Create a new terminal session
   ipcMain.handle('pty-create', async (_event, termId: string, agentId: string, rows: number, cols: number) => {
     console.log(`[PTY] Creating session for ${agentId} (${termId})`);
+
+    // If session already exists for this termId, clean it up first
+    if (sessions.has(termId)) {
+      console.warn(`[PTY] Session ${termId} already exists, cleaning up first`);
+      cleanupSession(termId);
+    }
+
     AuditLog.log({
       agent: agentId,
       action: 'PTY_CREATE',
@@ -230,7 +295,6 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
 
     const env = buildClaudeEnv();
 
-    // Inject agent-specific secrets from Vault into PTY environment
     if (agentId === 'polymarket-agent') {
       const polyKeys = ['POLYMARKET_PK', 'POLYMARKET_FUNDER', 'POLYMARKET_API_KEY',
                         'POLYMARKET_API_SECRET', 'POLYMARKET_API_PASSPHRASE'];
@@ -242,8 +306,8 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
 
     const isWin = process.platform === 'win32';
     const shell = isWin ? 'cmd.exe' : 'claude';
-    const args = isWin 
-      ? ['/c', 'claude', '--dangerously-skip-permissions'] 
+    const args = isWin
+      ? ['/c', 'claude', '--dangerously-skip-permissions']
       : ['--dangerously-skip-permissions'];
     const cwd = process.cwd();
 
@@ -260,119 +324,105 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       console.log(`[PTY] Session created: ${termId} (PID: ${ptyProcess.pid})`);
       sessions.set(termId, ptyProcess);
       agentMap.set(termId, agentId);
-      startAutoSave(); // Ensure periodic context saving is running
+      startAutoSave();
 
       // Forward PTY output to renderer + accumulate in buffer
       ptyProcess.onData((data: string) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('pty-data', termId, data);
-        }
+        safeSend(mainWindow, 'pty-data', termId, data);
         const lines = data.split('\n');
         const buf = sessionBuffers.get(termId) || [];
         buf.push(...lines);
         if (buf.length > MAX_BUFFER_LINES) buf.splice(0, buf.length - MAX_BUFFER_LINES);
         sessionBuffers.set(termId, buf);
-
       });
 
-      // Handle PTY exit with auto-restart (same as RBI)
+      // Handle PTY exit with auto-restart
       ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
-        // Save context asynchronously before cleanup
-        const buf = sessionBuffers.get(termId) || [];
-        if (buf.length > 0) saveAgentContext(agentId, [...buf]);
-        sessionBuffers.delete(termId);
+        try {
+          // Save context asynchronously
+          const buf = sessionBuffers.get(termId) || [];
+          if (buf.length > 0) saveAgentContext(agentId, [...buf]);
+          sessionBuffers.delete(termId);
 
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('pty-data', termId,
-            `\r\n\x1b[33m[Claude salió (code: ${exitCode}) · Reiniciando en 1s...]\x1b[0m\r\n`
+          safeSend(mainWindow, 'pty-data', termId,
+            `\r\n\x1b[33m[Claude salió (code: ${exitCode}) · Reiniciando en 2s...]\x1b[0m\r\n`
           );
 
-          // Auto-restart after 1 second
-          setTimeout(async () => {
-            AuditLog.log({
-              agent: agentId,
-              action: 'PTY_EXIT',
-              details: `PTY process exited with code ${exitCode}`,
-              level: exitCode !== 0 ? 'WARNING' : 'INFO',
-              result: 'ALLOWED'
-            });
-            if (sessions.has(termId)) {
-              sessions.delete(termId);
-              // Trigger re-create from renderer
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('pty-restart', termId, agentId);
-              }
-            }
-          }, 1000);
+          // Clean up and trigger restart after 2 seconds (gives time for cleanup)
+          setTimeout(() => {
+            try {
+              AuditLog.log({
+                agent: agentId,
+                action: 'PTY_EXIT',
+                details: `PTY process exited with code ${exitCode}`,
+                level: exitCode !== 0 ? 'WARNING' : 'INFO',
+                result: 'ALLOWED'
+              });
+            } catch {}
+            sessions.delete(termId);
+            safeSend(mainWindow, 'pty-restart', termId, agentId);
+          }, 2000);
+        } catch (e) {
+          console.warn(`[PTY] Error in onExit handler for ${termId}:`, e);
+          sessions.delete(termId);
         }
       });
 
       // Release spawn slot after Claude initializes
-      setTimeout(() => {
-        releaseSpawnSlot();
-      }, 5000);
+      setTimeout(() => { releaseSpawnSlot(); }, 5000);
       return { success: true };
     } catch (error) {
       releaseSpawnSlot();
+      console.error(`[PTY] Failed to spawn for ${agentId}:`, error);
       return { success: false, error: String(error) };
     }
   });
 
-  // Send input to PTY
+  // Send input to PTY — protected against EPIPE
   ipcMain.on('pty-input', (_event, termId: string, data: string) => {
     const pty = sessions.get(termId);
-    if (pty) {
-      pty.write(data);
+    if (!safePtyWrite(pty, data) && pty) {
+      // Write failed → PTY is dead, remove stale session
+      console.warn(`[PTY] Removing dead session ${termId} after write failure`);
+      sessions.delete(termId);
     }
   });
 
-  // Resize PTY — throttled to prevent flooding from multiple terminals
+  // Resize PTY — throttled + protected
   const resizeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   ipcMain.on('pty-resize', (_event, termId: string, cols: number, rows: number) => {
     if (resizeTimers.has(termId)) clearTimeout(resizeTimers.get(termId)!);
     resizeTimers.set(termId, setTimeout(() => {
       resizeTimers.delete(termId);
-      const pty = sessions.get(termId);
-      if (pty) {
-        try { pty.resize(cols, rows); } catch {}
-      }
+      safePtyResize(sessions.get(termId), cols, rows);
     }, 50));
   });
 
-  // Kill PTY
+  // Kill PTY — robust with Windows fallback
   ipcMain.on('pty-kill', (_event, termId: string) => {
     const agId = agentMap.get(termId);
     if (agId) {
       const buf = sessionBuffers.get(termId) || [];
       if (buf.length > 0) saveAgentContext(agId, [...buf]);
-      sessionBuffers.delete(termId);
     }
-    const pty = sessions.get(termId);
-    if (pty) {
-      pty.kill();
-      sessions.delete(termId);
-      agentMap.delete(termId);
-    }
+    cleanupSession(termId);
   });
 
-  // Kill all on app quit (saves contexts first)
+  // Kill all on app quit
   ipcMain.on('pty-kill-all', () => {
     stopAutoSave();
     saveAllContexts();
-    for (const pty of sessions.values()) {
-      try { pty.kill(); } catch {}
+    for (const [termId] of sessions) {
+      cleanupSession(termId);
     }
-    sessions.clear();
-    agentMap.clear();
-    sessionBuffers.clear();
   });
 
   // Inject a prompt into a running agent's PTY by agentId
   ipcMain.handle('pty-inject', async (_event, targetAgentId: string, prompt: string) => {
     for (const [termId, agId] of agentMap.entries()) {
       if (agId === targetAgentId && sessions.has(termId)) {
-        sessions.get(termId)?.write(prompt + '\r');
-        return { success: true, termId };
+        const ok = safePtyWrite(sessions.get(termId), prompt + '\r');
+        return { success: ok, termId };
       }
     }
     return { success: false, error: 'Agent not found' };

@@ -135,6 +135,32 @@ export default function HomePage() {
     });
   }, [addTerminal]);
 
+  // ── Handle PTY restart: when a terminal dies, recreate it automatically ──
+  React.useEffect(() => {
+    const electron = (window as any).electron;
+    if (!electron?.pty?.onRestart) return;
+    const unsub = electron.pty.onRestart((termId: string, agentId: string) => {
+      console.log(`[PTY-Restart] Restarting ${agentId} (old: ${termId})`);
+      // Check if terminal still exists in our state (user didn't close it)
+      setTerminals(prev => {
+        const existing = prev.find(t => t.id === termId);
+        if (!existing) return prev; // User closed it, don't restart
+        // Replace with new terminal ID so XTermPanel remounts
+        const agent = AGENTS.find(a => a.id === agentId) || AGENTS[0];
+        const newId = `term-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const newTerm: TerminalState = {
+          id: newId,
+          agentId: agent.id,
+          agentName: agent.name,
+          agentIcon: agent.icon,
+          model: agent.model,
+        };
+        return prev.map(t => t.id === termId ? newTerm : t);
+      });
+    });
+    return () => { unsub?.(); };
+  }, []);
+
   React.useEffect(() => {
     const railwayUrl = 'wss://chic-encouragement-production.up.railway.app/ws';
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -363,6 +389,7 @@ function PolymarketPanel() {
   const [cycleRunning, setCycleRunning] = React.useState(false);
   const [nextCycle, setNextCycle] = React.useState<string | null>(null);
   const [botEnabled, setBotEnabled] = React.useState(true);
+  const [daemonRunning, setDaemonRunning] = React.useState(false);
 
   const load = React.useCallback(async () => {
     const electron = (window as any).electron;
@@ -392,6 +419,10 @@ function PolymarketPanel() {
     const electron = (window as any).electron;
     // Get initial bot enabled state
     electron?.polymarket?.getStatus?.().then((s: any) => setBotEnabled(s.enabled));
+    // Daemon running state — poll cada 5s
+    const checkDaemon = () => electron?.polymarket?.daemonRunning?.().then((r: any) => setDaemonRunning(r?.running ?? false));
+    checkDaemon();
+    const daemonPoll = setInterval(checkDaemon, 5000);
     // Real-time data push from fs.watch + bot cycles
     const unsubData = electron?.polymarket?.onUpdate?.((newData: any) => {
       setData(newData);
@@ -406,6 +437,7 @@ function PolymarketPanel() {
       }
     });
     return () => {
+      clearInterval(daemonPoll);
       unsubData?.();
       unsubStatus?.();
     };
