@@ -1,0 +1,37 @@
+BACKLOG DE NUEVAS ESTRATEGIAS — Twitter/Quants Batch (2026-03-16)
+Prioridad de backtesting por viabilidad + Sharpe potencial
+
+TIER 1 (READY — Backtest inmediato)
+1. Statistical Arbitrage Market-Neutral [Sharpe 2.0+] — Ronald Lui Medium | Cointegration pairs, Z-score, market-neutral
+2. VIX Futures Calendar Spread [Sharpe 1.5] — Quantpedia | Contango/backwardation, 5-day hold, $500M volume
+3. Cross-Sectional Momentum Long/Short [Sharpe 1.2-1.5] — Robot Wealth | Buy winners quintil, short losers, monthly rebalance
+4. Intraday Seasonality + 9 EMA VWAP [Sharpe 1.3+] — QuantConnect | 5-min bars, prime hours (9:30-11AM, 2:30-4PM ET), SPY/QQQ
+5. Funding Rate Arbitrage Spot/Perp [Sharpe 1.0-1.5] — CoinGlass + Amberdata | Long spot, short perps, harvest 8h funding
+6. Z-Score Pairs Trading (Cointegration) [Sharpe 1.0-1.8] — Amberdata + QuantInsti | ADF test, Hurst < 0.5, Z-score entry/exit
+7. Momentum Decay / Gap Fade [Sharpe 1.5+] — Robot Wealth | Fade overnight gaps > 1.5 ATR, 2:1 reward ratio
+
+TIER 2 (ML MODELS — Require training + validation)
+8. CNN-LSTM On-Chain Metrics [Sharpe 1.5-2.5] — ScienceDirect + Glassnode | MVRV, exchange flows, whale activity, 82% accuracy documented
+9. GARCH Volatility Forecasting [Sharpe 1.5-2.2] — Medium: Yavuz Akbay | Market making dynamic spreads, vol prediction 70-80% accuracy
+10. Liquidation Cascade Prediction [Sharpe 1.5+] — Insider Finance | Heatmap + ML model, cascade probability, 60-75% win rate
+
+TIER 3 (INFRASTRUCTURE DEPENDENT)
+11. Order Flow Imbalance Microstructure [Sharpe var] — SSRN: Kolm | Requires co-location < 10ms, orderbook real-time, IC 0.05-0.15
+12. Implied Volatility Smile/Skew Arb [Sharpe 1.0-1.5] — Medium: Raphaele Chappe | Options pricing model, risk reversals, 60-70% win rate
+
+TIER 4 (COMPLEMENTARY / TACTICAL)
+13. 3-Factor Crypto (Market + Size + Momentum) [Sharpe 1.0-1.3] — Alpha Architect | Rank-based, weekly rebalance, long-only tactical
+14. PEAD Post-Earnings Drift [Sharpe 1.0-1.2] — Robot Wealth | Event-driven, 1-5 days post-earnings, 55-65% win rate
+
+EXECUTION PLAN:
+Phase 1: Code + backtest Tier 1 (1-7) — Target: 2026-03-17
+Phase 2: Validate Tier 1 results, initiate Tier 2 ML training — Target: 2026-03-18
+Phase 3: Risk evaluation, top 3 strategies → testnet — Target: 2026-03-19
+Phase 4: Monitor paper trading, iterate on parameters — Target: 2026-03-20+
+
+NOTES:
+- All strategies have documented edge (Sharpe > 1.0) from verified quant sources
+- Tier 1 uses only publicly available data (no special feeds)
+- Tier 2 requires GPU for training (CNN-LSTM) or statistical libraries (GARCH)
+- Tier 3 not recommended for retail traders (infrastructure costs prohibitive)
+- Cross-validation across multiple timeframes before live trading
