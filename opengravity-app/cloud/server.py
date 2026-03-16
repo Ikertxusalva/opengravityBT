@@ -1956,6 +1956,46 @@ async def get_whale_positions_endpoint():
     }
 
 
+# ── Kill Switch ──────────────────────────────────────────────────────
+
+@app.post("/api/killswitch")
+async def killswitch_endpoint(request: Request, _=Depends(verify_token)):
+    """Emergency kill switch — close all positions and cancel all orders.
+
+    Requires Bearer token authentication.
+    Usage from mobile: curl -X POST https://your.railway.app/api/killswitch \\
+        -H "Authorization: Bearer YOUR_TOKEN" -H "Content-Type: application/json" \\
+        -d '{"network": "testnet"}'
+    """
+    body = await request.json() if request.headers.get("content-type") == "application/json" else {}
+    network = body.get("network", "testnet")
+    testnet = network != "mainnet"
+
+    # Run kill switch in thread pool (it uses requests, not async)
+    import subprocess
+    script = os.path.join(os.path.dirname(__file__), "..", "scripts", "hl_killswitch.py")
+
+    # If script exists locally, import and run directly
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
+        from hl_killswitch import kill
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, lambda: kill(testnet=testnet))
+        # Broadcast to all connected WS clients
+        await manager.broadcast(json.dumps({
+            "type": "killswitch",
+            "network": network,
+            "timestamp": result.get("timestamp"),
+            "orders_cancelled": len(result.get("orders_cancelled", [])),
+            "positions_closed": len(result.get("positions_closed", [])),
+        }))
+        return result
+    except ImportError:
+        raise HTTPException(501, "Kill switch script not available on this deployment")
+    except Exception as e:
+        raise HTTPException(500, f"Kill switch failed: {e}")
+
+
 # ── Data Collector Endpoints ──────────────────────────────────────────
 
 async def _get_asyncpg_pool():

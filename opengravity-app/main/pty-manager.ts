@@ -33,6 +33,85 @@ const agentMap: Map<string, string> = new Map(); // termId → agentId
 const pendingOrders: Map<string, any> = new Map();
 let _mainWindow: BrowserWindow | null = null;
 
+// ── Open positions tracker (symbol → direction) — prevents duplicate orders ──
+const openPositions: Map<string, string> = new Map();
+const activeOrders: Set<string> = new Set(); // Local guard — instant, no API needed
+let _hlAddress: string | null = null; // Cached from first successful execution
+
+/** Read HL testnet private key from .env/.env.migrated → Vault → process.env */
+function readHLKey(): string | null {
+  // 1. Check .env and .env.migrated files (most recent source of truth)
+  for (const d of [process.cwd(), path.resolve(process.cwd(), '..')]) {
+    for (const name of ['.env', '.env.migrated']) {
+      const ef = path.join(d, name);
+      if (fs.existsSync(ef)) {
+        const match = fs.readFileSync(ef, 'utf-8').match(/^HL_TESTNET_PRIVATE_KEY\s*=\s*(.+)/m);
+        if (match) return match[1].trim().replace(/^["']|["']$/g, '');
+      }
+    }
+  }
+  // 2. process.env
+  return process.env.HL_TESTNET_PRIVATE_KEY || null;
+}
+
+/** Derive HL address from private key at startup using Python */
+async function resolveHLAddress(): Promise<void> {
+  // .env file → Vault → process.env
+  let key = readHLKey() || await Vault.get('HL_TESTNET_PRIVATE_KEY');
+  if (!key) return;
+
+  const venvPython = path.resolve(process.cwd(), '..', '.venv', 'Scripts', 'python.exe');
+  const pythonCmd = fs.existsSync(venvPython) ? venvPython : 'python';
+
+  return new Promise((resolve) => {
+    const pyCode = 'import sys,os;from eth_account import Account;print(Account.from_key(os.environ["K"]).address)';
+    execFile(pythonCmd, ['-c', pyCode],
+      { timeout: 10_000, env: { ...process.env, K: key } }, (err, stdout) => {
+        if (!err && stdout.trim().startsWith('0x')) {
+          _hlAddress = stdout.trim();
+          console.log(`[Swarm] Resolved HL address: ${_hlAddress}`);
+        }
+        resolve();
+      });
+  });
+}
+
+async function refreshOpenPositions(): Promise<void> {
+  if (!_hlAddress) return; // No address yet — will be set after first executeHLOrder
+  try {
+    const baseUrl = process.env.HL_MAINNET_MODE
+      ? 'https://api.hyperliquid.xyz'
+      : 'https://api.hyperliquid-testnet.xyz';
+
+    const resp = await fetch(`${baseUrl}/info`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'clearinghouseState', user: _hlAddress }),
+    });
+    const data = await resp.json() as any;
+
+    openPositions.clear();
+    for (const p of data?.assetPositions || []) {
+      const pos = p?.position;
+      if (pos?.coin && parseFloat(pos?.szi || '0') !== 0) {
+        const dir = parseFloat(pos.szi) > 0 ? 'LONG' : 'SHORT';
+        openPositions.set(pos.coin, dir);
+      }
+    }
+    // Add any HL positions to activeOrders (catch positions from previous session)
+    // NOTE: never release locks here — HL API has latency and may not show new positions yet
+    // Locks persist for the entire session. Only cleared on app restart.
+    for (const sym of openPositions.keys()) {
+      activeOrders.add(sym);
+    }
+    if (openPositions.size > 0) {
+      console.log(`[Swarm] Open positions (${openPositions.size}): ${[...openPositions.entries()].map(([s,d]) => `${s}:${d}`).join(', ')}`);
+    }
+  } catch (e) {
+    console.warn(`[Swarm] Failed to refresh positions:`, e);
+  }
+}
+
 // ── Circuit Breaker (simple Map) ──
 const circuitBreaker: Map<string, CircuitState> = new Map();
 
@@ -154,7 +233,8 @@ function invokeAgent(
 
 async function deterministicFallback(agentName: AgentName, prompt: string): Promise<AgentResponse> {
   // Extract symbol from the convocation prompt
-  const symbolMatch = prompt.match(/symbol[:\s]*["']?(\w+)/i) || prompt.match(/para (\w+)/i);
+  // Format: "[SWARM CONVOCATION] ETH — señal LONG ..." or "symbol: ETH"
+  const symbolMatch = prompt.match(/CONVOCATION\]\s+(\w+)/i) || prompt.match(/symbol[:\s]*["']?(\w+)/i) || prompt.match(/para (\w+)/i);
   const symbol = symbolMatch?.[1]?.toUpperCase() || 'BTC';
 
   try {
@@ -469,13 +549,19 @@ Tienes 30 segundos. Solo ejecuta el echo, nada más.`;
 
   // If EXECUTE: request manual confirmation from user before executing
   if (decision.action === 'EXECUTE' && decision.direction && decision.size) {
+    // Extract SL/TP from scanner signal (payload level or payload.data level)
+    const signalData = (event.payload.data as any) || {};
+    const payload = event.payload as any;
     const pendingOrder = {
       id: `order-${Date.now()}`,
       symbol,
       direction: decision.direction,
-      size: decision.size,
+      size: payload.size || decision.size,  // Use scanner's confidence-based size
       score: decision.score,
-      priority: event.priority || 2,  // Pass signal priority for order type selection
+      priority: event.priority || 2,
+      stopLoss: payload.stopLoss || signalData.stopLoss || null,
+      takeProfit: payload.takeProfit || signalData.takeProfit || null,
+      strategy: payload.strategy || signalData.strategy || null,
       reason: decision.reason,
       sources: decision.sources,
       funding: { direction: fundingResult.direction, confidence: fundingResult.confidence, reason: fundingResult.reason },
@@ -490,11 +576,42 @@ Tienes 30 segundos. Solo ejecuta el echo, nada más.`;
 
     // Auto-confirm on testnet, manual on mainnet
     const isTestnet = !process.env.HL_MAINNET_MODE;
-    if (isTestnet && process.env.HL_TESTNET_PRIVATE_KEY) {
-      console.log(`[Swarm] Auto-confirming testnet order: ${pendingOrder.id}`);
+    const hasTestnetKey = readHLKey() || await Vault.get('HL_TESTNET_PRIVATE_KEY');
+    if (isTestnet && hasTestnetKey) {
+      // Guard 1: Local instant check (no API call) — prevents concurrent duplicates
+      if (activeOrders.has(symbol)) {
+        console.log(`[Swarm] SKIP ${symbol} ${decision.direction} — order already active`);
+        pendingOrders.delete(pendingOrder.id);
+        return;
+      }
+
+      // Guard 2: HL API position check (slower but authoritative)
+      await refreshOpenPositions();
+      if (openPositions.has(symbol)) {
+        console.log(`[Swarm] SKIP ${symbol} ${decision.direction} — position already open on HL`);
+        activeOrders.add(symbol); // Sync local guard
+        pendingOrders.delete(pendingOrder.id);
+        return;
+      }
+
+      // Lock symbol BEFORE executing (prevents parallel duplicates)
+      activeOrders.add(symbol);
+      const slTpInfo = pendingOrder.stopLoss ? ` SL=${pendingOrder.stopLoss} TP=${pendingOrder.takeProfit}` : '';
+      console.log(`[Swarm] Auto-confirming testnet order: ${pendingOrder.id}${slTpInfo}`);
       pendingOrders.delete(pendingOrder.id);
       const result = await executeHLOrder(pendingOrder);
       console.log(`[Swarm] Auto-execution result:`, JSON.stringify(result));
+
+      if (!result?.success) {
+        activeOrders.delete(symbol); // Release lock on failure
+      }
+
+      // Always update HL address from execution result (authoritative source)
+      if (result?.address && result.address !== _hlAddress) {
+        _hlAddress = result.address;
+        console.log(`[Swarm] Updated HL address: ${_hlAddress}`);
+      }
+
       if (_mainWindow && !_mainWindow.isDestroyed()) {
         _mainWindow.webContents.send('swarm-order-executed', { orderId: pendingOrder.id, result });
       }
@@ -753,6 +870,113 @@ function stopStrategyScanner() {
     clearInterval(stratScannerTimer);
     stratScannerTimer = null;
   }
+}
+
+// ── SL/TP Guardian — ensures every open position has active SL and TP ──
+let guardianTimer: ReturnType<typeof setInterval> | null = null;
+const GUARDIAN_INTERVAL = 5 * 60_000; // Every 5 minutes
+
+function runGuardian() {
+  const scriptPath = path.join(process.cwd(), 'scripts', 'hl_guardian.py');
+  if (!fs.existsSync(scriptPath)) {
+    console.warn('[Guardian] hl_guardian.py not found at', scriptPath);
+    return;
+  }
+
+  const venvPython = path.join(process.cwd(), 'venv', 'Scripts', 'python.exe');
+  const pythonCmd = fs.existsSync(venvPython) ? venvPython : 'python';
+
+  const args = [scriptPath];
+  if (process.env.HL_MAINNET_MODE) args.push('--mainnet');
+
+  const execEnv = { ...process.env };
+  const fileKey = readHLKey();
+  if (fileKey) {
+    execEnv['HL_TESTNET_PRIVATE_KEY'] = fileKey;
+  }
+
+  execFile(pythonCmd, args, { timeout: 30_000, env: execEnv }, (error, stdout, stderr) => {
+    if (stderr) {
+      // Guardian logs to stderr — show in console
+      for (const line of stderr.trim().split('\n')) {
+        if (line.trim()) console.log(`[Guardian] ${line.trim()}`);
+      }
+    }
+    if (stdout) {
+      try {
+        const result = JSON.parse(stdout.trim());
+        if (result.positions > 0) {
+          const actionCount = (result.actions || []).reduce(
+            (sum: number, a: any) => sum + (a.actions?.length || 0), 0
+          );
+          if (actionCount > 0) {
+            console.log(`[Guardian] ${result.positions} positions, ${actionCount} SL/TP orders placed`);
+          } else {
+            console.log(`[Guardian] ${result.positions} positions — all protected`);
+          }
+        }
+      } catch {
+        // Non-JSON output — ignore
+      }
+    }
+    if (error && (error as any).code !== 0) {
+      console.warn('[Guardian] Error:', error.message?.slice(0, 200));
+    }
+  });
+}
+
+function startGuardian() {
+  if (guardianTimer) return;
+  // First check after 60s (let address resolve first), then every 5 min
+  setTimeout(() => {
+    runGuardian();
+    guardianTimer = setInterval(runGuardian, GUARDIAN_INTERVAL);
+  }, 60_000);
+  console.log('[Guardian] SL/TP guardian started (every 5 min)');
+}
+
+function stopGuardian() {
+  if (guardianTimer) {
+    clearInterval(guardianTimer);
+    guardianTimer = null;
+  }
+}
+
+// ── Kill Switch ──
+function runKillSwitch(testnet: boolean = true): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'hl_killswitch.py');
+    const args = testnet ? [] : ['--mainnet', '--confirm'];
+    const env = { ...process.env };
+
+    // Load keys from vault
+    const keyName = testnet ? 'HL_TESTNET_PRIVATE_KEY' : 'HL_PRIVATE_KEY';
+    import('./security/vault').then(({ default: Vault }) => {
+      Vault.get(keyName).then((vaultKey: string | null) => {
+        if (vaultKey) env[keyName] = vaultKey;
+
+        const proc = spawn('python', [scriptPath, ...args], {
+          env,
+          cwd: path.join(__dirname, '..', 'scripts'),
+        });
+
+        let stdout = '';
+        let stderr = '';
+        proc.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+        proc.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+        proc.on('close', (code: number) => {
+          console.log(`[KillSwitch] Exit code: ${code}`);
+          if (stderr) console.log(`[KillSwitch] ${stderr}`);
+          try {
+            resolve(JSON.parse(stdout));
+          } catch {
+            resolve({ success: code === 0, raw: stdout });
+          }
+        });
+        proc.on('error', (err: Error) => reject(err));
+      });
+    });
+  });
 }
 
 // ── Data API context por agente ──
@@ -1090,65 +1314,73 @@ function buildClaudeEnv(): Record<string, string> {
 
 // ── Execute order via Python HLConnector ──
 function executeHLOrder(order: any): Promise<any> {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     const scriptPath = path.join(process.cwd(), 'scripts', 'hl_execute.py');
-    const pythonPaths = [
-      'python',
-      'python3',
-      'C:\\Program Files\\Python313\\python.exe',
-      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python312', 'python.exe'),
+    if (!fs.existsSync(scriptPath)) {
+      resolve({ success: false, error: `Script not found: ${scriptPath}` });
+      return;
+    }
+
+    // Use same Python resolution as strategy scanner: .venv first, then system
+    const venvPython = path.resolve(process.cwd(), '..', '.venv', 'Scripts', 'python.exe');
+    const pythonCmd = fs.existsSync(venvPython) ? venvPython : 'python';
+
+    const args = [
+      scriptPath,
+      '--symbol', order.symbol,
+      '--direction', order.direction,
+      '--size', order.size || 'quarter',
+      '--score', String(order.score || 0),
+      '--priority', String(order.priority || 2),
     ];
 
-    // Try to find a working Python
-    const tryPython = (idx: number) => {
-      if (idx >= pythonPaths.length) {
-        resolve({ success: false, error: 'Python not found' });
-        return;
-      }
+    // Pass SL/TP from strategy signal
+    if (order.stopLoss) args.push('--sl', String(order.stopLoss));
+    if (order.takeProfit) args.push('--tp', String(order.takeProfit));
 
-      const args = [
-        scriptPath,
-        '--symbol', order.symbol,
-        '--direction', order.direction,
-        '--size', order.size || 'quarter',
-        '--score', String(order.score || 0),
-        '--priority', String(order.priority || 2),
-      ];
+    // Trailing stop — opt-in per strategy
+    if (order.trailing) {
+      args.push('--trailing');
+      if (order.trailingActivation) args.push('--trail-activation', String(order.trailingActivation));
+      if (order.trailingDistance) args.push('--trail-distance', String(order.trailingDistance));
+    }
 
-      // Testnet by default — only add --mainnet if explicitly requested
-      if (order.mainnet) args.push('--mainnet');
+    // Testnet by default — only add --mainnet if explicitly requested
+    if (order.mainnet) args.push('--mainnet');
 
-      // Pass key via env (read from Vault or process.env)
-      const execEnv = { ...process.env };
-      Vault.get('HL_TESTNET_PRIVATE_KEY').then(vaultKey => {
+    // Pass key via env: .env file → Vault → process.env (same chain as resolveHLAddress)
+    const execEnv = { ...process.env };
+    const fileKey = readHLKey();
+    if (fileKey) {
+      execEnv['HL_TESTNET_PRIVATE_KEY'] = fileKey;
+    } else {
+      try {
+        const vaultKey = await Vault.get('HL_TESTNET_PRIVATE_KEY');
         if (vaultKey) execEnv['HL_TESTNET_PRIVATE_KEY'] = vaultKey;
-        return Vault.get('HL_PRIVATE_KEY');
-      }).then(mainKey => {
-        if (mainKey) execEnv['HL_PRIVATE_KEY'] = mainKey;
-      }).catch(() => {}).finally(() => {
+      } catch { /* Vault unavailable */ }
+    }
 
-      execFile(pythonPaths[idx], args, { timeout: 90_000, env: execEnv }, (err, stdout, stderr) => {
-        if (err && (err as any).code === 'ENOENT') {
-          tryPython(idx + 1); // Try next Python
-          return;
-        }
-        if (err) {
-          console.error(`[Swarm] HL execution error:`, err.message, stderr);
-          resolve({ success: false, error: err.message });
-          return;
-        }
+    console.log(`[Swarm] Executing: ${pythonCmd} hl_execute.py --symbol ${order.symbol} --direction ${order.direction} --size ${order.size || 'quarter'} --priority ${order.priority || 2} [${order.strategy || 'unknown'}]`);
+
+    execFile(pythonCmd, args, { timeout: 90_000, env: execEnv }, (err, stdout, stderr) => {
+      // Python script outputs JSON to stdout even on error (exit code 1)
+      // Try to parse stdout first regardless of err
+      const output = (stdout || '').trim();
+      if (output) {
         try {
-          const result = JSON.parse(stdout.trim());
+          const result = JSON.parse(output);
           resolve(result);
-        } catch {
-          resolve({ success: false, error: `Invalid output: ${stdout.slice(0, 200)}` });
-        }
-      });
-
-      }); // end .finally()
-    };
-
-    tryPython(0);
+          return;
+        } catch { /* not valid JSON, fall through */ }
+      }
+      // No parseable output — report the error
+      if (err) {
+        console.error(`[Swarm] HL execution error:`, err.message, stderr);
+        resolve({ success: false, error: `${err.message}${stderr ? ' | ' + stderr.slice(0, 300) : ''}` });
+      } else {
+        resolve({ success: false, error: `No output from script` });
+      }
+    });
   });
 }
 
@@ -1161,7 +1393,17 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
   startBusCompaction();
   startSignalScanner();
   startStrategyScanner();
-  console.log('[Swarm] Orchestrator ready — bus listener + funding scanner + strategy scanner active');
+
+  // ── Resolve HL address at startup for position tracking + SL/TP guardian ──
+  resolveHLAddress().then(() => {
+    if (_hlAddress) {
+      refreshOpenPositions();
+      runGuardian(); // Check SL/TP on all positions at startup
+    }
+  });
+  startGuardian(); // Periodic SL/TP health check every 5 min
+
+  console.log('[Swarm] Orchestrator ready — bus listener + funding scanner + strategy scanner + SL/TP guardian active');
 
   // ── Swarm order confirmation IPC ──
 
@@ -1427,5 +1669,19 @@ export function setupPtyManager(mainWindow: BrowserWindow) {
       if (state.errorCount > 0) circuits[agent] = state;
     }
     return { ...status, bus: busStats, circuits };
+  });
+
+  // Kill switch — emergency close all positions
+  ipcMain.handle('killswitch', async (_event, network: string) => {
+    const testnet = network !== 'mainnet';
+    console.log(`[KillSwitch] ACTIVATED — ${testnet ? 'testnet' : 'MAINNET'}`);
+    try {
+      const result = await runKillSwitch(testnet);
+      // Stop guardian and scanner after kill
+      stopGuardian();
+      return result;
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
   });
 }
